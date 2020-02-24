@@ -29,6 +29,52 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - health
+  /affiliation/{orgName}/add_domain/{domain}:
+    put:
+      summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
+      operationId: putOrgDomain
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully added domain to organization"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - organization
+        - domain
+      parameters:
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Organization name to add domain to
+        - name: domain
+          in: path
+          type: string
+          required: true
+          description: Domain to be added
+        - name: overwrite
+          in: query
+          type: boolean
+          default: false
+          description: If set, it will overwrite existing affiliations for users with matching domains
+        - name: is_top_domain
+          in: query
+          type: boolean
+          default: false
+          description: If set, it will set top domain flag to true
 definitions:
   health:
     type: object

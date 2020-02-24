@@ -2,6 +2,8 @@ SERVICE = dev-analyics-affiliation
 BUILD_TIME=`date -u '+%Y-%m-%d_%I:%M:%S%p'`
 COMMIT=`git rev-parse HEAD`
 LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(COMMIT)"
+GO_BIN_FILES=main.go
+GO_FMT=gofmt -s -w
 
 .PHONY: build clean deploy
 
@@ -14,8 +16,8 @@ build: swagger deps
 	go build -tags aws_lambda -o bin/$(SERVICE) -a $(LDFLAGS) .
 	chmod +x bin/$(SERVICE)
 
-run:
-	go run dev-analytics-affiliation.go
+run: fmt
+	go run main.go
 
 clean:
 	rm -rf ./bin
@@ -35,3 +37,6 @@ deploy: clean build
 	npm install serverless-domain-manager --save-dev
 	sls -s ${STAGE} -r ${REGION} create_domain
 	sls deploy -s ${STAGE} -r ${REGION} --verbose
+
+fmt: ${GO_BIN_FILES}
+	./for_each_go_file.sh "${GO_FMT}"
