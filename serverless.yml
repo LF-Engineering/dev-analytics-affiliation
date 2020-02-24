@@ -1,0 +1,53 @@
+service: dev-analytics-affiliation-service
+frameworkVersion: '>=1.28.0 <2.0.0'
+
+plugins:
+  - serverless-domain-manager
+
+provider:
+  name: aws
+  runtime: go1.x
+  stage: ${opt:stage, 'dev'}   # dev, test, staging, or prod
+  region: ${opt:region, 'us-west-2'}
+  timeout: 60 # optional, in seconds, default is 6
+
+  environment:
+    API_DB_ENDPOINT: host=${ssm:/da_api_db_endpoint~true} user=${ssm:/da_api_db_username~true} password=${ssm:/da_api_db_password~true} dbname=${self:custom.apiDB.${self:provider.stage}} sslmode=require
+    SH_DSN: ${ssm:/da_sortinghat_dsn~true}   # FIXME: we don't have that yet
+    CORS_ALLOWED_ORIGINS: https://test.lfanalytics.io,https://lfanalytics.io
+
+custom:
+  version: v1
+  project: dev-analytics-affiliation
+  apiDB:
+    prod: dev_analytics
+    test: dev_analytics_test
+  legacyApiEndpoint:
+    test: https://api.test.lfanalytics.io
+    prod: https://api.lfanalytics.io
+    other: https://api.test.lfanalytics.io
+  DAdomain:
+    test: test.lfanalytics.io
+    prod: lfanalytics.io
+    other: test.lfanalytics.io
+  customDomain:
+    domainName: affiliation.${self:custom.DAdomain.${self:provider.stage}, self:custom.DAdomain.other}
+    basePath: ""
+    stage: ${self:provider.stage}
+    createRoute53Record: false
+
+package:
+  exclude:
+    - ./**
+  include:
+    - ./bin/**
+
+functions:
+  metrics:
+    name: dev-analytics-affiliation-service-handler
+    handler: bin/dev-analyics-affiliation
+    events:
+      - http:
+          path: /{proxy+}
+          method: any
+          cors: true

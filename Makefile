@@ -15,7 +15,7 @@ build: swagger deps
 	chmod +x bin/$(SERVICE)
 
 run:
-	go run main.go
+	go run dev-analytics-affiliation.go
 
 clean:
 	rm -rf ./bin
