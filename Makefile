@@ -10,7 +10,7 @@ generate: swagger
 swagger: setup_dev clean
 	swagger -q generate server -t gen -f swagger/dev-analytics-affiliation.yaml --exclude-main -A dev-analytics-affiliation
 
-build: swagger
+build: swagger deps
 	go build -tags aws_lambda -o bin/$(SERVICE) -a $(LDFLAGS) .
 	chmod +x bin/$(SERVICE)
 
@@ -27,6 +27,9 @@ setup_dev:
 
 setup_deploy:
 	npm install serverless
+
+deps:
+	go mod tidy
 
 deploy: clean build
 	npm install serverless-domain-manager --save-dev

@@ -1,0 +1,83 @@
+---
+swagger: '2.0'
+info:
+  title: Dev Analytics Affiliation API
+  version: '1.0'
+  description: Dev Analytics Affiliations API
+basePath: /v1
+paths:
+  /health:
+    get:
+      summary: Health
+      operationId: getHealth
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/health"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - health
+definitions:
+  health:
+    type: object
+    title: Health
+    description: Properties for Health
+    properties:
+      DateTime:
+        type: string
+        example: "2019-05-29 16:55:53.849593192 +0900 KST m=+12.237337959"
+      DevAnalyticsAffiliationService:
+        type: string
+        example: "Running"
+  error-response:
+    type: object
+    title: Error Response
+    description: Standard error format
+    properties:
+      Code:
+        type: string
+      Message:
+        type: string
+schemes:
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+responses:
+  unauthorized:
+    description: Unauthorized
+    schema:
+      $ref: "#/definitions/error-response"
+  invalid-request:
+    description: Invalid request
+    schema:
+      $ref: "#/definitions/error-response"
+  forbidden:
+    description: Insufficient privilege to execute action.
+    schema:
+      $ref: "#/definitions/error-response"
+  not-found:
+    description: Not found.
+    schema:
+      $ref: "#/definitions/error-response"
+  conflict:
+    description: Duplicate resource
+    schema:
+      $ref: "#/definitions/error-response"
+  internal-server-error:
+    description: Internal server error
+    schema:
+      $ref: "#/definitions/error-response"
