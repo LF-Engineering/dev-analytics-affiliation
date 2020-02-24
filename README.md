@@ -14,4 +14,6 @@ Start local SortingHat DB instance by following [this](https://github.com/LF-Eng
 
 Now run example API call:
 
-- `SH_DSN='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8' ./dev-analytics-affiliation setOrgDomain Microsoft microsoft.com`.
+- `SH_DSN='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8' ./dev-analytics-affiliation setOrgDomain Microsoft microsoft.com [overwrite [top]]`.
+- `setOrgDomain` 3rd argument overwrite decided whatever force update existing affiliations to new domain or not touch them.
+- `setOrgDomain` 4th argument can be used to set `is_top_domain` flag on `domains_organizations` table.
