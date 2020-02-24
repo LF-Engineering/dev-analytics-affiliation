@@ -134,8 +134,8 @@ func setOrgDomain(db *sql.DB, args []string) (info string, err error) {
 			con,
 			"insert into enrollments(start, end, uuid, organization_id) "+
 				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
-				"select '1900-01-01 00:00:00' as start, '2099-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
-				"union select '1900-01-01 00:00:00', '2099-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
+				"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+				"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
 			orgID,
 			"%"+dom,
 			orgID,
@@ -156,8 +156,8 @@ func setOrgDomain(db *sql.DB, args []string) (info string, err error) {
 			con,
 			"insert into enrollments(start, end, uuid, organization_id) "+
 				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
-				"select '1900-01-01 00:00:00' as start, '2099-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
-				"union select '1900-01-01 00:00:00', '2099-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
+				"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+				"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
 				"where sub.uuid not in (select distinct uuid from enrollments)",
 			orgID,
 			"%"+dom,
