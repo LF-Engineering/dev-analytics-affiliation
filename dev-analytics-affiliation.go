@@ -6,7 +6,6 @@ import (
 	"os"
 	"reflect"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -53,22 +52,32 @@ func query(db *sql.DB, query string, args ...interface{}) (*sql.Rows, error) {
 	return rows, err
 }
 
-func exec(db *sql.DB, skip, query string, args ...interface{}) (sql.Result, error) {
+func exec(db *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
 	res, err := db.Exec(query, args...)
 	if err != nil {
-		if skip == "" || !strings.Contains(err.Error(), skip) {
-			queryOut(query, args...)
-		}
+		queryOut(query, args...)
 	}
 	return res, err
 }
 
+// setOrgDomain: API params: 'organization_name' 'domain' [overwrite] [top]
+// if overwrite is set, all profiles found are force-updated/affiliated to 'organization_name'
+// if overwite is not set, API will not change any profiles which already have any affiliation(s)
+// if you specify "top" as 4th argument it will set 'is_top_domain' cvalue to true, else it will set false
 func setOrgDomain(db *sql.DB, args []string) (info string, err error) {
 	if len(args) < 2 {
 		fatalf("setOrgDomain: requires 2 args: organization name & domain")
 	}
 	org := args[0]
 	dom := args[1]
+	overwrite := false
+	isTopDomain := false
+	if len(args) >= 3 {
+		overwrite = args[2] == "overwrite"
+	}
+	if len(args) >= 4 {
+		isTopDomain = args[3] == "top"
+	}
 	rows, err := query(db, "select id from organizations where name = ?", org)
 	fatalOnError(err)
 	var orgID int
@@ -96,6 +105,73 @@ func setOrgDomain(db *sql.DB, args []string) (info string, err error) {
 		info = fmt.Sprintf("domain '%s' is already assigned to organization '%s'", dom, org)
 		return
 	}
+	con, err := db.Begin()
+	fatalOnError(err)
+	_, err = exec(
+		con,
+		"insert into domains_organizations(organization_id, domain, is_top_domain) select ?, ?, ?",
+		orgID,
+		dom,
+		isTopDomain,
+	)
+	fatalOnError(err)
+	if overwrite {
+		res, err := exec(
+			con,
+			"delete from enrollments where uuid in (select distinct sub.uuid from ("+
+				"select distinct uuid from profiles where email like ? "+
+				"union select distinct uuid from identities where email like ?) sub)",
+			"%"+dom,
+			"%"+dom,
+		)
+		fatalOnError(err)
+		affected, err := res.RowsAffected()
+		fatalOnError(err)
+		if affected > 0 {
+			info = fmt.Sprintf("deleted: %d", affected)
+		}
+		res, err = exec(
+			con,
+			"insert into enrollments(start, end, uuid, organization_id) "+
+				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+				"select '1900-01-01 00:00:00' as start, '2099-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+				"union select '1900-01-01 00:00:00', '2099-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
+			orgID,
+			"%"+dom,
+			orgID,
+			"%"+dom,
+		)
+		fatalOnError(err)
+		affected, err = res.RowsAffected()
+		fatalOnError(err)
+		if affected > 0 {
+			if info == "" {
+				info = fmt.Sprintf("inserted: %d", affected)
+			} else {
+				info += fmt.Sprintf("\ninserted: %d", affected)
+			}
+		}
+	} else {
+		res, err := exec(
+			con,
+			"insert into enrollments(start, end, uuid, organization_id) "+
+				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+				"select '1900-01-01 00:00:00' as start, '2099-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+				"union select '1900-01-01 00:00:00', '2099-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
+				"where sub.uuid not in (select distinct uuid from enrollments)",
+			orgID,
+			"%"+dom,
+			orgID,
+			"%"+dom,
+		)
+		fatalOnError(err)
+		affected, err := res.RowsAffected()
+		fatalOnError(err)
+		if affected > 0 {
+			info = fmt.Sprintf("inserted: %d", affected)
+		}
+	}
+	fatalOnError(con.Commit())
 	return
 }
 
