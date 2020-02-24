@@ -22,3 +22,21 @@ dev-analytics-affiliation
 
 # Others
 out
+
+# Serverless directories
+.serverless
+
+# golang output binary directory
+bin
+
+# golang vendor (dependencies) directory
+vendor
+
+# ignore all go swagger generated files except the configuration one
+gen/restapi/*
+gen/models/*
+!gen/restapi/configure_dev_analytics_metrics.go
+
+node_modules
+
+.env

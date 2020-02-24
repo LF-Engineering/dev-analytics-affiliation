@@ -1,51 +1,34 @@
-GO_BIN_FILES=dev-analytics-affiliation.go
-GO_BIN_CMDS=dev-analytics-affiliation
-GO_ENV=CGO_ENABLED=0
-GO_BUILD=go build -ldflags '-s -w'
-GO_INSTALL=go install -ldflags '-s'
-GO_FMT=gofmt -s -w
-GO_LINT=golint -set_exit_status
-GO_VET=go vet
-GO_CONST=goconst
-GO_IMPORTS=goimports -w
-GO_USEDEXPORTS=usedexports
-GO_ERRCHECK=errcheck -asserts -ignore '[FS]?[Pp]rint*'
-BINARIES=dev-analytics-affiliation
-STRIP=strip
+SERVICE = dev-analyics-affiliation
+BUILD_TIME=`date -u '+%Y-%m-%d_%I:%M:%S%p'`
+COMMIT=`git rev-parse HEAD`
+LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(COMMIT)"
 
-all: check ${BINARIES}
+.PHONY: build clean deploy
 
-dev-analytics-affiliation: dev-analytics-affiliation.go
-	 ${GO_ENV} ${GO_BUILD} -o dev-analytics-affiliation dev-analytics-affiliation.go
+generate: swagger
 
-fmt: ${GO_BIN_FILES}
-	./for_each_go_file.sh "${GO_FMT}"
+swagger: setup_dev clean
+	swagger -q generate server -t gen -f swagger/dev-analytics-affiliation.yaml --exclude-main -A dev-analytics-affiliation
 
-lint: ${GO_BIN_FILES}
-	./for_each_go_file.sh "${GO_LINT}"
+build: swagger
+	go build -tags aws_lambda -o bin/$(SERVICE) -a $(LDFLAGS) .
+	chmod +x bin/$(SERVICE)
 
-vet: ${GO_BIN_FILES}
-	./for_each_go_file.sh "${GO_VET}"
-
-imports: ${GO_BIN_FILES}
-	./for_each_go_file.sh "${GO_IMPORTS}"
-
-const: ${GO_BIN_FILES}
-	${GO_CONST} ./...
-
-usedexports: ${GO_BIN_FILES}
-	${GO_USEDEXPORTS} ./...
-
-errcheck: ${GO_BIN_FILES}
-	${GO_ERRCHECK} ./...
-
-check: fmt lint imports vet const usedexports errcheck
-
-install: check ${BINARIES}
-	${GO_INSTALL} ${GO_BIN_CMDS}
-
-strip: ${BINARIES}
-	${STRIP} ${BINARIES}
+run:
+	go run main.go
 
 clean:
-	rm -f ${BINARIES}
+	rm -rf ./bin
+
+setup: setup_dev setup_deploy
+
+setup_dev:
+	go get github.com/go-swagger/go-swagger/cmd/swagger
+
+setup_deploy:
+	npm install serverless
+
+deploy: clean build
+	npm install serverless-domain-manager --save-dev
+	sls -s ${STAGE} -r ${REGION} create_domain
+	sls deploy -s ${STAGE} -r ${REGION} --verbose

@@ -2,7 +2,8 @@
 
 # Compilation
 
-- make
+Static binary app:
+- `make -f makefile.static`.
 
 # Testing locally
 
