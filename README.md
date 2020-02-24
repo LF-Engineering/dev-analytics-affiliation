@@ -14,4 +14,4 @@ Start local SortingHat DB instance by following [this](https://github.com/LF-Eng
 
 Now run example API call:
 
-- `SH_DSN='sortinghat:pwd@tcp(localhost:3306)/sortinghat?charset=utf8' ./dev-analytics-affiliation setOrgDomain Microsoft microsoft.com`.
+- `SH_DSN='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8' ./dev-analytics-affiliation setOrgDomain Microsoft microsoft.com`.

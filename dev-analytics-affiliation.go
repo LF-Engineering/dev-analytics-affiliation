@@ -63,11 +63,40 @@ func exec(db *sql.DB, skip, query string, args ...interface{}) (sql.Result, erro
 	return res, err
 }
 
-func setOrgDomain(db *sql.DB, args []string) error {
+func setOrgDomain(db *sql.DB, args []string) (info string, err error) {
 	if len(args) < 2 {
 		fatalf("setOrgDomain: requires 2 args: organization name & domain")
 	}
-	return nil
+	org := args[0]
+	dom := args[1]
+	rows, err := query(db, "select id from organizations where name = ?", org)
+	fatalOnError(err)
+	var orgID int
+	fetched := false
+	for rows.Next() {
+		fatalOnError(rows.Scan(&orgID))
+		fetched = true
+	}
+	fatalOnError(rows.Err())
+	fatalOnError(rows.Close())
+	if !fetched {
+		info = fmt.Sprintf("cannot find organization '%s'", org)
+		err = fmt.Errorf("%s", info)
+		return
+	}
+	rows, err = query(db, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
+	fatalOnError(err)
+	dummy := 0
+	for rows.Next() {
+		fatalOnError(rows.Scan(&dummy))
+	}
+	fatalOnError(rows.Err())
+	fatalOnError(rows.Close())
+	if dummy == 1 {
+		info = fmt.Sprintf("domain '%s' is already assigned to organization '%s'", dom, org)
+		return
+	}
+	return
 }
 
 // getConnectString - get MariaDB SH (Sorting Hat) database DSN
@@ -134,12 +163,17 @@ func main() {
 	db, err := sql.Open("mysql", dsn)
 	fatalOnError(err)
 	defer func() { fatalOnError(db.Close()) }()
+	var info string
 	switch os.Args[1] {
 	case "setOrgDomain":
-		fatalOnError(setOrgDomain(db, os.Args[1:len(os.Args)]))
+		info, err = setOrgDomain(db, os.Args[2:len(os.Args)])
 	default:
 		fatalf("unknown API: '%s'", os.Args[1])
 	}
+	if info != "" {
+		fmt.Printf("info: %s\n", info)
+	}
+	fatalOnError(err)
 	dtEnd := time.Now()
 	fmt.Printf("Time(%s): %v\n", os.Args[0], dtEnd.Sub(dtStart))
 }
