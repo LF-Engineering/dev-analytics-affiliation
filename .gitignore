@@ -45,3 +45,4 @@ node_modules
 *.dump
 *.sql
 main
+*.token
