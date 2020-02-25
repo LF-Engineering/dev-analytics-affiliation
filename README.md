@@ -28,4 +28,5 @@ Start local Postgres API DB instance:
 
 Start API server using dockerized MariaDB and Postgres databases:
 
-- `API_DB_ENDPOINT='host=127.0.0.1 user=lfda_api_user password=apipwd dbname=dev_analytics port=15432 sslmode=disable' SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8' make run`.
+- Start API server: `` API_DB_ENDPOINT='host=127.0.0.1 user=lfda_api_user password=apipwd dbname=dev_analytics port=15432 sslmode=disable' SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8' AUTH0_DOMAIN=`cat auth0.domain` make run ``.
+- Call example client: `` JWT_TOKEN=`cat lgryglicki.token` ./curl.sh CNCF cncf.io 1 1 ``.

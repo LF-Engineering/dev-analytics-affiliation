@@ -3,9 +3,11 @@ package affiliation
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
-	//"encoding/base64"
+	"encoding/json"
+	"net/http"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
@@ -53,6 +55,45 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
+type Jwks struct {
+	Keys []JSONWebKeys `json:"keys"`
+}
+
+type JSONWebKeys struct {
+	Alg string   `json:"alg"`
+	Kty string   `json:"kty"`
+	Kid string   `json:"kid"`
+	Use string   `json:"use"`
+	N   string   `json:"n"`
+	E   string   `json:"e"`
+	X5t string   `json:"e"`
+	X5c []string `json:"x5c"`
+}
+
+func (s *service) getPemCert(token *jwt.Token) (string, error) {
+	cert := ""
+	resp, err := http.Get("https://" + os.Getenv("AUTH0_DOMAIN") + "/.well-known/jwks.json")
+	if err != nil {
+		return cert, err
+	}
+	defer resp.Body.Close()
+	var jwks = Jwks{}
+	err = json.NewDecoder(resp.Body).Decode(&jwks)
+	if err != nil {
+		return cert, err
+	}
+	for k := range jwks.Keys {
+		if token.Header["kid"] == jwks.Keys[k].Kid {
+			cert = "-----BEGIN CERTIFICATE-----\n" + jwks.Keys[k].X5c[0] + "\n-----END CERTIFICATE-----"
+		}
+	}
+	if cert == "" {
+		err := errors.New("Unable to find appropriate key.")
+		return cert, err
+	}
+	return cert, nil
+}
+
 func (s *service) checkToken(tokenStr string) (err error) {
 	if !strings.HasPrefix(tokenStr, "Bearer ") {
 		err = fmt.Errorf("Authorization header should start with 'Bearer '")
@@ -60,11 +101,12 @@ func (s *service) checkToken(tokenStr string) (err error) {
 	}
 	claims := &Claims{}
 	tkn, err := jwt.ParseWithClaims(tokenStr[7:], claims, func(t *jwt.Token) (interface{}, error) {
-    // FIXME: how to get PublicKey/PrivateKey for this RS256 signature
-		//kid := t.Header["kid"].(string)
-		//verifyKey, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
-		//return *rsa.PublicKey(kid), nil
-		return nil, nil
+		certStr, err := s.getPemCert(t)
+		if err != nil {
+			return nil, err
+		}
+		cert, err := jwt.ParseRSAPublicKeyFromPEM([]byte(certStr))
+		return cert, err
 	})
 	if err != nil {
 		return

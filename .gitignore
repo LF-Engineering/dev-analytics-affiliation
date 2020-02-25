@@ -47,3 +47,4 @@ node_modules
 main
 *.token
 get_cert.sh
+*.domain
