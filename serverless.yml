@@ -12,12 +12,16 @@ provider:
   timeout: 60 # optional, in seconds, default is 6
 
   environment:
+    CORS_ALLOWED_ORIGINS: https://test.lfanalytics.io,https://lfanalytics.io
     API_DB_ENDPOINT: host=${ssm:/da_api_db_endpoint~true} user=${ssm:/da_api_db_username~true} password=${ssm:/da_api_db_password~true} dbname=${self:custom.apiDB.${self:provider.stage}} sslmode=require
     # FIXME: all SH params must be put into ssm somehow (or maybe they're already available somewhere else?)
     SH_DB_ENDPOINT: ${ssm:/da_sh_db_username~true}:${ssm:/da_sh_db_password~true}@tcp(${ssm:/da_sh_db_endpoint~true}:${ssm:/da_sh_db_port~true})/${self:custom.shDB.${self:provider.stage}}?charset=utf8
     # FIXME: test/prod auth0 domain URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
-    AUTH0_DOMAIN: ${self:custom.auth0.${self:provider.stage}}
-    CORS_ALLOWED_ORIGINS: https://test.lfanalytics.io,https://lfanalytics.io
+    AUTH0_DOMAIN: ${self:custom.auth0_domain.${self:provider.stage}}
+    # FIXME: test/prod auth0 client_id URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
+    AUTH0_CLIENT_ID: ${self:custom.auth0_client_id.${self:provider.stage}}
+    # FIXME: test/prod auth0 username_claim URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
+    AUTH0_USERNAME_CLAIM: ${self:custom.auth0_username_claim.${self:provider.stage}}
 
 custom:
   version: v1
@@ -28,10 +32,18 @@ custom:
   shDB:
     prod: sortinghat
     test: sortinghat
-  auth0:
-    # FIXME: test/prod auth0 domain URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
+  # FIXME: test/prod auth0 domain URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
+  auth0_domain:
     prod: ${ssm:/da_auth0_prod_domain~true}
     test: ${ssm:/da_auth0_test_domain~true}
+  # FIXME: test/prod auth0 client_id URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
+  auth0_client_id:
+    prod: ${ssm:/da_auth0_prod_client_id~true}
+    test: ${ssm:/da_auth0_test_client_id~true}
+  # FIXME: test/prod auth0 username_claim URLs must be put into ssm somehow (or maybe they're already available somewhere else?)
+  auth0_client_id:
+    prod: ${ssm:/da_auth0_prod_username_claim~true}
+    test: ${ssm:/da_auth0_test_username_claim~true}
   legacyApiEndpoint:
     test: https://api.test.lfanalytics.io
     prod: https://api.lfanalytics.io

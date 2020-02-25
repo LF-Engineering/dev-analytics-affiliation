@@ -19,4 +19,5 @@ psql -U postgres -h 127.0.0.1 -p 15432 -c 'drop database if exists "dev_analytic
 psql -U postgres -h 127.0.0.1 -p 15432 < "${fn}"
 # createdb -U postgres -h 127.0.0.1 -p 15432 dev_analytics
 pg_restore -U postgres -h 127.0.0.1 -p 15432 -d dev_analytics dev_analytics_prod.dump
+psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c "insert into access_control_entries(scope, subject, resource, action, effect, extra) select 'odpi/egeria', 'lgryglicki', 'identity', 'manage', 0, '{}'"
 psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c '\d'

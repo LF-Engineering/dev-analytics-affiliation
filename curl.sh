@@ -14,6 +14,11 @@ then
   echo "$0: please specify domain as a 2nd arg"
   exit 3
 fi
+if [ -z "$2" ]
+then
+  echo "$0: please specify project slug as a 3rd arg"
+  exit 4
+fi
 
 rawurlencode() {
   local string="${1}"
@@ -35,19 +40,20 @@ rawurlencode() {
 
 org=$(rawurlencode "${1}")
 dom=$(rawurlencode "${2}")
+scope=$(rawurlencode "${3}")
 ov="false"
-if [ "$3" = "1" ]
+if [ "$4" = "1" ]
 then
   ov="true"
 fi
 top="false"
-if [ "$4" = "1" ]
+if [ "$5" = "1" ]
 then
   top="true"
 fi
 if [ ! -z "$DEBUG" ]
 then
-  echo "$org $dom $ov $top"
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}?overwrite=${ov}&is_top_domain=${top}"
+  echo "$org $dom $scope $ov $top"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"
 fi
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}?overwrite=${ov}&is_top_domain=${top}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"

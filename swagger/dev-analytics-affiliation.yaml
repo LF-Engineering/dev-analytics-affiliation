@@ -29,7 +29,7 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - health
-  /affiliation/{orgName}/add_domain/{domain}:
+  /affiliation/{orgName}/add_domain/{domain}/to_project/{projectSlug}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
       operationId: putOrgDomain
@@ -61,12 +61,17 @@ paths:
           in: path
           type: string
           required: true
-          description: Organization name to add domain to
+          description: Organization name to add domain to (URL encoded)
         - name: domain
           in: path
           type: string
           required: true
           description: Domain to be added
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
         - name: overwrite
           in: query
           type: boolean
@@ -116,6 +121,12 @@ definitions:
       info:
         type: string
         example: no such organization Mikrosoft
+      user:
+        type: string
+        example: lukaszgryglicki
+      scope:
+        type: string
+        example: academy-software-foundation/opencue
 schemes:
   - http
 consumes:
