@@ -1,18 +1,18 @@
 package shdb
 
 import (
-	"database/sql"
+	"github.com/jmoiron/sqlx"
 )
 
 type Service interface {
 }
 
 type service struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // New creates new db service instance with given db
-func New(db *sql.DB) Service {
+func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
