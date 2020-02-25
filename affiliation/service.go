@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"encoding/base64"
+	//"encoding/base64"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
@@ -58,27 +58,13 @@ func (s *service) checkToken(tokenStr string) (err error) {
 		err = fmt.Errorf("Authorization header should start with 'Bearer '")
 		return
 	}
-	//claims := &Claims{}
-	//t, parts, err := jwt.ParseUnverified(tokenStr[8:], claims)
-	//fmt.Printf("t: %+v\n", t)
-	//fmt.Printf("parts: %+v\n", parts)
-	//fmt.Printf("err: %+v\n", err)
-	//tkn, err := jwt.ParseWithClaims(tokenStr[7:], claims, func(t *jwt.Token) (interface{}, error) {
-	tkn, err := jwt.Parse(tokenStr[7:], func(t *jwt.Token) (interface{}, error) {
-		fmt.Printf("%+v\n", t)
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tokenStr[7:], claims, func(t *jwt.Token) (interface{}, error) {
+    // FIXME: how to get PublicKey/PrivateKey for this RS256 signature
 		//kid := t.Header["kid"].(string)
 		//verifyKey, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
 		//return *rsa.PublicKey(kid), nil
-		//kid := ""
-		b64, err := base64.StdEncoding.DecodeString("aaa")
-		if err != nil {
-			return nil, err
-		}
-		verifyKey, err := jwt.ParseRSAPublicKeyFromPEM(b64)
-		if err != nil {
-			return nil, err
-		}
-		return verifyKey, nil
+		return nil, nil
 	})
 	if err != nil {
 		return
