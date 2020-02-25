@@ -40,3 +40,7 @@ gen/models/*
 node_modules
 
 .env
+
+# Sensitive files
+dev_analytics_prod.dump
+*.sql
