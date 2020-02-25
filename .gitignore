@@ -44,3 +44,4 @@ node_modules
 # Sensitive files
 *.dump
 *.sql
+main

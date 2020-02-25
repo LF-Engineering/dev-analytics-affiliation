@@ -2,11 +2,20 @@ package affiliation
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"time"
+
+	"database/sql"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations/affiliation"
+	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 )
 
 const (
@@ -14,7 +23,7 @@ const (
 )
 
 type Service interface {
-	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (string, error)
+	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 }
@@ -41,46 +50,64 @@ func New(apiDB apidb.Service, shDB shdb.Service) Service {
 	}
 }
 
-func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (string, error) {
+func queryOut(query string, args ...interface{}) {
+	log.Info(query)
+	if len(args) > 0 {
+		s := ""
+		for vi, vv := range args {
+			switch v := vv.(type) {
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128, string, bool, time.Time:
+				s += fmt.Sprintf("%d:%+v ", vi+1, v)
+			case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64, *float32, *float64, *complex64, *complex128, *string, *bool, *time.Time:
+				s += fmt.Sprintf("%d:%+v ", vi+1, v)
+			case nil:
+				s += fmt.Sprintf("%d:(null) ", vi+1)
+			default:
+				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv).Elem())
+			}
+		}
+		log.Info("[" + s + "]")
+	}
+}
+
+func query(db *sqlx.DB, query string, args ...interface{}) (*sql.Rows, error) {
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		queryOut(query, args...)
+	}
+	return rows, err
+}
+
+func exec(db *sqlx.Tx, query string, args ...interface{}) (sql.Result, error) {
+	res, err := db.Exec(query, args...)
+	if err != nil {
+		queryOut(query, args...)
+	}
+	return res, err
+}
+
+func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error) {
 	//affs, err := s.db.Baz()
-	orgDomain := "hello"
+	//err := fmt.Errorf("bo tak")
+	org := params.OrgName
+	dom := params.Domain
+	overwrite := false
+	isTopDomain := false
+	if params.Overwrite != nil {
+		overwrite = *params.Overwrite
+	}
+	if params.IsTopDomain != nil {
+		isTopDomain = *params.IsTopDomain
+	}
+	log.Info(fmt.Sprintf("org:%s dom:%s overwrite:%v isTopDomain:%v\n", org, dom, overwrite, isTopDomain))
+	putOrgDomain := &models.PutOrgDomainOutput{
+		Deleted: "1",
+		Added:   "2",
+		Info:    params.OrgName,
+	}
+	return putOrgDomain, nil
+	//Domain:microsoft.com IsTopDomain:0xc0004600c0 OrgName:microsoft Overwrite:0xc0004600c1
 	/*
-		func queryOut(query string, args ...interface{}) {
-			fmt.Printf("%s\n", query)
-			if len(args) > 0 {
-				s := ""
-				for vi, vv := range args {
-					switch v := vv.(type) {
-					case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128, string, bool, time.Time:
-						s += fmt.Sprintf("%d:%+v ", vi+1, v)
-					case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64, *float32, *float64, *complex64, *complex128, *string, *bool, *time.Time:
-						s += fmt.Sprintf("%d:%+v ", vi+1, v)
-					case nil:
-						s += fmt.Sprintf("%d:(null) ", vi+1)
-					default:
-						s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv).Elem())
-					}
-				}
-				fmt.Printf("[%s]\n", s)
-			}
-		}
-
-		func query(db *sql.DB, query string, args ...interface{}) (*sql.Rows, error) {
-			rows, err := db.Query(query, args...)
-			if err != nil {
-				queryOut(query, args...)
-			}
-			return rows, err
-		}
-
-		func exec(db *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
-			res, err := db.Exec(query, args...)
-			if err != nil {
-				queryOut(query, args...)
-			}
-			return res, err
-		}
-
 		// setOrgDomain: API params: 'organization_name' 'domain' [overwrite] [top]
 		// if overwrite is set, all profiles found are force-updated/affiliated to 'organization_name'
 		// if overwite is not set, API will not change any profiles which already have any affiliation(s)
@@ -88,16 +115,6 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 		func setOrgDomain(db *sql.DB, args []string) (info string, err error) {
 			if len(args) < 2 {
 				fatalf("setOrgDomain: requires 2 args: organization name & domain")
-			}
-			org := args[0]
-			dom := args[1]
-			overwrite := false
-			isTopDomain := false
-			if len(args) >= 3 {
-				overwrite = args[2] == "overwrite"
-			}
-			if len(args) >= 4 {
-				isTopDomain = args[3] == "top"
 			}
 			rows, err := query(db, "select id from organizations where name = ?", org)
 			fatalOnError(err)
@@ -196,5 +213,4 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 			return
 		}
 	*/
-	return orgDomain, nil
 }

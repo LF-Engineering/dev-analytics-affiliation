@@ -1,7 +1,9 @@
 SERVICE = dev-analyics-affiliation
 BUILD_TIME=`date -u '+%Y-%m-%d_%I:%M:%S%p'`
-COMMIT=`git rev-parse HEAD`
-LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(COMMIT)"
+BUILD_COMMIT=`git rev-parse HEAD`
+BUILD_HOSTNAME=`uname -a | sed "s/ /_/g"`
+BUILD_GO_VERSION=`go version | sed "s/ /_/g"`
+LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(BUILD_COMMIT) -X main.BuildHostName=$(BUILD_HOSTNAME) -X main.BuildGoVersion=$(BUILD_GO_VERSION)"
 GO_BIN_FILES=main.go
 GO_FMT=gofmt -s -w
 
@@ -17,7 +19,8 @@ build: swagger deps
 	chmod +x bin/$(SERVICE)
 
 run: fmt
-	go run main.go
+	go build -o ./main -a $(LDFLAGS)
+	./main
 
 clean:
 	rm -rf ./bin

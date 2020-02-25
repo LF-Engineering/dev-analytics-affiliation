@@ -42,6 +42,8 @@ paths:
             X-REQUEST-ID:
               type: string
               description: Request ID
+          schema:
+            $ref: "#/definitions/put-org-domain-output"
         "400":
           $ref: "#/responses/invalid-request"
         "401":
@@ -96,6 +98,20 @@ definitions:
         type: string
       Message:
         type: string
+  put-org-domain-output:
+    title: Put Org Domain Output
+    description: Stats and info about adding domain to organization
+    type: object
+    properties:
+      deleted:
+        type: string
+        example: 12
+      added:
+        type: string
+        example: 8
+      info:
+        type: string
+        example: no such organization Mikrosoft
 schemes:
   - http
 consumes:

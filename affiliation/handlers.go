@@ -11,7 +11,6 @@ import (
 
 // Configure setups handlers on api with Service
 func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
-
 	api.AffiliationPutOrgDomainHandler = affiliation.PutOrgDomainHandlerFunc(
 		func(params affiliation.PutOrgDomainParams) middleware.Responder {
 			log.Info("entering PutOrgDomainHandlerFunc")
@@ -35,8 +34,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"Payload":      result,
 			}).Info("PutOrgDomainHandlerFunc")
 
-			//return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
-			return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID)
+			return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
 }

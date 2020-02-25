@@ -30,7 +30,11 @@ var (
 	BuildStamp = "None"
 	// GitHash is the tag for current hash the build represents
 	GitHash = "None"
-	host    = "None"
+	// Build uname -a
+	BuildHostName = "None"
+	//build go version
+	BuildGoVersion = "None"
+	host           = "None"
 )
 
 var err error
@@ -44,7 +48,7 @@ func initAPIDB() *sqlx.DB {
 	d.SetMaxOpenConns(20)
 	d.SetMaxIdleConns(5)
 	d.SetConnMaxLifetime(15 * time.Minute)
-	log.Println("Initialized ", host)
+	log.Println("Initialized", "API DB", host)
 	return d
 }
 
@@ -57,7 +61,7 @@ func initSHDB() *sqlx.DB {
 	d.SetMaxOpenConns(20)
 	d.SetMaxIdleConns(5)
 	d.SetConnMaxLifetime(15 * time.Minute)
-	log.Println("Initialized ", host)
+	log.Println("Initialized", "Affiliation DB", host)
 	return d
 }
 
@@ -70,9 +74,11 @@ func main() {
 		log.Fatal("unable to get Hostname", err)
 	}
 	log.WithFields(logrus.Fields{
-		"BuildTime": BuildStamp,
-		"GitHash":   GitHash,
-		"Host":      host,
+		"BuildTime":      BuildStamp,
+		"GitHash":        GitHash,
+		"BuildHost":      BuildHostName,
+		"BuildGoVersion": BuildGoVersion,
+		"RunningHost":    host,
 	}).Info("Service Startup")
 
 	var portFlag = flag.Int("port", 8080, "Port to listen for web requests on")
