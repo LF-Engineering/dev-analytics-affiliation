@@ -2,6 +2,8 @@ package apidb
 
 import (
 	"github.com/jmoiron/sqlx"
+
+	_ "github.com/lib/pq"
 )
 
 type Service interface {

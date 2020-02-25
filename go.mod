@@ -25,6 +25,7 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/labstack/gommon v0.2.8
 	github.com/lib/pq v1.3.0
+	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.2.0
 	github.com/tencentyun/scf-go-lib v0.0.0-20200116145541-9a6ea1bf75b8
 	go.mongodb.org/mongo-driver v1.2.1 // indirect

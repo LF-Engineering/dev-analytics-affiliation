@@ -20,9 +20,6 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/sirupsen/logrus"
-
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
 )
 
 var (
