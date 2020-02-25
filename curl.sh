@@ -45,5 +45,9 @@ if [ "$4" = "1" ]
 then
   top="true"
 fi
-#echo "$org $dom $ov $top"
+if [ ! -z "$DEBUG" ]
+then
+  echo "$org $dom $ov $top"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}?overwrite=${ov}&is_top_domain=${top}"
+fi
 curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}?overwrite=${ov}&is_top_domain=${top}"

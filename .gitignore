@@ -46,3 +46,4 @@ node_modules
 *.sql
 main
 *.token
+get_cert.sh

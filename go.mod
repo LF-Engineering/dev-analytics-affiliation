@@ -6,6 +6,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/awslabs/aws-lambda-go-api-proxy v0.6.0
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fnproject/fdk-go v0.0.1
 	github.com/go-openapi/analysis v0.19.7 // indirect
 	github.com/go-openapi/errors v0.19.3
@@ -14,7 +15,7 @@ require (
 	github.com/go-openapi/spec v0.19.6
 	github.com/go-openapi/strfmt v0.19.4
 	github.com/go-openapi/swag v0.19.7
-	github.com/go-openapi/validate v0.19.6 // indirect
+	github.com/go-openapi/validate v0.19.6
 	github.com/go-sql-driver/mysql v1.4.0
 	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect

@@ -77,6 +77,10 @@ paths:
           type: boolean
           default: false
           description: If set, it will set top domain flag to true
+        - name: Authorization
+          in: header
+          type: string
+          required: true
 definitions:
   health:
     type: object
