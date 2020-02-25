@@ -52,8 +52,6 @@ func New(apiDB apidb.Service, shDB shdb.Service) Service {
 //                                           if overwite is not set, API will not change any profiles which already have any affiliation(s)
 // is_top_domain - optional query parameter: if you specify is_top_domain=true it will set 'is_top_domain' DB column to true, else it will set false
 func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error) {
-	//affs, err := s.db.Baz()
-	//err := fmt.Errorf("bo tak")
 	org := params.OrgName
 	dom := params.Domain
 	overwrite := false

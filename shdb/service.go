@@ -33,10 +33,10 @@ func New(db *sqlx.DB) Service {
 
 // PutOrgDomain - add domain to organization
 func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*models.PutOrgDomainOutput, error) {
-	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v\n", org, dom, overwrite, isTopDomain))
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
 	putOrgDomain := &models.PutOrgDomainOutput{}
 	db := s.db
-	rows, err := s.query(db, "aselect id from organizations where name = ?", org)
+	rows, err := s.query(db, "select id from organizations where name = ?", org)
 	if err != nil {
 		return nil, err
 	}
@@ -61,90 +61,128 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 		err = fmt.Errorf("cannot find organization '%s'", org)
 		return nil, err
 	}
-	//putOrgDomain := &models.PutOrgDomainOutput{Deleted: "1", Added: "2", Info: params.OrgName}
-	/*
-			rows, err = query(db, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
-			fatalOnError(err)
-			dummy := 0
-			for rows.Next() {
-				fatalOnError(rows.Scan(&dummy))
-			}
-			fatalOnError(rows.Err())
-			fatalOnError(rows.Close())
-			if dummy == 1 {
-				info = fmt.Sprintf("domain '%s' is already assigned to organization '%s'", dom, org)
-				return
-			}
-			con, err := db.Begin()
-			fatalOnError(err)
-			_, err = s.exec(
-				con,
-				"insert into domains_organizations(organization_id, domain, is_top_domain) select ?, ?, ?",
-				orgID,
-				dom,
-				isTopDomain,
-			)
-			fatalOnError(err)
-			if overwrite {
-				res, err := s.exec(
-					con,
-					"delete from enrollments where uuid in (select distinct sub.uuid from ("+
-						"select distinct uuid from profiles where email like ? "+
-						"union select distinct uuid from identities where email like ?) sub)",
-					"%"+dom,
-					"%"+dom,
-				)
-				fatalOnError(err)
-				affected, err := res.RowsAffected()
-				fatalOnError(err)
-				if affected > 0 {
-					info = fmt.Sprintf("deleted: %d", affected)
-				}
-				res, err = s.exec(
-					con,
-					"insert into enrollments(start, end, uuid, organization_id) "+
-						"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
-						"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
-						"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
-					orgID,
-					"%"+dom,
-					orgID,
-					"%"+dom,
-				)
-				fatalOnError(err)
-				affected, err = res.RowsAffected()
-				fatalOnError(err)
-				if affected > 0 {
-					if info == "" {
-						info = fmt.Sprintf("inserted: %d", affected)
-					} else {
-						info += fmt.Sprintf("\ninserted: %d", affected)
-					}
-				}
-			} else {
-				res, err := s.exec(
-					con,
-					"insert into enrollments(start, end, uuid, organization_id) "+
-						"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
-						"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
-						"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
-						"where sub.uuid not in (select distinct uuid from enrollments)",
-					orgID,
-					"%"+dom,
-					orgID,
-					"%"+dom,
-				)
-				fatalOnError(err)
-				affected, err := res.RowsAffected()
-				fatalOnError(err)
-				if affected > 0 {
-					info = fmt.Sprintf("inserted: %d", affected)
-				}
-			}
-			fatalOnError(con.Commit())
-			return
+	rows, err = s.query(db, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
+	if err != nil {
+		return nil, err
+	}
+	dummy := 0
+	for rows.Next() {
+		err = rows.Scan(&dummy)
+		if err != nil {
+			return nil, err
 		}
-	*/
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if dummy == 1 {
+		err = fmt.Errorf("domain '%s' is already assigned to organization '%s'", dom, org)
+		return nil, err
+	}
+	con, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.exec(
+		con,
+		"insert into domains_organizations(organization_id, domain, is_top_domain) select ?, ?, ?",
+		orgID,
+		dom,
+		isTopDomain,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if overwrite {
+		res, err := s.exec(
+			con,
+			"delete from enrollments where uuid in (select distinct sub.uuid from ("+
+				"select distinct uuid from profiles where email like ? "+
+				"union select distinct uuid from identities where email like ?) sub)",
+			"%"+dom,
+			"%"+dom,
+		)
+		if err != nil {
+			return nil, err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if affected > 0 {
+			putOrgDomain.Deleted = fmt.Sprintf("%d", affected)
+			putOrgDomain.Info = "deleted: " + putOrgDomain.Deleted
+		}
+		res, err = s.exec(
+			con,
+			"insert into enrollments(start, end, uuid, organization_id) "+
+				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+				"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+				"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
+			orgID,
+			"%"+dom,
+			orgID,
+			"%"+dom,
+		)
+		if err != nil {
+			return nil, err
+		}
+		affected, err = res.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if affected > 0 {
+			putOrgDomain.Added = fmt.Sprintf("%d", affected)
+			if putOrgDomain.Info == "" {
+				putOrgDomain.Info = "added: " + putOrgDomain.Added
+			} else {
+				putOrgDomain.Info += ", added: " + putOrgDomain.Added
+			}
+		}
+	} else {
+		res, err := s.exec(
+			con,
+			"insert into enrollments(start, end, uuid, organization_id) "+
+				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+				"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+				"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
+				"where sub.uuid not in (select distinct uuid from enrollments)",
+			orgID,
+			"%"+dom,
+			orgID,
+			"%"+dom,
+		)
+		if err != nil {
+			return nil, err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if affected > 0 {
+			putOrgDomain.Added = fmt.Sprintf("%d", affected)
+			putOrgDomain.Info = "added: " + putOrgDomain.Added
+		}
+	}
+	err = con.Commit()
+	if err != nil {
+		return nil, err
+	}
+	top := ""
+	if isTopDomain {
+		top = "top "
+	}
+	info := fmt.Sprintf("inserted '%s' %sdomain into '%s' organization", dom, top, org)
+	if putOrgDomain.Info == "" {
+		putOrgDomain.Info = info
+	} else {
+		putOrgDomain.Info += ", " + info
+	}
 	return putOrgDomain, nil
 }
 
@@ -176,7 +214,7 @@ func (s *service) query(db *sqlx.DB, query string, args ...interface{}) (*sql.Ro
 	return rows, err
 }
 
-func (s *service) exec(db *sqlx.Tx, query string, args ...interface{}) (sql.Result, error) {
+func (s *service) exec(db *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
 	res, err := db.Exec(query, args...)
 	if err != nil {
 		s.queryOut(query, args...)
