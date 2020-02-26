@@ -1,0 +1,101 @@
+version: 2.1
+jobs:
+  build_da_affiliation:
+    docker:
+      - image: circleci/golang:1.12-stretch-node
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }}
+      - run:
+          name: Build
+          command: make setup_dev && make build
+      - save_cache:
+          key: go-mod-v1-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg"
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - bin
+            - serverless.yml
+            - project-vars.yml
+
+  deploy_da_affiliation: &deploy_da_affiliation_anchor
+    docker:
+      - image: circleci/node:10.13
+    working_directory: /tmp/da_affiliation
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Cache
+          keys:
+            - npm-packages-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install Dependencies Root
+          command: npm install --frozen-lockfile
+      - save_cache:
+          key: npm-packages-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/usr/local/lib/node_modules
+      - run:
+          name: Setup AWS key
+          command: |
+            eval "echo 'export AWS_ACCESS_KEY_ID=\$$AWS_ACCESS_KEY_ID_ENV_VAR'" >> $BASH_ENV
+            eval "echo 'export AWS_SECRET_ACCESS_KEY=\$$AWS_SECRET_ACCESS_KEY_ENV_VAR'" >> $BASH_ENV
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Create the custom domain in API Gateway
+          command: yarn sls -s ${STAGE} -r us-west-2 create_domain
+      - run:
+          name: Deploy
+          command: yarn sls deploy -s ${STAGE} -r us-west-2 --verbose
+          no_output_timeout: 1.5h
+  
+  deploy_test:
+    <<: *deploy_da_affiliation_anchor
+    environment:
+        AWS_ACCESS_KEY_ID_ENV_VAR: AWS_ACCESS_KEY_ID_TEST
+        AWS_SECRET_ACCESS_KEY_ENV_VAR: AWS_SECRET_ACCESS_KEY_TEST
+        STAGE: test
+  deploy_prod:
+    <<: *deploy_da_affiliation_anchor
+    environment:
+        AWS_ACCESS_KEY_ID_ENV_VAR: AWS_ACCESS_KEY_ID_PROD
+        AWS_SECRET_ACCESS_KEY_ENV_VAR: AWS_SECRET_ACCESS_KEY_PROD
+        STAGE: prod
+
+workflows:
+  da_affiliation:
+    jobs:
+      - build_da_affiliation:
+          filters:
+            tags:
+              only: /.*/
+      - deploy_test:
+          requires:
+            - build_da_affiliation
+          filters:
+            branches:
+              only: master
+            tags:
+              ignore: /.*/
+      - approve_prod:
+          type: approval
+          requires:
+            - build_da_affiliation
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+(\.\d+)?(\.\d+)?$/
+      - deploy_prod:
+          requires:
+            - approve_prod
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+(\.\d+)?(\.\d+)?$/
