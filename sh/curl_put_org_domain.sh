@@ -25,7 +25,6 @@ rawurlencode() {
   local strlen=${#string}
   local encoded=""
   local pos c o
-
   for (( pos=0 ; pos<strlen ; pos++ )); do
      c=${string:$pos:1}
      case "$c" in
@@ -34,26 +33,30 @@ rawurlencode() {
      esac
      encoded+="${o}"
   done
-  echo "${encoded}"    # You can either set a return variable (FASTER)
-  REPLY="${encoded}"   #+or echo the result (EASIER)... or both... :p
+  echo "${encoded}"
+  REPLY="${encoded}"
 }
 
 org=$(rawurlencode "${1}")
 dom=$(rawurlencode "${2}")
 scope=$(rawurlencode "${3}")
+
 ov="false"
 if [ "$4" = "1" ]
 then
   ov="true"
 fi
+
 top="false"
 if [ "$5" = "1" ]
 then
   top="true"
 fi
+
 if [ ! -z "$DEBUG" ]
 then
   echo "$org $dom $scope $ov $top"
   echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"
 fi
+
 curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"

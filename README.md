@@ -29,5 +29,5 @@ Start local Postgres API DB instance:
 
 Start API server using dockerized MariaDB and Postgres databases:
 
-- Start API server: `` [ONLYRUN=1] ./api.sh ``.
-- Call example client: `` JWT_TOKEN=`cat lgryglicki.token` ./curl.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.
+- Start API server: `` [ONLYRUN=1] ./sh/api.sh ``.
+- Call example client: `` JWT_TOKEN=`cat secrets/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.

@@ -35,8 +35,9 @@ func (s *service) CheckIdentityManagePermission(username, scope string) (allowed
 	rows, err := s.query(
 		db,
 		"select 1 from access_control_entries where "+
-			"scope = $1 and subject = $2 and resource = $3 and action = $4",
+			"scope in ($1, $2) and subject = $3 and resource = $4 and action = $5",
 		scope,
+    "/projects/" + scope,
 		username,
 		"identity",
 		"manage",
