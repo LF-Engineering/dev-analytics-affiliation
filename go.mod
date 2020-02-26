@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/awslabs/aws-lambda-go-api-proxy v0.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/elastic/go-elasticsearch/v7 v7.6.0
 	github.com/fnproject/fdk-go v0.0.1
 	github.com/go-openapi/analysis v0.19.7 // indirect
 	github.com/go-openapi/errors v0.19.3

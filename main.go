@@ -2,14 +2,19 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
+
 	"github.com/LF-Engineering/dev-analytics-affiliation/affiliation"
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
+	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
 	"github.com/LF-Engineering/dev-analytics-affiliation/health"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/cmd"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi"
@@ -19,7 +24,6 @@ import (
 	"github.com/go-openapi/loads"
 
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -40,11 +44,12 @@ func initAPIDB() *sqlx.DB {
 	dbURL := os.Getenv("API_DB_ENDPOINT")
 	d, err := sqlx.Connect("postgres", dbURL)
 	if err != nil {
-		log.Panicf("unable to connect to database. Error: %v", err)
+		log.Panicf("unable to connect to API database: %v", err)
 	}
 	d.SetMaxOpenConns(20)
 	d.SetMaxIdleConns(5)
 	d.SetConnMaxLifetime(15 * time.Minute)
+	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "API DB", host)
 	return d
 }
@@ -53,13 +58,33 @@ func initSHDB() *sqlx.DB {
 	dbURL := os.Getenv("SH_DB_ENDPOINT")
 	d, err := sqlx.Connect("mysql", dbURL)
 	if err != nil {
-		log.Panicf("unable to connect to database. Error: %v", err)
+		log.Panicf("unable to connect to affiliation database: %v", err)
 	}
 	d.SetMaxOpenConns(20)
 	d.SetMaxIdleConns(5)
 	d.SetConnMaxLifetime(15 * time.Minute)
+	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "Affiliation DB", host)
 	return d
+}
+
+func initES() *elasticsearch.Client {
+	config := elasticsearch.Config{
+		Addresses: []string{os.Getenv("ELASTIC_URL")},
+		Username:  os.Getenv("ELASTIC_USERNAME"),
+		Password:  os.Getenv("ELASTIC_PASSWORD"),
+	}
+	client, err := elasticsearch.NewClient(config)
+	if err != nil {
+		log.Panicf("unable to connect to ElasticSearch: %v", err)
+	}
+	info, err := client.Info()
+	if err != nil {
+		log.Panicf("unable to get elasticsearch client info: %v", err)
+	}
+	log.Println(fmt.Sprintf("%+v", info))
+	log.Println("Initialized", "ElasticSearch", host)
+	return client
 }
 
 func main() {
@@ -90,7 +115,8 @@ func main() {
 	healthService := health.New()
 	apiDBService := apidb.New(initAPIDB())
 	shDBService := shdb.New(initSHDB())
-	affiliationService := affiliation.New(apiDBService, shDBService)
+	esService := elastic.New(initES())
+	affiliationService := affiliation.New(apiDBService, shDBService, esService)
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)

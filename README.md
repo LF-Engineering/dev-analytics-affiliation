@@ -25,9 +25,13 @@ Start local Postgres API DB instance:
 - After doing this you have Postgres DSN that can be passed to API: `API_DB_ENDPOINT='host=127.0.0.1 user=lfda_api_user password=apipwd dbname=dev_analytics port=15432 sslmode=disable'`.
 - To get most up-to-date API db follow (.gitignored): `secret/get_da_dump.md`.
 
+Start local Elastic Search instance:
+
+- `./sh/es.sh`.
+
 # Start API server using
 
 Start API server using dockerized MariaDB and Postgres databases:
 
 - Start API server: `` [ONLYRUN=1] ./sh/api.sh ``.
-- Call example client: `` JWT_TOKEN=`cat secrets/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.
+- Call example client: `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.

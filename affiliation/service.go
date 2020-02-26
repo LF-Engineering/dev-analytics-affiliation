@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
+	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
@@ -41,13 +42,15 @@ type service struct {
 	requestID string
 	apiDB     apidb.Service
 	shDB      shdb.Service
+	es        elastic.Service
 }
 
 // New is a simple helper function to create a service instance
-func New(apiDB apidb.Service, shDB shdb.Service) Service {
+func New(apiDB apidb.Service, shDB shdb.Service, es elastic.Service) Service {
 	return &service{
 		apiDB: apiDB,
 		shDB:  shDB,
+		es:    es,
 	}
 }
 
@@ -146,6 +149,7 @@ func (s *service) checkToken(tokenStr string) (username string, err error) {
 // /v1/affiliation/{orgName}/add_domain/{domain}[?overwrite=true][&is_top_domain=true]
 // {orgName} - required path parameter:      organization to add domain to, must be URL encoded, for example 'The%20Microsoft%20company'
 // {domain} - required path parameter:       domain to be added, for example 'microsoft.com'
+// {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // overwrite - optional query parameter:     if overwrite=true is set, all profiles found are force-updated/affiliated to the given organization
 //                                           if overwite is not set, API will not change any profiles which already have any affiliation(s)
 // is_top_domain - optional query parameter: if you specify is_top_domain=true it will set 'is_top_domain' DB column to true, else it will set false

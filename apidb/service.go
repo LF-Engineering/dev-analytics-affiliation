@@ -37,7 +37,7 @@ func (s *service) CheckIdentityManagePermission(username, scope string) (allowed
 		"select 1 from access_control_entries where "+
 			"scope in ($1, $2) and subject = $3 and resource = $4 and action = $5",
 		scope,
-    "/projects/" + scope,
+		"/projects/"+scope,
 		username,
 		"identity",
 		"manage",

@@ -4,6 +4,9 @@ export SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=ut
 export AUTH0_DOMAIN=`cat secret/auth0.domain`
 export AUTH0_CLIENT_ID=`cat secret/auth0.client_id`
 export AUTH0_USERNAME_CLAIM=`cat secret/auth0.username_claim`
+export ELASTIC_URL='http://127.0.0.1:19200'
+export ELASTIC_USERNAME=''
+export ELASTIC_PASSWORD=''
 if [ -z "$ONLYRUN" ]
 then
   make swagger && make build && make run
