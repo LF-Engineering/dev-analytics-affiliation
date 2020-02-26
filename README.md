@@ -9,20 +9,21 @@
 
 # Testing locally
 
-Start local SortingHat DB instance by following [this](https://github.com/LF-Engineering/dev-analytics-import-sh-json#usage):
+Start local SortingHat DB instance:
 
-- `PASS=rootpwd ./mariadb_local_docker.sh`.
-- `USR=root PASS=rootpwd SH_USR=sortinghat SH_PASS=pwd SH_DB=sortinghat FULL=1 ./mariadb_init.sh`.
-- You can also shell into dockerized DB instance: `SH_USR=sortinghat SH_PASS=pwd SH_DB=sortinghat ./mariadb_sortinghat_shell.sh`.
+- `./sh/mariadb.sh docker`.
+- Once docker instance is accepting connections: `./sh/mariadb.sh` to pupulate default data.
+- You can shell into dockerized DB instance: `SH_USR=sortinghat SH_PASS=pwd SH_DB=sortinghat ./sh/mariadb_sortinghat_shell.sh`.
 - After doing this you have MariaDB DSN that can be passed to API: `SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'`.
 
 Start local Postgres API DB instance:
 
-- `PASS=postgrespwd ./psql_local_docker.sh`.
-- `PASS=postgrespwd APIPASS=apipwd ./psql_init.sh`.
-- You can also shell into dockerized DB instance: `PASS=postgrespwd ./psql_shell.sh`.
-- You can also shell into dockerized DB instance (as an API user): `USR=lfda_api_user PASS=apipwd ./psql_api_shell.sh`.
+- `./sh/psql.sh docker`.
+- Once docker instance is accepting connections: `./sh/psql.sh` to pupulate default data.
+- You can also shell into dockerized DB instance: `PASS=postgrespwd ./sh/psql_shell.sh`.
+- You can also shell into dockerized DB instance (as an API user): `USR=lfda_api_user PASS=apipwd ./sh/psql_api_shell.sh`.
 - After doing this you have Postgres DSN that can be passed to API: `API_DB_ENDPOINT='host=127.0.0.1 user=lfda_api_user password=apipwd dbname=dev_analytics port=15432 sslmode=disable'`.
+- To get most up-to-date API db follow (.gitignored): `secret/get_da_dump.md`.
 
 # Start API server using
 

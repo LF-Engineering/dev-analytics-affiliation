@@ -41,11 +41,15 @@ node_modules
 
 .env
 
+# Binaries
+main
+
 # Sensitive files
 *.dump
 *.sql
-main
 *.token
 *.domain
 *.client_id
 *.username_claim
+*.secret
+secret/
