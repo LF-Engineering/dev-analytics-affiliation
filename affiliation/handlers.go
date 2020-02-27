@@ -37,9 +37,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
-	api.AffiliationPutMergeProfilesHandler = affiliation.PutMergeProfilesHandlerFunc(
-		func(params affiliation.PutMergeProfilesParams) middleware.Responder {
-			log.Info("entering PutMergeProfilesHandlerFunc")
+	api.AffiliationPutMergeUniqueIdentitiesHandler = affiliation.PutMergeUniqueIdentitiesHandlerFunc(
+		func(params affiliation.PutMergeUniqueIdentitiesParams) middleware.Responder {
+			log.Info("entering PutMergeUniqueIdentitiesHandlerFunc")
 			ctx := params.HTTPRequest.Context()
 
 			var nilRequestID *string
@@ -48,19 +48,19 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-			}).Info("PutMergeProfilesHandlerFunc")
+			}).Info("PutMergeUniqueIdentitiesHandlerFunc")
 
-			result, err := service.PutMergeProfiles(ctx, &params)
+			result, err := service.PutMergeUniqueIdentities(ctx, &params)
 			if err != nil {
-				return swagger.ErrorHandler("PutMergeProfiles", err)
+				return swagger.ErrorHandler("PutMergeUniqueIdentities", err)
 			}
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 				"Payload":      result,
-			}).Info("PutMergeProfilesHandlerFunc")
+			}).Info("PutMergeUniqueIdentitiesHandlerFunc")
 
-			return affiliation.NewPutMergeProfilesOK().WithXREQUESTID(requestID).WithPayload(result)
+			return affiliation.NewPutMergeUniqueIdentitiesOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
 	api.AffiliationPutMoveIdentityHandler = affiliation.PutMoveIdentityHandlerFunc(

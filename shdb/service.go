@@ -20,7 +20,7 @@ import (
 type Service interface {
 	// External CRUD methods
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
-	GetProfile(string, *sql.Tx) (*models.ProfileDataOutput, error)
+	GetProfile(string, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	EditProfile(string, *models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	DeleteProfile(string, bool, bool, *sql.Tx) (bool, error)
 	ArchiveProfile(string, *sql.Tx) (bool, error)
@@ -30,7 +30,7 @@ type Service interface {
 	GetIdentity(string, *sql.Tx) (*models.IdentityDataOutput, error)
 
 	// API endpoints
-	MergeProfiles(string, string) error
+	MergeUniqueIdentities(string, string) error
 	MoveIdentity(string, string) error
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 
@@ -147,8 +147,8 @@ func (s *service) GetIdentity(id string, tx *sql.Tx) (*models.IdentityDataOutput
 	return identityData, nil
 }
 
-func (s *service) GetProfile(uuid string, tx *sql.Tx) (*models.ProfileDataOutput, error) {
-	log.Info(fmt.Sprintf("GetProfile: uuid:%s tx:%v", uuid, tx != nil))
+func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
+	log.Info(fmt.Sprintf("GetProfile: uuid:%s missignFatal:%v tx:%v", uuid, missingFatal, tx != nil))
 	profileData := &models.ProfileDataOutput{}
 	db := s.db
 	rows, err := s.query(
@@ -184,7 +184,7 @@ func (s *service) GetProfile(uuid string, tx *sql.Tx) (*models.ProfileDataOutput
 	if err != nil {
 		return nil, err
 	}
-	if !fetched {
+	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find profile uuid '%s'", uuid)
 		return nil, err
 	}
@@ -387,7 +387,7 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 	}
 	if refresh {
 		var err error
-		profileData, err = s.GetProfile(profileData.UUID, tx)
+		profileData, err = s.GetProfile(profileData.UUID, true, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -395,15 +395,15 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 	return profileData, nil
 }
 
-func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
+func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	if fromUUID == toUUID {
 		return
 	}
-	from, err := s.GetProfile(fromUUID, nil)
+	from, err := s.GetProfile(fromUUID, true, nil)
 	if err != nil {
 		return
 	}
-	to, err := s.GetProfile(toUUID, nil)
+	to, err := s.GetProfile(toUUID, true, nil)
 	if err != nil {
 		return
 	}
@@ -450,7 +450,7 @@ func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
 	}
 	// Set tx to nil, so deferred rollback will not happen
 	tx = nil
-	fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
+	//fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
 	return
 }
 
@@ -459,10 +459,42 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
-	to, err := s.GetProfile(toUUID, nil)
+	to, err := s.GetProfile(toUUID, false, nil)
 	if err != nil {
 		return
 	}
+	if to == nil && fromID != toUUID {
+		return fmt.Errorf("profile uuid '%s' is not found and identity id is different: '%s'", toUUID, &localIdentity{from})
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	// Rollback unless tx was set to nil after successful commit
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	// FIXME: continue
+	/*
+	   if not tuid:
+	       # Move identity to a new one
+	       if from_id == to_uuid:
+	           tuid = add_unique_identity_db(session, to_uuid)
+	       else:
+	           raise NotFoundError(entity=to_uuid)
+
+	   move_identity_db(session, fid, tuid)
+	*/
+	if to == nil {
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	fmt.Printf("from:%+v to:%+v\n", &localIdentity{from}, &localProfile{to})
 	return
 }

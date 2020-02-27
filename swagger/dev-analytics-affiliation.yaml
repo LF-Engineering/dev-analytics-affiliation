@@ -86,15 +86,15 @@ paths:
           in: header
           type: string
           required: true
-  /affiliation/{projectSlug}/merge_profiles/{fromUUID}/{toUUID}:
+  /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
-      summary: Merge Profiles fromUUID into toUUID
-      operationId: putMergeProfiles
+      summary: Merge Unique Identities fromUUID into toUUID
+      operationId: putMergeUniqueIdentities
       produces:
         - application/json
       responses:
         "200":
-          description: "Successfully merged profiles"
+          description: "Successfully merged unique identities"
           headers:
             X-REQUEST-ID:
               type: string
@@ -117,12 +117,12 @@ paths:
           in: path
           type: string
           required: true
-          description: Profile UUID to merge from
+          description: Unique Identity/Profile UUID to merge from
         - name: toUUID
           in: path
           type: string
           required: true
-          description: Profile UUID to merge to
+          description: Unique Identity/Profile UUID to merge to
         - name: projectSlug
           in: path
           type: string
@@ -134,7 +134,7 @@ paths:
           required: true
   /affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}:
     put:
-      summary: Move identity from fromID to profile toUUID
+      summary: Move identity from fromID to unique identity/profile toUUID
       operationId: putMoveIdentity
       produces:
         - application/json
@@ -168,7 +168,7 @@ paths:
           in: path
           type: string
           required: true
-          description: Profile UUID to merge to
+          description: Unique Identity/Profile UUID to merge to
         - name: projectSlug
           in: path
           type: string
@@ -245,7 +245,7 @@ definitions:
         x-nullable: true
       is_bot:
         type: integer
-        # database doesn't have null, but we can use to to call Editprofile and skip updating is_bot
+        # database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
         x-nullable: true  
         example: 1
       country_code:
