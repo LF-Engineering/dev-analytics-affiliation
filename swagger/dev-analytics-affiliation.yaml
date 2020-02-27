@@ -86,6 +86,98 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/merge_profiles/{fromUUID}/{toUUID}:
+    put:
+      summary: Merge Profiles fromUUID into toUUID
+      operationId: putMergeProfiles
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully merged profiles"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/profile-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - merge
+      parameters:
+        - name: fromUUID
+          in: path
+          type: string
+          required: true
+          description: UUID to merge from
+        - name: toUUID
+          in: path
+          type: string
+          required: true
+          description: UUID to merge to
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/move_profile/{fromUUID}/{toUUID}:
+    put:
+      summary: Move profile from fromUUID to toUUID
+      operationId: putMoveProfile
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully moved profile"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/profile-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - merge
+      parameters:
+        - name: fromUUID
+          in: path
+          type: string
+          required: true
+          description: UUID to merge from
+        - name: toUUID
+          in: path
+          type: string
+          required: true
+          description: UUID to merge to
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: Authorization
+          in: header
+          type: string
+          required: true
 definitions:
   health:
     type: object
@@ -127,6 +219,32 @@ definitions:
       scope:
         type: string
         example: academy-software-foundation/opencue
+  profile-data-output:
+    title: Profile data output
+    description: toUUID profile data
+    type: object
+    properties:
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      name:
+        type: string
+        example: lukaszgryglicki
+      email:
+        type: string
+        example: lgryglicki@cncf.io
+      gender:
+        type: string
+        example: male
+      gender_acc:
+        type: string
+        example: 100
+      is_bot:
+        type: string
+        example: 0
+      country_code:
+        type: string
+        example: PL
 schemes:
   - http
 consumes:

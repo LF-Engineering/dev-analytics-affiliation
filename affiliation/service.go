@@ -26,6 +26,8 @@ const (
 
 type Service interface {
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
+	PutMergeProfiles(ctx context.Context, in *affiliation.PutMergeProfilesParams) (*models.ProfileDataOutput, error)
+	PutMoveProfile(ctx context.Context, in *affiliation.PutMoveProfileParams) (*models.ProfileDataOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 }
@@ -145,8 +147,49 @@ func (s *service) checkToken(tokenStr string) (username string, err error) {
 	return
 }
 
+// checkTokenAndPermission - validate JWT token from 'Authorization: Bearer xyz'
+// and then check if authorized use can manage affiliations in given project
+func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project, username string, err error) {
+	// Extract params depending on API type
+	auth := ""
+	switch params := iParams.(type) {
+	case *affiliation.PutOrgDomainParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutOrgDomain"
+	case *affiliation.PutMergeProfilesParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutMergeProfiles"
+	case *affiliation.PutMoveProfileParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutMoveProfile"
+	default:
+		err = errors.Wrap(fmt.Errorf("unknown params type"), "checkTokenAndPermission")
+		return
+	}
+	// Validate JWT token, final outcome is the LFID of current authorized user
+	username, err = s.checkToken(auth)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	// Check if that user can manage identities for given project/scope
+	allowed, err := s.apiDB.CheckIdentityManagePermission(username, project)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if !allowed {
+		err = errors.Wrap(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), apiName)
+		return
+	}
+	return
+}
+
 // PutOrgDomain: API params:
-// /v1/affiliation/{orgName}/add_domain/{domain}[?overwrite=true][&is_top_domain=true]
+// /v1/affiliation/{orgName}/add_domain/{domain}/to_project/{projectSlug}[?overwrite=true][&is_top_domain=true]
 // {orgName} - required path parameter:      organization to add domain to, must be URL encoded, for example 'The%20Microsoft%20company'
 // {domain} - required path parameter:       domain to be added, for example 'microsoft.com'
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
@@ -154,20 +197,10 @@ func (s *service) checkToken(tokenStr string) (username string, err error) {
 //                                           if overwite is not set, API will not change any profiles which already have any affiliation(s)
 // is_top_domain - optional query parameter: if you specify is_top_domain=true it will set 'is_top_domain' DB column to true, else it will set false
 func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error) {
-	// Validate JWT token, final outcome is the LFID of current authorized user
-	username, err := s.checkToken(params.Authorization)
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
 	if err != nil {
-		return nil, errors.Wrap(err, "PutOrgDomain")
-	}
-	// Check if that user can manage identities for given project/scope
-	project := params.ProjectSlug
-	allowed, err := s.apiDB.CheckIdentityManagePermission(username, project)
-	if err != nil {
-		return nil, errors.Wrap(err, "PutOrgDomain")
-	}
-	if !allowed {
-		err = fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project)
-		return nil, errors.Wrap(err, "PutOrgDomain")
+		return nil, err
 	}
 	// Do the actual API call
 	org := params.OrgName
@@ -182,9 +215,75 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	}
 	putOrgDomain, err := s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
 	if err != nil {
-		return nil, errors.Wrap(err, "PutOrgDomain")
+		return nil, errors.Wrap(err, apiName)
 	}
 	putOrgDomain.User = username
 	putOrgDomain.Scope = project
 	return putOrgDomain, nil
+}
+
+// PutMergeProfiles: API
+// ===========================================================================
+// Merge two Profiles with fromUUID to toUUID and Merge Enrollments
+// Use this function to join fromUUID unique identity into toUUID
+// Identities and enrollments related to fromUUID will be assigned
+// to toUUID. In addition, fromUUID will be removed (archived in a special table)
+// Duplicated enrollments will be also removed from
+// the registry while overlapped enrollments will be merged.
+// This function also merges two profiles. When a field on toUUID
+// profile is empty, it will be updated with the value on the
+// profile of fromUUID. If any of the two unique identities was set
+// as a bot, the new profile will also be set as a bot.
+// When fromUUID and toUUID are equal, the action does not have any effect
+// ===========================================================================
+// /v1/affiliation/{projectSlug}/merge_profiles/{fromUUID}/{toUUID}:
+// {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
+// {fromUUID} - required path parameter: uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
+// {toUUID} - required path parameter: uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
+func (s *service) PutMergeProfiles(ctx context.Context, params *affiliation.PutMergeProfilesParams) (*models.ProfileDataOutput, error) {
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	if err != nil {
+		return nil, err
+	}
+	// Do the actual API call
+	fromUUID := params.FromUUID
+	toUUID := params.ToUUID
+	/*
+		  putOrgDomain, err := s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
+			if err != nil {
+				return nil, errors.Wrap(err, apiName)
+			}
+	*/
+	fmt.Printf("api:%s project:%s user:%s from_uuid:%s to_uuid:%s\n", apiName, project, username, fromUUID, toUUID)
+	profileData := &models.ProfileDataOutput{}
+	return profileData, nil
+}
+
+// PutMoveProfile: API
+// ===========================================================================
+//
+// ===========================================================================
+// /v1/affiliation/{projectSlug}/move_profile/{fromUUID}/{toUUID}:
+// {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
+// {fromUUID} - required path parameter: uuid to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
+// {toUUID} - required path parameter: uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
+func (s *service) PutMoveProfile(ctx context.Context, params *affiliation.PutMoveProfileParams) (*models.ProfileDataOutput, error) {
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	if err != nil {
+		return nil, err
+	}
+	// Do the actual API call
+	fromUUID := params.FromUUID
+	toUUID := params.ToUUID
+	/*
+		  putOrgDomain, err := s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
+			if err != nil {
+				return nil, errors.Wrap(err, apiName)
+			}
+	*/
+	fmt.Printf("api:%s project:%s user:%s from_uuid:%s to_uuid:%s\n", apiName, project, username, fromUUID, toUUID)
+	profileData := &models.ProfileDataOutput{}
+	return profileData, nil
 }
