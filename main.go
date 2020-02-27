@@ -64,7 +64,6 @@ func initSHDB() *sqlx.DB {
 			dbURL += "?parseTime=true"
 		}
 	}
-	fmt.Printf(">>>> %s\n", dbURL)
 	d, err := sqlx.Connect("mysql", dbURL)
 	if err != nil {
 		log.Panicf("unable to connect to affiliation database: %v", err)

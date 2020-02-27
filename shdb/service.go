@@ -8,6 +8,7 @@ import (
 
 	"database/sql"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
@@ -19,15 +20,21 @@ import (
 
 type Service interface {
 	// External CRUD methods
+	// Country
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
+	// Profile
 	GetProfile(string, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	EditProfile(string, *models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	DeleteProfile(string, bool, bool, *sql.Tx) (bool, error)
 	ArchiveProfile(string, *sql.Tx) (bool, error)
 	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
 	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
-	TouchUIdentity(string, *sql.Tx) (int64, error)
+	// Identity
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
+	// UniqueIdentity
+	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
+	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
+	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -42,14 +49,7 @@ type Service interface {
 	execDB(*sqlx.DB, string, ...interface{}) (sql.Result, error)
 	execTX(*sql.Tx, string, ...interface{}) (sql.Result, error)
 	exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
-}
-
-type localProfile struct {
-	*models.ProfileDataOutput
-}
-
-type localIdentity struct {
-	*models.IdentityDataOutput
+	now() *strfmt.DateTime
 }
 
 type service struct {
@@ -61,6 +61,20 @@ func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
+}
+
+const DateTimeFormat = "%Y-%m-%dT%H:%i:%s.%fZ"
+
+type localProfile struct {
+	*models.ProfileDataOutput
+}
+
+type localIdentity struct {
+	*models.IdentityDataOutput
+}
+
+type localUniqueIdentity struct {
+	*models.UniqueIdentityDataOutput
 }
 
 func (s *service) GetCountry(countryCode string, tx *sql.Tx) (*models.CountryDataOutput, error) {
@@ -101,6 +115,74 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (*models.CountryDat
 		return nil, err
 	}
 	return countryData, nil
+}
+
+func (s *service) AddUniqueIdentity(uniqueIdentity *models.UniqueIdentityDataOutput, refresh bool, tx *sql.Tx) (*models.UniqueIdentityDataOutput, error) {
+	log.Info(fmt.Sprintf("AddUniqueIdentity: uniqueIdentity:%+v refresh:%v tx:%v", &localUniqueIdentity{uniqueIdentity}, refresh, tx != nil))
+	if uniqueIdentity.LastModified == nil {
+		uniqueIdentity.LastModified = s.now()
+	}
+	_, err := s.exec(
+		s.db,
+		tx,
+		"insert into uidentities(uuid, last_modified) select ?, str_to_date(?, ?)",
+		uniqueIdentity.UUID,
+		uniqueIdentity.LastModified,
+		DateTimeFormat,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if refresh {
+		var err error
+		uniqueIdentity, err = s.GetUniqueIdentity(uniqueIdentity.UUID, true, tx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return uniqueIdentity, nil
+}
+
+func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) (*models.UniqueIdentityDataOutput, error) {
+	log.Info(fmt.Sprintf("GetUniqueIdentity: uuid:%s missingFatal:%v tx:%v", uuid, missingFatal, tx != nil))
+	uniqueIdentityData := &models.UniqueIdentityDataOutput{}
+	db := s.db
+	rows, err := s.query(
+		db,
+		tx,
+		"select uuid, last_modified from uidentities where uuid = ? limit 1",
+		uuid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&uniqueIdentityData.UUID,
+			&uniqueIdentityData.LastModified,
+		)
+		if err != nil {
+			return nil, err
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if missingFatal && !fetched {
+		err = fmt.Errorf("cannot find unique identity uuid '%s'", uuid)
+		return nil, err
+	}
+	if !fetched {
+		uniqueIdentityData = nil
+	}
+	return uniqueIdentityData, nil
 }
 
 func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (*models.IdentityDataOutput, error) {
@@ -197,8 +279,8 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (*model
 	return profileData, nil
 }
 
-func (s *service) TouchUIdentity(uuid string, tx *sql.Tx) (int64, error) {
-	log.Info(fmt.Sprintf("TouchUIdentity: uuid:%s tx:%v", uuid, tx != nil))
+func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (int64, error) {
+	log.Info(fmt.Sprintf("TouchUniqueIdentity: uuid:%s tx:%v", uuid, tx != nil))
 	res, err := s.exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
 	if err != nil {
 		return 0, err
@@ -378,7 +460,7 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 		if affected > 1 {
 			return nil, fmt.Errorf("profile '%+v' update affected %d rows", &localProfile{profileData}, affected)
 		} else if affected == 1 {
-			affected2, err := s.TouchUIdentity(profileData.UUID, tx)
+			affected2, err := s.TouchUniqueIdentity(profileData.UUID, tx)
 			if err != nil {
 				return nil, err
 			}
@@ -403,6 +485,14 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 
 func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	if fromUUID == toUUID {
+		return
+	}
+	fromUU, err := s.GetUniqueIdentity(fromUUID, true, nil)
+	if err != nil {
+		return
+	}
+	toUU, err := s.GetUniqueIdentity(toUUID, true, nil)
+	if err != nil {
 		return
 	}
 	from, err := s.GetProfile(fromUUID, false, nil)
@@ -453,6 +543,44 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 		}
 	}
 	// FIXME continue
+	/*
+	       # Update identities
+	       for identity in fuid.identities:
+	           move_identity_db(session, identity, tuid)
+
+	       # Move those enrollments that to_uid does not have.
+	       # It is needed to copy the list in-place to avoid
+	       # sync problems when enrollments are moved.
+	       for rol in fuid.enrollments[:]:
+	           enrollment = session.query(Enrollment).\
+	               filter(Enrollment.uidentity == tuid,
+	                      Enrollment.organization == rol.organization,
+	                      Enrollment.start == rol.start,
+	                      Enrollment.end == rol.end).first()
+
+	           if not enrollment:
+	               move_enrollment_db(session, rol, tuid)
+
+	       # For some reason, uuid are not updated until changes are
+	       # committed (flush does nothing). Force to commit changes
+	       # to avoid deletion of identities when removing 'fuid'
+	       session.commit()
+
+	       delete_unique_identity_db(session, fuid)
+
+	       # Retrieve of organizations to merge the enrollments,
+	       # before closing the session
+	       query = session.query(Organization.name).\
+	           join(Enrollment).\
+	           filter(Enrollment.uidentity == tuid).distinct()
+
+	       orgs = [org.name for org in query]
+
+	   # Merge enrollments
+	   for org in orgs:
+	       merge_enrollments(db, to_uuid, org)
+	*/
+	fmt.Printf("fromUU=%+v toUU=%+v\n", &localUniqueIdentity{fromUU}, &localUniqueIdentity{toUU})
 	err = tx.Commit()
 	if err != nil {
 		return
@@ -467,7 +595,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
-	to, err := s.GetProfile(toUUID, false, nil)
+	to, err := s.GetUniqueIdentity(toUUID, false, nil)
 	if err != nil {
 		return
 	}
@@ -484,26 +612,27 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 			tx.Rollback()
 		}
 	}()
-	// FIXME: continue
-	/*
-	   if not tuid:
-	       # Move identity to a new one
-	       if from_id == to_uuid:
-	           tuid = add_unique_identity_db(session, to_uuid)
-	       else:
-	           raise NotFoundError(entity=to_uuid)
-
-	   move_identity_db(session, fid, tuid)
-	*/
 	if to == nil {
+		to, err = s.AddUniqueIdentity(
+			&models.UniqueIdentityDataOutput{
+				UUID:         toUUID,
+				LastModified: s.now(),
+			},
+			false,
+			tx,
+		)
+		if err != nil {
+			return
+		}
 	}
+	// FIXME: continue
+	// move_identity_db(session, fid, tuid)
 	err = tx.Commit()
 	if err != nil {
 		return
 	}
 	// Set tx to nil, so deferred rollback will not happen
 	tx = nil
-	//fmt.Printf("from:%+v to:%+v\n", &localIdentity{from}, &localProfile{to})
 	return
 }
 
@@ -729,9 +858,24 @@ func (p *localIdentity) String() string {
 	if p.LastModified == nil {
 		s += "LastModified:nil}"
 	} else {
-		s += fmt.Sprintf("LastModified: %+v}", *p.LastModified)
+		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
 	}
 	return s
+}
+
+func (p *localUniqueIdentity) String() string {
+	s := "{UUID:" + p.UUID + ","
+	if p.LastModified == nil {
+		s += "LastModified:nil}"
+	} else {
+		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
+	}
+	return s
+}
+
+func (s *service) now() *strfmt.DateTime {
+	now := strfmt.DateTime(time.Now())
+	return &now
 }
 
 func (s *service) queryOut(query string, args ...interface{}) {
