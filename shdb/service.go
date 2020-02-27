@@ -148,7 +148,7 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 	// Database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
 	if profileData.IsBot != nil {
 		if *profileData.IsBot != 0 && *profileData.IsBot != 1 {
-			return nil, fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", profileData)
+			return nil, fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", &localProfile{profileData})
 		}
 		columns = append(columns, "is_bot")
 		values = append(values, *profileData.IsBot)
@@ -163,7 +163,7 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 	}
 	if profileData.Gender != nil {
 		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			return nil, fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", profileData)
+			return nil, fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", &localProfile{profileData})
 		}
 		columns = append(columns, "gender")
 		values = append(values, *profileData.Gender)
@@ -172,13 +172,13 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 			values = append(values, 100)
 		} else {
 			if *profileData.GenderAcc < 1 || *profileData.GenderAcc > 100 {
-				return nil, fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", profileData)
+				return nil, fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", &localProfile{profileData})
 			}
 			values = append(values, *profileData.GenderAcc)
 		}
 	}
 	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		return nil, fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", profileData)
+		return nil, fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", &localProfile{profileData})
 	}
 	db := s.db
 	nColumns := len(columns)
@@ -202,7 +202,7 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 			return nil, err
 		}
 		if affected > 1 {
-			return nil, fmt.Errorf("profile '%+v' update affected %d rows", profileData, affected)
+			return nil, fmt.Errorf("profile '%+v' update affected %d rows", &localProfile{profileData}, affected)
 		}
 		if affected == 1 {
 			//uidentity.last_modified = datetime.datetime.utcnow()
@@ -268,6 +268,12 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 	if err != nil {
 		return nil, err
 	}
+	// Rollback unless tx was set to nil after successful commit
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
 	_, err = s.exec(
 		db,
 		tx,
@@ -357,6 +363,8 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 	if err != nil {
 		return nil, err
 	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	top := ""
 	if isTopDomain {
 		top = "top "
@@ -403,6 +411,12 @@ func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
+	// Rollback unless tx was set to nil after successful commit
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
 	to, err = s.EditProfile(toUUID, to, tx)
 	if err != nil {
 		return
@@ -410,10 +424,12 @@ func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
 	fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
 	// FIXME: If all is fine uncomment
 	/*
-		err = tx.Commit()
-		if err != nil {
-			return nil, err
-		}
+				err = tx.Commit()
+				if err != nil {
+					return nil, err
+				}
+		    // Set tx to nil, so deferred rollback will not happen
+		    tx = nil
 	*/
 	return
 }
