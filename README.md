@@ -34,4 +34,6 @@ Start local Elastic Search instance:
 Start API server using dockerized MariaDB and Postgres databases:
 
 - Start API server: `` [ONLYRUN=1] ./sh/api.sh ``.
-- Call example client: `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.
+- Call example clients:
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.
+  - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_profiles.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a ``.

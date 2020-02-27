@@ -14,7 +14,7 @@ then
   echo "$0: please specify domain as a 2nd arg"
   exit 3
 fi
-if [ -z "$2" ]
+if [ -z "$3" ]
 then
   echo "$0: please specify project slug as a 3rd arg"
   exit 4
