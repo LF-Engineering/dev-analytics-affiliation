@@ -18,6 +18,7 @@ import (
 
 type Service interface {
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
+	GetProfile(string) (*models.ProfileDataOutput, error)
 }
 
 type service struct {
@@ -29,6 +30,49 @@ func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
+}
+
+func (s *service) GetProfile(uuid string) (*models.ProfileDataOutput, error) {
+	log.Info(fmt.Sprintf("GetProfile: uuid:%s", uuid))
+	profileData := &models.ProfileDataOutput{}
+	db := s.db
+	rows, err := s.query(
+		db,
+		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ?",
+		uuid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&profileData.UUID,
+			&profileData.Name,
+			&profileData.Email,
+			&profileData.Gender,
+			&profileData.GenderAcc,
+			&profileData.IsBot,
+			&profileData.CountryCode,
+		)
+		if err != nil {
+			return nil, err
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if !fetched {
+		err = fmt.Errorf("cannot find profile '%s'", uuid)
+		return nil, err
+	}
+	return profileData, nil
 }
 
 // PutOrgDomain - add domain to organization

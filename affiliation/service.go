@@ -249,14 +249,11 @@ func (s *service) PutMergeProfiles(ctx context.Context, params *affiliation.PutM
 	// Do the actual API call
 	fromUUID := params.FromUUID
 	toUUID := params.ToUUID
-	/*
-		  putOrgDomain, err := s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
-			if err != nil {
-				return nil, errors.Wrap(err, apiName)
-			}
-	*/
+	profileData, err := s.shDB.GetProfile(toUUID)
+	if err != nil {
+		return nil, errors.Wrap(err, apiName)
+	}
 	fmt.Printf("api:%s project:%s user:%s from_uuid:%s to_uuid:%s\n", apiName, project, username, fromUUID, toUUID)
-	profileData := &models.ProfileDataOutput{}
 	return profileData, nil
 }
 
@@ -277,13 +274,10 @@ func (s *service) PutMoveProfile(ctx context.Context, params *affiliation.PutMov
 	// Do the actual API call
 	fromUUID := params.FromUUID
 	toUUID := params.ToUUID
-	/*
-		  putOrgDomain, err := s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
-			if err != nil {
-				return nil, errors.Wrap(err, apiName)
-			}
-	*/
+	profileData, err := s.shDB.GetProfile(toUUID)
+	if err != nil {
+		return nil, errors.Wrap(err, apiName)
+	}
 	fmt.Printf("api:%s project:%s user:%s from_uuid:%s to_uuid:%s\n", apiName, project, username, fromUUID, toUUID)
-	profileData := &models.ProfileDataOutput{}
 	return profileData, nil
 }
