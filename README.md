@@ -38,3 +38,15 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 ``.
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_profiles.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_move_profile.sh 'odpi/egeria' aaa8024197795de9b90676592772633c5cfcb35a 16fe424acecf8d614d102fc0ece919a22200481d ``.
+
+
+# SortingHat
+
+To debug what SortingHat package executes try:
+
+- Start Grimoire base container: `docker run -it "lukaszgryglicki/dev-analytics-grimoire-docker-minimal" /bin/bash`.
+- Run inside the container:
+  - `cd /repos/grimoirelab-sortinghat/sortinghat`.
+  - `vim api.py`, search for `/merge_unique_identities`.
+  - Apply `import pdb` and `pdb.set_trace()` to observe.
+  - Run: `sortinghat --host 172.17.0.1 --port 13306 -u sortinghat -p pwd -d sortinghat merge 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a`.
