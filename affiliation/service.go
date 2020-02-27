@@ -236,6 +236,8 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 // as a bot, the new profile will also be set as a bot.
 // When fromUUID and toUUID are equal, the action does not have any effect
 // ===========================================================================
+// NOTE: UUIDs used here refer to `profiles` and `profiles_archive` tables
+// ===========================================================================
 // /v1/affiliation/{projectSlug}/merge_profiles/{fromUUID}/{toUUID}:
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // {fromUUID} - required path parameter: uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
@@ -263,7 +265,16 @@ func (s *service) PutMergeProfiles(ctx context.Context, params *affiliation.PutM
 
 // PutMoveProfile: API
 // ===========================================================================
-//
+// Move Identity to New Profile | Unmerge Identities and Profiles
+// This function shifts the identity identified by 'fromUUID' to
+// the unique identity 'toUUID'.
+// When 'toUUID' is the unique identity that is currently related
+// to 'fromUUID', the action does not have any effect.
+// In the case of 'fromUUID' and 'toUUID' have equal values and the
+// unique identity does not exist, a new unique identity will be
+// created and the identity will be moved to it.
+// ===========================================================================
+// NOTE: UUIDs used here refer to `identities` table
 // ===========================================================================
 // /v1/affiliation/{projectSlug}/move_profile/{fromUUID}/{toUUID}:
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")

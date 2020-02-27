@@ -29,9 +29,9 @@ type Service interface {
 	TouchUIdentity(string, *sql.Tx) (int64, error)
 
 	// API endpoints
-	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeProfiles(string, string) error
 	MoveProfile(string, string) error
+	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 
 	// Internal methods
 	queryOut(string, ...interface{})
@@ -41,6 +41,10 @@ type Service interface {
 	execDB(*sqlx.DB, string, ...interface{}) (sql.Result, error)
 	execTX(*sql.Tx, string, ...interface{}) (sql.Result, error)
 	exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
+}
+
+type localProfile struct {
+	*models.ProfileDataOutput
 }
 
 type service struct {
@@ -342,6 +346,81 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 	return profileData, nil
 }
 
+func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
+	if fromUUID == toUUID {
+		return
+	}
+	from, err := s.GetProfile(fromUUID, nil)
+	if err != nil {
+		return
+	}
+	to, err := s.GetProfile(toUUID, nil)
+	if err != nil {
+		return
+	}
+	if to.Name == nil || (to.Name != nil && *to.Name == "") {
+		to.Name = from.Name
+	}
+	if to.Email == nil || (to.Email != nil && *to.Email == "") {
+		to.Email = from.Email
+	}
+	if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
+		to.CountryCode = from.CountryCode
+	}
+	if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+		to.Gender = from.Gender
+		to.GenderAcc = from.GenderAcc
+	}
+	if from.IsBot != nil && *from.IsBot == 1 {
+		isBot := int64(1)
+		to.IsBot = &isBot
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	// Rollback unless tx was set to nil after successful commit
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	// Update profile and refresh after update
+	to, err = s.EditProfile(toUUID, to, true, tx)
+	if err != nil {
+		return
+	}
+	// Delete profile archiving it to profiles_archive
+	_, err = s.DeleteProfile(fromUUID, true, true, tx)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
+	fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
+	return
+}
+
+func (s *service) MoveProfile(fromUUID, toUUID string) (err error) {
+	if fromUUID == toUUID {
+		return
+	}
+	from, err := s.GetProfile(fromUUID, nil)
+	if err != nil {
+		return
+	}
+	to, err := s.GetProfile(toUUID, nil)
+	if err != nil {
+		return
+	}
+	fmt.Printf("from:%+v to:%+v\n", from, to)
+	return
+}
+
 // PutOrgDomain - add domain to organization
 func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*models.PutOrgDomainOutput, error) {
 	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
@@ -507,85 +586,6 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 		putOrgDomain.Info += ", " + info
 	}
 	return putOrgDomain, nil
-}
-
-func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
-	if fromUUID == toUUID {
-		return
-	}
-	from, err := s.GetProfile(fromUUID, nil)
-	if err != nil {
-		return
-	}
-	to, err := s.GetProfile(toUUID, nil)
-	if err != nil {
-		return
-	}
-	if to.Name == nil || (to.Name != nil && *to.Name == "") {
-		to.Name = from.Name
-	}
-	if to.Email == nil || (to.Email != nil && *to.Email == "") {
-		to.Email = from.Email
-	}
-	if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
-		to.CountryCode = from.CountryCode
-	}
-	if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
-		to.Gender = from.Gender
-		to.GenderAcc = from.GenderAcc
-	}
-	if from.IsBot != nil && *from.IsBot == 1 {
-		isBot := int64(1)
-		to.IsBot = &isBot
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
-		}
-	}()
-	// Update profile and refresh after update
-	to, err = s.EditProfile(toUUID, to, true, tx)
-	if err != nil {
-		return
-	}
-	// Delete profile archiving it to profiles_archive
-	_, err = s.DeleteProfile(fromUUID, true, true, tx)
-	if err != nil {
-		return
-	}
-	err = tx.Commit()
-	if err != nil {
-		return
-	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
-	fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
-	return
-}
-
-func (s *service) MoveProfile(fromUUID, toUUID string) (err error) {
-	if fromUUID == toUUID {
-		return
-	}
-	from, err := s.GetProfile(fromUUID, nil)
-	if err != nil {
-		return
-	}
-	to, err := s.GetProfile(toUUID, nil)
-	if err != nil {
-		return
-	}
-	fmt.Printf("from:%+v to:%+v\n", from, to)
-	return
-}
-
-type localProfile struct {
-	*models.ProfileDataOutput
 }
 
 func (p *localProfile) String() string {
