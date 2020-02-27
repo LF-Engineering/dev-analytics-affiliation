@@ -27,7 +27,7 @@ type Service interface {
 	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
 	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
 	TouchUIdentity(string, *sql.Tx) (int64, error)
-	GetIdentity(string, *sql.Tx) (*models.IdentityDataOutput, error)
+	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -103,8 +103,8 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (*models.CountryDat
 	return countryData, nil
 }
 
-func (s *service) GetIdentity(id string, tx *sql.Tx) (*models.IdentityDataOutput, error) {
-	log.Info(fmt.Sprintf("GetIdentity: id:%s tx:%v", id, tx != nil))
+func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (*models.IdentityDataOutput, error) {
+	log.Info(fmt.Sprintf("GetIdentity: id:%s missingFatal:%v tx:%v", id, missingFatal, tx != nil))
 	identityData := &models.IdentityDataOutput{}
 	db := s.db
 	rows, err := s.query(
@@ -140,9 +140,12 @@ func (s *service) GetIdentity(id string, tx *sql.Tx) (*models.IdentityDataOutput
 	if err != nil {
 		return nil, err
 	}
-	if !fetched {
+	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find identity id '%s'", id)
 		return nil, err
+	}
+	if !fetched {
+		identityData = nil
 	}
 	return identityData, nil
 }
@@ -187,6 +190,9 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (*model
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find profile uuid '%s'", uuid)
 		return nil, err
+	}
+	if !fetched {
+		profileData = nil
 	}
 	return profileData, nil
 }
@@ -399,30 +405,13 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	if fromUUID == toUUID {
 		return
 	}
-	from, err := s.GetProfile(fromUUID, true, nil)
+	from, err := s.GetProfile(fromUUID, false, nil)
 	if err != nil {
 		return
 	}
-	to, err := s.GetProfile(toUUID, true, nil)
+	to, err := s.GetProfile(toUUID, false, nil)
 	if err != nil {
 		return
-	}
-	if to.Name == nil || (to.Name != nil && *to.Name == "") {
-		to.Name = from.Name
-	}
-	if to.Email == nil || (to.Email != nil && *to.Email == "") {
-		to.Email = from.Email
-	}
-	if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
-		to.CountryCode = from.CountryCode
-	}
-	if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
-		to.Gender = from.Gender
-		to.GenderAcc = from.GenderAcc
-	}
-	if from.IsBot != nil && *from.IsBot == 1 {
-		isBot := int64(1)
-		to.IsBot = &isBot
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -434,28 +423,47 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 			tx.Rollback()
 		}
 	}()
-	// Update profile and refresh after update
-	to, err = s.EditProfile(toUUID, to, true, tx)
-	if err != nil {
-		return
+	if from != nil && to != nil {
+		if to.Name == nil || (to.Name != nil && *to.Name == "") {
+			to.Name = from.Name
+		}
+		if to.Email == nil || (to.Email != nil && *to.Email == "") {
+			to.Email = from.Email
+		}
+		if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
+			to.CountryCode = from.CountryCode
+		}
+		if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+			to.Gender = from.Gender
+			to.GenderAcc = from.GenderAcc
+		}
+		if from.IsBot != nil && *from.IsBot == 1 {
+			isBot := int64(1)
+			to.IsBot = &isBot
+		}
+		// Update profile and refresh after update
+		to, err = s.EditProfile(toUUID, to, true, tx)
+		if err != nil {
+			return
+		}
+		// Delete profile archiving it to profiles_archive
+		_, err = s.DeleteProfile(fromUUID, true, true, tx)
+		if err != nil {
+			return
+		}
 	}
-	// Delete profile archiving it to profiles_archive
-	_, err = s.DeleteProfile(fromUUID, true, true, tx)
-	if err != nil {
-		return
-	}
+	// FIXME continue
 	err = tx.Commit()
 	if err != nil {
 		return
 	}
 	// Set tx to nil, so deferred rollback will not happen
 	tx = nil
-	//fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
 	return
 }
 
 func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
-	from, err := s.GetIdentity(fromID, nil)
+	from, err := s.GetIdentity(fromID, true, nil)
 	if err != nil {
 		return
 	}
@@ -495,7 +503,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	}
 	// Set tx to nil, so deferred rollback will not happen
 	tx = nil
-	fmt.Printf("from:%+v to:%+v\n", &localIdentity{from}, &localProfile{to})
+	//fmt.Printf("from:%+v to:%+v\n", &localIdentity{from}, &localProfile{to})
 	return
 }
 
@@ -728,7 +736,6 @@ func (p *localIdentity) String() string {
 
 func (s *service) queryOut(query string, args ...interface{}) {
 	log.Info(query)
-	fmt.Printf("%+v\n", args)
 	if len(args) > 0 {
 		s := ""
 		for vi, vv := range args {

@@ -257,7 +257,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 	}
 	profileData, err := s.shDB.GetProfile(toUUID, true, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, apiName)
+		return nil, errors.Wrap(err, "FIXME:"+apiName)
 	}
 	return profileData, nil
 }
@@ -294,7 +294,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 	}
 	profileData, err := s.shDB.GetProfile(toUUID, true, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, apiName)
+		return nil, errors.Wrap(err, "FIXME:"+apiName)
 	}
 	return profileData, nil
 }
