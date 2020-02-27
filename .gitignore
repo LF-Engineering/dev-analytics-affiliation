@@ -46,7 +46,7 @@ main
 
 # Sensitive files
 *.dump
-*.sql
+sh/*.sql
 *.token
 *.domain
 *.client_id
