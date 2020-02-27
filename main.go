@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
@@ -56,6 +57,14 @@ func initAPIDB() *sqlx.DB {
 
 func initSHDB() *sqlx.DB {
 	dbURL := os.Getenv("SH_DB_ENDPOINT")
+	if !strings.Contains(dbURL, "parseTime=true") {
+		if strings.Contains(dbURL, "?") {
+			dbURL += "&parseTime=true"
+		} else {
+			dbURL += "?parseTime=true"
+		}
+	}
+	fmt.Printf(">>>> %s\n", dbURL)
 	d, err := sqlx.Connect("mysql", dbURL)
 	if err != nil {
 		log.Panicf("unable to connect to affiliation database: %v", err)

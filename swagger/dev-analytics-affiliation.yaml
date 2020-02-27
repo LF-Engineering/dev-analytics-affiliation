@@ -117,12 +117,12 @@ paths:
           in: path
           type: string
           required: true
-          description: UUID to merge from
+          description: Profile UUID to merge from
         - name: toUUID
           in: path
           type: string
           required: true
-          description: UUID to merge to
+          description: Profile UUID to merge to
         - name: projectSlug
           in: path
           type: string
@@ -132,15 +132,15 @@ paths:
           in: header
           type: string
           required: true
-  /affiliation/{projectSlug}/move_profile/{fromUUID}/{toUUID}:
+  /affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}:
     put:
-      summary: Move profile from fromUUID to toUUID
-      operationId: putMoveProfile
+      summary: Move identity from fromID to profile toUUID
+      operationId: putMoveIdentity
       produces:
         - application/json
       responses:
         "200":
-          description: "Successfully moved profile"
+          description: "Successfully moved identity"
           headers:
             X-REQUEST-ID:
               type: string
@@ -159,16 +159,16 @@ paths:
         - affiliation
         - merge
       parameters:
-        - name: fromUUID
+        - name: fromID
           in: path
           type: string
           required: true
-          description: UUID to merge from
+          description: Identity ID to merge from
         - name: toUUID
           in: path
           type: string
           required: true
-          description: UUID to merge to
+          description: Profile UUID to merge to
         - name: projectSlug
           in: path
           type: string
@@ -266,6 +266,37 @@ definitions:
       alpha3:
         type: string
         example: POL
+  identity-data-output:
+    title: Identity data output
+    description: Identity data
+    type: object
+    properties:
+      id:
+        type: string
+        example: 16fe424acecf8d614d102fc0ece919a22200481d
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      source:
+        type: string
+        example: github
+      name:
+        type: string
+        x-nullable: true
+        example: Lukasz Gryglicki
+      username:
+        type: string
+        x-nullable: true
+        example: lukaszgryglicki
+      email:
+        type: string
+        x-nullable: true
+        example: lgryglicki@cncf.io
+      last_modified:
+        type: string
+        format: date-time
+        x-nullable: true
+        example: '2019-09-02 03:00:33.000000'
 schemes:
   - http
 consumes:

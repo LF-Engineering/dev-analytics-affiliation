@@ -27,10 +27,11 @@ type Service interface {
 	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
 	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
 	TouchUIdentity(string, *sql.Tx) (int64, error)
+	GetIdentity(string, *sql.Tx) (*models.IdentityDataOutput, error)
 
 	// API endpoints
 	MergeProfiles(string, string) error
-	MoveProfile(string, string) error
+	MoveIdentity(string, string) error
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 
 	// Internal methods
@@ -45,6 +46,10 @@ type Service interface {
 
 type localProfile struct {
 	*models.ProfileDataOutput
+}
+
+type localIdentity struct {
+	*models.IdentityDataOutput
 }
 
 type service struct {
@@ -98,6 +103,50 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (*models.CountryDat
 	return countryData, nil
 }
 
+func (s *service) GetIdentity(id string, tx *sql.Tx) (*models.IdentityDataOutput, error) {
+	log.Info(fmt.Sprintf("GetIdentity: id:%s tx:%v", id, tx != nil))
+	identityData := &models.IdentityDataOutput{}
+	db := s.db
+	rows, err := s.query(
+		db,
+		tx,
+		"select id, uuid, source, name, username, email, last_modified from identities where id = ? limit 1",
+		id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&identityData.ID,
+			&identityData.UUID,
+			&identityData.Source,
+			&identityData.Name,
+			&identityData.Username,
+			&identityData.Email,
+			&identityData.LastModified,
+		)
+		if err != nil {
+			return nil, err
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if !fetched {
+		err = fmt.Errorf("cannot find identity id '%s'", id)
+		return nil, err
+	}
+	return identityData, nil
+}
+
 func (s *service) GetProfile(uuid string, tx *sql.Tx) (*models.ProfileDataOutput, error) {
 	log.Info(fmt.Sprintf("GetProfile: uuid:%s tx:%v", uuid, tx != nil))
 	profileData := &models.ProfileDataOutput{}
@@ -136,7 +185,7 @@ func (s *service) GetProfile(uuid string, tx *sql.Tx) (*models.ProfileDataOutput
 		return nil, err
 	}
 	if !fetched {
-		err = fmt.Errorf("cannot find profile '%s'", uuid)
+		err = fmt.Errorf("cannot find profile uuid '%s'", uuid)
 		return nil, err
 	}
 	return profileData, nil
@@ -405,11 +454,8 @@ func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
 	return
 }
 
-func (s *service) MoveProfile(fromUUID, toUUID string) (err error) {
-	if fromUUID == toUUID {
-		return
-	}
-	from, err := s.GetProfile(fromUUID, nil)
+func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
+	from, err := s.GetIdentity(fromID, nil)
 	if err != nil {
 		return
 	}
@@ -417,7 +463,7 @@ func (s *service) MoveProfile(fromUUID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
-	fmt.Printf("from:%+v to:%+v\n", from, to)
+	fmt.Printf("from:%+v to:%+v\n", &localIdentity{from}, &localProfile{to})
 	return
 }
 
@@ -619,6 +665,31 @@ func (p *localProfile) String() string {
 		s += "CountryCode:nil}"
 	} else {
 		s += "CountryCode:" + *p.CountryCode + "}"
+	}
+	return s
+}
+
+func (p *localIdentity) String() string {
+	s := "{ID:" + p.ID + ",UUID:" + p.UUID + ",Source:" + p.Source + ","
+	if p.Name == nil {
+		s += "Name:nil,"
+	} else {
+		s += "Name:" + *p.Name + ","
+	}
+	if p.Username == nil {
+		s += "Username:nil,"
+	} else {
+		s += "Username:" + *p.Username + ","
+	}
+	if p.Email == nil {
+		s += "Email:nil,"
+	} else {
+		s += "Email:" + *p.Email + ","
+	}
+	if p.LastModified == nil {
+		s += "LastModified:nil}"
+	} else {
+		s += fmt.Sprintf("LastModified: %+v}", *p.LastModified)
 	}
 	return s
 }

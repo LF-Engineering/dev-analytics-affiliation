@@ -63,9 +63,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutMergeProfilesOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
-	api.AffiliationPutMoveProfileHandler = affiliation.PutMoveProfileHandlerFunc(
-		func(params affiliation.PutMoveProfileParams) middleware.Responder {
-			log.Info("entering PutMoveProfileHandlerFunc")
+	api.AffiliationPutMoveIdentityHandler = affiliation.PutMoveIdentityHandlerFunc(
+		func(params affiliation.PutMoveIdentityParams) middleware.Responder {
+			log.Info("entering PutMoveIdentityHandlerFunc")
 			ctx := params.HTTPRequest.Context()
 
 			var nilRequestID *string
@@ -74,19 +74,19 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-			}).Info("PutMoveProfileHandlerFunc")
+			}).Info("PutMoveIdentityHandlerFunc")
 
-			result, err := service.PutMoveProfile(ctx, &params)
+			result, err := service.PutMoveIdentity(ctx, &params)
 			if err != nil {
-				return swagger.ErrorHandler("PutMoveProfile", err)
+				return swagger.ErrorHandler("PutMoveIdentity", err)
 			}
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 				"Payload":      result,
-			}).Info("PutMoveProfileHandlerFunc")
+			}).Info("PutMoveIdentityHandlerFunc")
 
-			return affiliation.NewPutMoveProfileOK().WithXREQUESTID(requestID).WithPayload(result)
+			return affiliation.NewPutMoveIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
 }

@@ -11,12 +11,12 @@ then
 fi
 if [ -z "$2" ]
 then
-  echo "$0: please specify from uuid as a 2nd arg"
+  echo "$0: please specify from identity id as a 2nd arg"
   exit 3
 fi
 if [ -z "$3" ]
 then
-  echo "$0: please specify to uuid as a 3rd arg"
+  echo "$0: please specify to uidentity uuid as a 3rd arg"
   exit 4
 fi
 
@@ -38,12 +38,12 @@ rawurlencode() {
 }
 
 project=$(rawurlencode "${1}")
-from_uuid=$(rawurlencode "${2}")
+from_id=$(rawurlencode "${2}")
 to_uuid=$(rawurlencode "${3}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo "$project $from_uuid $to_uuid"
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/move_profile/${from_uuid}/${to_uuid}"
+  echo "$project $from_id $to_uuid"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}"
 fi
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/move_profile/${from_uuid}/${to_uuid}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}"

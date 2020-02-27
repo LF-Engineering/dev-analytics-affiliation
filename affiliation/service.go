@@ -27,7 +27,7 @@ const (
 type Service interface {
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	PutMergeProfiles(ctx context.Context, in *affiliation.PutMergeProfilesParams) (*models.ProfileDataOutput, error)
-	PutMoveProfile(ctx context.Context, in *affiliation.PutMoveProfileParams) (*models.ProfileDataOutput, error)
+	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 }
@@ -161,10 +161,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PutMergeProfiles"
-	case *affiliation.PutMoveProfileParams:
+	case *affiliation.PutMoveIdentityParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
-		apiName = "PutMoveProfile"
+		apiName = "PutMoveIdentity"
 	default:
 		err = errors.Wrap(fmt.Errorf("unknown params type"), "checkTokenAndPermission")
 		return
@@ -240,8 +240,8 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 // ===========================================================================
 // /v1/affiliation/{projectSlug}/merge_profiles/{fromUUID}/{toUUID}:
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
-// {fromUUID} - required path parameter: uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
-// {toUUID} - required path parameter: uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
+// {fromUUID} - required path parameter: uidentity/profile uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
+// {toUUID} - required path parameter: uidentity/profile uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
 func (s *service) PutMergeProfiles(ctx context.Context, params *affiliation.PutMergeProfilesParams) (*models.ProfileDataOutput, error) {
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
@@ -263,33 +263,33 @@ func (s *service) PutMergeProfiles(ctx context.Context, params *affiliation.PutM
 	return profileData, nil
 }
 
-// PutMoveProfile: API
-// ===========================================================================
+// PutMoveIdentity: API
+// ==================================================================================
 // Move Identity to New Profile | Unmerge Identities and Profiles
-// This function shifts the identity identified by 'fromUUID' to
-// the unique identity 'toUUID'.
+// This function shifts the identity identified by 'fromID' to
+// the unique identity/profile 'toUUID'.
 // When 'toUUID' is the unique identity that is currently related
-// to 'fromUUID', the action does not have any effect.
-// In the case of 'fromUUID' and 'toUUID' have equal values and the
+// to 'fromID', the action does not have any effect.
+// In the case of 'fromID' and 'toUUID' have equal values and the
 // unique identity does not exist, a new unique identity will be
-// created and the identity will be moved to it.
-// ===========================================================================
-// NOTE: UUIDs used here refer to `identities` table
-// ===========================================================================
-// /v1/affiliation/{projectSlug}/move_profile/{fromUUID}/{toUUID}:
+// created and the identity will be moved to it (unmerged).
+// ==================================================================================
+// NOTE: fromID refers to `identities`.`id` while toUUID refers to `profiles`.`uuid`
+// ==================================================================================
+// /v1/affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}:
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
-// {fromUUID} - required path parameter: uuid to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
-// {toUUID} - required path parameter: uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
-func (s *service) PutMoveProfile(ctx context.Context, params *affiliation.PutMoveProfileParams) (*models.ProfileDataOutput, error) {
+// {fromID} - required path parameter: identity id to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
+// {toUUID} - required path parameter: uidentity/profile uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
+func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error) {
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	if err != nil {
 		return nil, err
 	}
 	// Do the actual API call
-	fromUUID := params.FromUUID
+	fromID := params.FromID
 	toUUID := params.ToUUID
-	err = s.shDB.MoveProfile(fromUUID, toUUID)
+	err = s.shDB.MoveIdentity(fromID, toUUID)
 	if err != nil {
 		return nil, errors.Wrap(err, apiName)
 	}
@@ -297,6 +297,6 @@ func (s *service) PutMoveProfile(ctx context.Context, params *affiliation.PutMov
 	if err != nil {
 		return nil, errors.Wrap(err, apiName)
 	}
-	fmt.Printf("api:%s project:%s user:%s from_uuid:%s to_uuid:%s\n", apiName, project, username, fromUUID, toUUID)
+	fmt.Printf("api:%s project:%s user:%s from_id:%s to_uuid:%s\n", apiName, project, username, fromID, toUUID)
 	return profileData, nil
 }

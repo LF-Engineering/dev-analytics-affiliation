@@ -11,12 +11,12 @@ then
 fi
 if [ -z "$2" ]
 then
-  echo "$0: please specify from uuid as a 2nd arg"
+  echo "$0: please specify from uidentity uuid as a 2nd arg"
   exit 3
 fi
 if [ -z "$3" ]
 then
-  echo "$0: please specify to uuid as a 3rd arg"
+  echo "$0: please specify to uidentity uuid as a 3rd arg"
   exit 4
 fi
 
