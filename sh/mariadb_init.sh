@@ -21,4 +21,5 @@ then
 else
   mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}" < sh/sh_full.sql
 fi
+mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}" < sh/sh_full.sql < sql/structure_updates.sql
 echo "show databases;" | mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}"

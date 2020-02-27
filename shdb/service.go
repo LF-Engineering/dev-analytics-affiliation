@@ -22,6 +22,10 @@ type Service interface {
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
 	GetProfile(string, *sql.Tx) (*models.ProfileDataOutput, error)
 	EditProfile(string, *models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
+	DeleteProfile(string, bool, bool, *sql.Tx) (bool, error)
+	ArchiveProfile(string, *sql.Tx) (bool, error)
+	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
+	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
 	TouchUIdentity(string, *sql.Tx) (int64, error)
 
 	// API endpoints
@@ -143,8 +147,109 @@ func (s *service) TouchUIdentity(uuid string, tx *sql.Tx) (int64, error) {
 	return res.RowsAffected()
 }
 
+func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool, tx *sql.Tx) (bool, error) {
+	log.Info(fmt.Sprintf("DeleteProfileArchive: uuid:%s missingFatal:%v onlyLast:%v tx:%v", uuid, missingFatal, onlyLast, tx != nil))
+	var (
+		err error
+		res sql.Result
+	)
+	if onlyLast {
+		del := "delete from profiles_archive where uuid = ? and archived_at = (" +
+			"select max(archived_at) from profiles_archive where uuid = ?)"
+		res, err = s.exec(s.db, tx, del, uuid, uuid)
+	} else {
+		del := "delete from profiles_archive where uuid = ?"
+		res, err = s.exec(s.db, tx, del, uuid)
+	}
+	if err != nil {
+		return false, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting archived profile uuid '%s' had no effect", uuid)
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (bool, error) {
+	log.Info(fmt.Sprintf("UnarchiveProfile: uuid:%s replace:%v tx:%v", uuid, replace, tx != nil))
+	if replace {
+		_, err := s.DeleteProfile(uuid, false, false, tx)
+		if err != nil {
+			return false, err
+		}
+	}
+	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		"where uuid = ? order by archived_at desc limit 1"
+	res, err := s.exec(s.db, tx, insert, uuid)
+	if err != nil {
+		return false, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if affected == 0 {
+		err = fmt.Errorf("unachiving uuid '%s' created no data", uuid)
+		return false, err
+	}
+	_, err = s.DeleteProfileArchive(uuid, true, true, tx)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *service) ArchiveProfile(uuid string, tx *sql.Tx) (bool, error) {
+	log.Info(fmt.Sprintf("ArchiveProfile: uuid:%s tx:%v", uuid, tx != nil))
+	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1"
+	res, err := s.exec(s.db, tx, insert, uuid)
+	if err != nil {
+		return false, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if affected == 0 {
+		err = fmt.Errorf("archiving uuid '%s' created no data", uuid)
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql.Tx) (bool, error) {
+	log.Info(fmt.Sprintf("DeleteProfile: uuid:%s archive:%v missingFatal:%v tx:%v", uuid, archive, missingFatal, tx != nil))
+	if archive {
+		_, err := s.ArchiveProfile(uuid, tx)
+		if err != nil {
+			return false, err
+		}
+	}
+	del := "delete from profiles where uuid = ?"
+	res, err := s.exec(s.db, tx, del, uuid)
+	if err != nil {
+		return false, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting uuid '%s' had no effect", uuid)
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
-	log.Info(fmt.Sprintf("EditProfile: uuid:%s data:%+v tx:%v", uuid, &localProfile{profileData}, tx != nil))
+	log.Info(fmt.Sprintf("EditProfile: uuid:%s data:%+v refresh:%v tx:%v", uuid, &localProfile{profileData}, refresh, tx != nil))
 	columns := []string{}
 	values := []interface{}{}
 	if profileData.Name != nil && *profileData.Name != "" {
@@ -443,7 +548,13 @@ func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
 			tx.Rollback()
 		}
 	}()
+	// Update profile and refresh after update
 	to, err = s.EditProfile(toUUID, to, true, tx)
+	if err != nil {
+		return
+	}
+	// Delete profile archiving it to profiles_archive
+	_, err = s.DeleteProfile(fromUUID, true, true, tx)
 	if err != nil {
 		return
 	}
