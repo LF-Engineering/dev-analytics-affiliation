@@ -23,7 +23,8 @@ run: fmt
 	./main
 
 clean:
-	rm -rf ./bin
+	rm -rf ./bin ./gen
+	mkdir gen
 
 setup: setup_dev setup_deploy
 

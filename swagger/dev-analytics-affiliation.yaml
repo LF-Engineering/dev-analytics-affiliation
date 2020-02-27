@@ -221,7 +221,7 @@ definitions:
         example: academy-software-foundation/opencue
   profile-data-output:
     title: Profile data output
-    description: toUUID profile data
+    description: Profile data
     type: object
     properties:
       uuid:
@@ -229,22 +229,43 @@ definitions:
         example: 00024380e0d8d854b42bf505333f245de77bd71d
       name:
         type: string
+        x-nullable: true
         example: lukaszgryglicki
       email:
         type: string
+        x-nullable: true
         example: lgryglicki@cncf.io
       gender:
         type: string
         example: male
+        x-nullable: true
       gender_acc:
-        type: string
+        type: integer
         example: 100
+        x-nullable: true
       is_bot:
-        type: string
-        example: 0
+        type: integer
+        # database doesn't have null, but we can use to to call Editprofile and skip updating is_bot
+        x-nullable: true  
+        example: 1
       country_code:
         type: string
+        x-nullable: true
         example: PL
+  country-data-output:
+    title: Country data output
+    description: Country data
+    type: object
+    properties:
+      code:
+        type: string
+        example: PL
+      name:
+        type: string
+        example: Poland
+      alpha3:
+        type: string
+        example: POL
 schemes:
   - http
 consumes:

@@ -253,7 +253,7 @@ func (s *service) PutMergeProfiles(ctx context.Context, params *affiliation.PutM
 	if err != nil {
 		return nil, errors.Wrap(err, apiName)
 	}
-	profileData, err := s.shDB.GetProfile(toUUID)
+	profileData, err := s.shDB.GetProfile(toUUID, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, apiName)
 	}
@@ -282,7 +282,7 @@ func (s *service) PutMoveProfile(ctx context.Context, params *affiliation.PutMov
 	if err != nil {
 		return nil, errors.Wrap(err, apiName)
 	}
-	profileData, err := s.shDB.GetProfile(toUUID)
+	profileData, err := s.shDB.GetProfile(toUUID, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, apiName)
 	}
