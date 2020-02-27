@@ -50,3 +50,11 @@ To debug what SortingHat package executes try:
   - `vim api.py`, search for `/merge_unique_identities`.
   - Apply `import pdb` and `pdb.set_trace()` to observe.
   - Run: `sortinghat --host 172.17.0.1 --port 13306 -u sortinghat -p pwd -d sortinghat merge 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a`.
+- You can shell to that container from another terminal:
+  - `docker container ls` to get running container ID.
+  - `docker exec -it b6d90ea6be2f /bin/bash`.
+- Vim is auto selecting using console mouse which can be turned off (together with turning syntax on): `vim ~/.vimrc`:
+```
+set mouse=
+syntax on
+```

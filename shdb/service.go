@@ -18,6 +18,8 @@ import (
 
 type Service interface {
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
+	MergeProfiles(string, string) error
+	MoveProfile(string, string) error
 	GetProfile(string) (*models.ProfileDataOutput, error)
 }
 
@@ -30,6 +32,50 @@ func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
+}
+
+func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
+	if fromUUID == toUUID {
+		return
+	}
+	from, err := s.GetProfile(fromUUID)
+	if err != nil {
+		return
+	}
+	to, err := s.GetProfile(toUUID)
+	if err != nil {
+		return
+	}
+	fmt.Printf("from:%s to:%s\n", from, to)
+	con, err := db.Begin()
+	if err != nil {
+		return
+	}
+
+  // FIXME: If all is fine uncomment
+  /*
+	err = con.Commit()
+	if err != nil {
+		return nil, err
+	}
+  */
+	return
+}
+
+func (s *service) MoveProfile(fromUUID, toUUID string) (err error) {
+	if fromUUID == toUUID {
+		return
+	}
+	from, err := s.GetProfile(fromUUID)
+	if err != nil {
+		return
+	}
+	to, err := s.GetProfile(toUUID)
+	if err != nil {
+		return
+	}
+	fmt.Printf("from:%s to:%s\n", from, to)
+	return
 }
 
 func (s *service) GetProfile(uuid string) (*models.ProfileDataOutput, error) {
