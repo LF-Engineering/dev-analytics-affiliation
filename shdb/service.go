@@ -21,7 +21,8 @@ type Service interface {
 	// External CRUD methods
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
 	GetProfile(string, *sql.Tx) (*models.ProfileDataOutput, error)
-	EditProfile(string, *models.ProfileDataOutput, *sql.Tx) (*models.ProfileDataOutput, error)
+	EditProfile(string, *models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
+	TouchUIdentity(string, *sql.Tx) (int64, error)
 
 	// API endpoints
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
@@ -133,8 +134,17 @@ func (s *service) GetProfile(uuid string, tx *sql.Tx) (*models.ProfileDataOutput
 	return profileData, nil
 }
 
-func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput, tx *sql.Tx) (*models.ProfileDataOutput, error) {
-	log.Info(fmt.Sprintf("EditProfile: uuid:%s data:%+v tx:%v", uuid, profileData, tx != nil))
+func (s *service) TouchUIdentity(uuid string, tx *sql.Tx) (int64, error) {
+	log.Info(fmt.Sprintf("TouchUIdentity: uuid:%s tx:%v", uuid, tx != nil))
+	res, err := s.exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
+	log.Info(fmt.Sprintf("EditProfile: uuid:%s data:%+v tx:%v", uuid, &localProfile{profileData}, tx != nil))
 	columns := []string{}
 	values := []interface{}{}
 	if profileData.Name != nil && *profileData.Name != "" {
@@ -203,9 +213,25 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 		}
 		if affected > 1 {
 			return nil, fmt.Errorf("profile '%+v' update affected %d rows", &localProfile{profileData}, affected)
+		} else if affected == 1 {
+			affected2, err := s.TouchUIdentity(profileData.UUID, tx)
+			if err != nil {
+				return nil, err
+			}
+			if affected2 != 1 {
+				return nil, fmt.Errorf("profile '%+v' uidentity update affected %d rows", &localProfile{profileData}, affected2)
+			}
+		} else {
+			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", &localProfile{profileData}))
 		}
-		if affected == 1 {
-			//uidentity.last_modified = datetime.datetime.utcnow()
+	} else {
+		log.Info(fmt.Sprintf("EditProfile: profile '%+v' nothing to update", &localProfile{profileData}))
+	}
+	if refresh {
+		var err error
+		profileData, err = s.GetProfile(profileData.UUID, tx)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return profileData, nil
@@ -417,20 +443,17 @@ func (s *service) MergeProfiles(fromUUID, toUUID string) (err error) {
 			tx.Rollback()
 		}
 	}()
-	to, err = s.EditProfile(toUUID, to, tx)
+	to, err = s.EditProfile(toUUID, to, true, tx)
 	if err != nil {
 		return
 	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	fmt.Printf("from:%+v to:%+v\n", &localProfile{from}, &localProfile{to})
-	// FIXME: If all is fine uncomment
-	/*
-				err = tx.Commit()
-				if err != nil {
-					return nil, err
-				}
-		    // Set tx to nil, so deferred rollback will not happen
-		    tx = nil
-	*/
 	return
 }
 
