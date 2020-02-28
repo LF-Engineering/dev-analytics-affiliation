@@ -38,7 +38,7 @@ type Service interface {
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	// Other
-	MoveIdenitity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
+	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -46,6 +46,10 @@ type Service interface {
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 
 	// Internal methods
+	now() *strfmt.DateTime
+	toLocalProfile(*models.ProfileDataOutput) *localProfile
+	toLocalIdentity(*models.IdentityDataOutput) *localIdentity
+	toLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *localUniqueIdentity
 	queryOut(string, ...interface{})
 	queryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
 	queryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
@@ -53,7 +57,6 @@ type Service interface {
 	execDB(*sqlx.DB, string, ...interface{}) (sql.Result, error)
 	execTX(*sql.Tx, string, ...interface{}) (sql.Result, error)
 	exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
-	now() *strfmt.DateTime
 }
 
 type service struct {
@@ -123,10 +126,10 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 	return
 }
 
-func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("MoveIdentity: identity:%+v uniqueIdentity:%+v tx:%v", &localIdentity{identity}, &localUniqueIdentity{uniqueIdentity}, tx != nil))
+func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("MoveIdentityToUniqueIdentity: identity:%+v uniqueIdentity:%+v tx:%v", s.toLocalIdentity(identity), s.toLocalUniqueIdentity(uniqueIdentity), tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("MoveIdentity(exit): identity:%+v uniqueIdentity:%+v tx:%v ok:%v err:%v", &localIdentity{identity}, &localUniqueIdentity{uniqueIdentity}, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("MoveIdentityToUniqueIdentity(exit): identity:%+v uniqueIdentity:%+v tx:%v ok:%v err:%v", s.toLocalIdentity(identity), s.toLocalUniqueIdentity(uniqueIdentity), tx != nil, ok, err))
 	}()
 	if identity.UUID == uniqueIdentity.UUID {
 		return
@@ -146,7 +149,7 @@ func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdent
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", &localUniqueIdentity{oldUniqueIdentity}, affected)
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(oldUniqueIdentity), affected)
 		return
 	}
 	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
@@ -154,11 +157,11 @@ func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdent
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", &localUniqueIdentity{uniqueIdentity}, affected)
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(uniqueIdentity), affected)
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' identity update affected %d rows", &localIdentity{identity}, affected)
+		err = fmt.Errorf("'%+v' identity update affected %d rows", s.toLocalIdentity(identity), affected)
 		return
 	}
 	ok = true
@@ -166,16 +169,16 @@ func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdent
 }
 
 func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataOutput, refresh bool, tx *sql.Tx) (uniqueIdentity *models.UniqueIdentityDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddUniqueIdentity: inUniqueIdentity:%+v refresh:%v tx:%v", &localUniqueIdentity{inUniqueIdentity}, refresh, tx != nil))
+	log.Info(fmt.Sprintf("AddUniqueIdentity: inUniqueIdentity:%+v refresh:%v tx:%v", s.toLocalUniqueIdentity(inUniqueIdentity), refresh, tx != nil))
 	uniqueIdentity = inUniqueIdentity
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"AddUniqueIdentity(exit): inUniqueIdentity:%+v refresh:%v tx:%v uniqueIdentity:%+v err:%v",
-				&localUniqueIdentity{inUniqueIdentity},
+				s.toLocalUniqueIdentity(inUniqueIdentity),
 				refresh,
 				tx != nil,
-				&localUniqueIdentity{uniqueIdentity},
+				s.toLocalUniqueIdentity(uniqueIdentity),
 				err,
 			),
 		)
@@ -214,7 +217,7 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 				uuid,
 				missingFatal,
 				tx != nil,
-				&localUniqueIdentity{uniqueIdentityData},
+				s.toLocalUniqueIdentity(uniqueIdentityData),
 				err,
 			),
 		)
@@ -267,7 +270,7 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identit
 				id,
 				missingFatal,
 				tx != nil,
-				&localIdentity{identityData},
+				s.toLocalIdentity(identityData),
 				err,
 			),
 		)
@@ -325,7 +328,7 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 				uuid,
 				missingFatal,
 				tx != nil,
-				&localProfile{profileData},
+				s.toLocalProfile(profileData),
 				err,
 			),
 		)
@@ -515,22 +518,22 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql
 }
 
 func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
-	log.Info(fmt.Sprintf("EditIdentity: inIdentityData:%+v refresh:%v tx:%v", &localIdentity{inIdentityData}, refresh, tx != nil))
+	log.Info(fmt.Sprintf("EditIdentity: inIdentityData:%+v refresh:%v tx:%v", s.toLocalIdentity(inIdentityData), refresh, tx != nil))
 	identityData = inIdentityData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"EditIdentity(exit): inIdentityData:%+v refresh:%v tx:%v identityData:%+v err:%v",
-				&localIdentity{inIdentityData},
+				s.toLocalIdentity(inIdentityData),
 				refresh,
 				tx != nil,
-				&localIdentity{identityData},
+				s.toLocalIdentity(identityData),
 				err,
 			),
 		)
 	}()
 	if identityData.ID == "" || identityData.UUID == "" || identityData.Source == "" {
-		err = fmt.Errorf("identity '%+v' missing id or uuid or source", &localIdentity{identityData})
+		err = fmt.Errorf("identity '%+v' missing id or uuid or source", s.toLocalIdentity(identityData))
 		identityData = nil
 		return
 	}
@@ -551,7 +554,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 		columns = append(columns, "email")
 		values = append(values, *identityData.Email)
 	}
-	update := "aupdate identities set "
+	update := "update identities set "
 	for _, column := range columns {
 		update += fmt.Sprintf("%s = ?, ", column)
 	}
@@ -572,7 +575,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 		return
 	}
 	if affected > 1 {
-		err = fmt.Errorf("identity '%+v' update affected %d rows", &localIdentity{identityData}, affected)
+		err = fmt.Errorf("identity '%+v' update affected %d rows", s.toLocalIdentity(identityData), affected)
 		identityData = nil
 		return
 	} else if affected == 1 {
@@ -584,12 +587,12 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 			return
 		}
 		if affected2 != 1 {
-			err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", &localIdentity{identityData}, affected2)
+			err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.toLocalIdentity(identityData), affected2)
 			identityData = nil
 			return
 		}
 	} else {
-		log.Info(fmt.Sprintf("EditIdentity: identity '%+v' update didn't affected any rows", &localIdentity{identityData}))
+		log.Info(fmt.Sprintf("EditIdentity: identity '%+v' update didn't affected any rows", s.toLocalIdentity(identityData)))
 	}
 	if refresh {
 		identityData, err = s.GetIdentity(identityData.ID, true, tx)
@@ -602,22 +605,22 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 }
 
 func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
-	log.Info(fmt.Sprintf("EditProfile: inProfileData:%+v refresh:%v tx:%v", &localProfile{inProfileData}, refresh, tx != nil))
+	log.Info(fmt.Sprintf("EditProfile: inProfileData:%+v refresh:%v tx:%v", s.toLocalProfile(inProfileData), refresh, tx != nil))
 	profileData = inProfileData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"EditProfile(exit): inProfileData:%+v refresh:%v tx:%v profileData:%+v err:%v",
-				&localProfile{inProfileData},
+				s.toLocalProfile(inProfileData),
 				refresh,
 				tx != nil,
-				&localProfile{profileData},
+				s.toLocalProfile(profileData),
 				err,
 			),
 		)
 	}()
 	if profileData.UUID == "" {
-		err = fmt.Errorf("profile '%+v' missing uuid", &localProfile{profileData})
+		err = fmt.Errorf("profile '%+v' missing uuid", s.toLocalProfile(profileData))
 		profileData = nil
 		return
 	}
@@ -634,7 +637,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 	// Database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
 	if profileData.IsBot != nil {
 		if *profileData.IsBot != 0 && *profileData.IsBot != 1 {
-			err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", &localProfile{profileData})
+			err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", s.toLocalProfile(profileData))
 			profileData = nil
 			return
 		}
@@ -652,7 +655,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 	}
 	if profileData.Gender != nil {
 		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", &localProfile{profileData})
+			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.toLocalProfile(profileData))
 			profileData = nil
 			return
 		}
@@ -663,7 +666,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			values = append(values, 100)
 		} else {
 			if *profileData.GenderAcc < 1 || *profileData.GenderAcc > 100 {
-				err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", &localProfile{profileData})
+				err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.toLocalProfile(profileData))
 				profileData = nil
 				return
 			}
@@ -671,7 +674,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		}
 	}
 	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", &localProfile{profileData})
+		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", s.toLocalProfile(profileData))
 		profileData = nil
 		return
 	}
@@ -700,7 +703,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			return
 		}
 		if affected > 1 {
-			err = fmt.Errorf("profile '%+v' update affected %d rows", &localProfile{profileData}, affected)
+			err = fmt.Errorf("profile '%+v' update affected %d rows", s.toLocalProfile(profileData), affected)
 			profileData = nil
 			return
 		} else if affected == 1 {
@@ -712,15 +715,15 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 				return
 			}
 			if affected2 != 1 {
-				err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", &localProfile{profileData}, affected2)
+				err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.toLocalProfile(profileData), affected2)
 				profileData = nil
 				return
 			}
 		} else {
-			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", &localProfile{profileData}))
+			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", s.toLocalProfile(profileData)))
 		}
 	} else {
-		log.Info(fmt.Sprintf("EditProfile: profile '%+v' nothing to update", &localProfile{profileData}))
+		log.Info(fmt.Sprintf("EditProfile: profile '%+v' nothing to update", s.toLocalProfile(profileData)))
 	}
 	if refresh {
 		profileData, err = s.GetProfile(profileData.UUID, true, tx)
@@ -833,7 +836,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	   for org in orgs:
 	       merge_enrollments(db, to_uuid, org)
 	*/
-	fmt.Printf("fromUU=%+v toUU=%+v\n", &localUniqueIdentity{fromUU}, &localUniqueIdentity{toUU})
+	fmt.Printf("fromUU=%+v toUU=%+v\n", s.toLocalUniqueIdentity(fromUU), s.toLocalUniqueIdentity(toUU))
 	err = tx.Commit()
 	if err != nil {
 		return
@@ -857,7 +860,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 		return
 	}
 	if to == nil && fromID != toUUID {
-		err = fmt.Errorf("profile uuid '%s' is not found and identity id is different: '%s'", toUUID, &localIdentity{from})
+		err = fmt.Errorf("profile uuid '%s' is not found and identity id is different: '%s'", toUUID, s.toLocalIdentity(from))
 		return
 	}
 	tx, err := s.db.Begin()
@@ -882,7 +885,10 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 			return
 		}
 	}
-	_, err = s.MoveIdenitity(from, to, tx)
+	_, err = s.MoveIdentityToUniqueIdentity(from, to, tx)
+	if err != nil {
+		return
+	}
 	err = tx.Commit()
 	if err != nil {
 		return
@@ -1138,6 +1144,30 @@ func (s *service) now() *strfmt.DateTime {
 	return &n
 }
 
+func (s *service) toLocalProfile(i *models.ProfileDataOutput) (o *localProfile) {
+	if i == nil {
+		return
+	}
+	o = &localProfile{i}
+	return
+}
+
+func (s *service) toLocalIdentity(i *models.IdentityDataOutput) (o *localIdentity) {
+	if i == nil {
+		return
+	}
+	o = &localIdentity{i}
+	return
+}
+
+func (s *service) toLocalUniqueIdentity(i *models.UniqueIdentityDataOutput) (o *localUniqueIdentity) {
+	if i == nil {
+		return
+	}
+	o = &localUniqueIdentity{i}
+	return
+}
+
 func (s *service) queryOut(query string, args ...interface{}) {
 	log.Info(query)
 	if len(args) > 0 {
@@ -1161,6 +1191,7 @@ func (s *service) queryOut(query string, args ...interface{}) {
 func (s *service) queryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.Query(query, args...)
 	if err != nil {
+		log.Info("queryDB failed")
 		s.queryOut(query, args...)
 	}
 	return
@@ -1169,6 +1200,7 @@ func (s *service) queryDB(db *sqlx.DB, query string, args ...interface{}) (rows 
 func (s *service) queryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.Query(query, args...)
 	if err != nil {
+		log.Info("queryTX failed")
 		s.queryOut(query, args...)
 	}
 	return
@@ -1184,6 +1216,7 @@ func (s *service) query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface
 func (s *service) execDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = db.Exec(query, args...)
 	if err != nil {
+		log.Info("execDB failed")
 		s.queryOut(query, args...)
 	}
 	return
@@ -1192,6 +1225,7 @@ func (s *service) execDB(db *sqlx.DB, query string, args ...interface{}) (res sq
 func (s *service) execTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = db.Exec(query, args...)
 	if err != nil {
+		log.Info("execTX failed")
 		s.queryOut(query, args...)
 	}
 	return
