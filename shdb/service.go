@@ -24,17 +24,21 @@ type Service interface {
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
 	// Profile
 	GetProfile(string, bool, *sql.Tx) (*models.ProfileDataOutput, error)
-	EditProfile(string, *models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
+	EditProfile(*models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	DeleteProfile(string, bool, bool, *sql.Tx) (bool, error)
 	ArchiveProfile(string, *sql.Tx) (bool, error)
 	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
 	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
 	// Identity
+	TouchIdentity(string, *sql.Tx) (int64, error)
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
+	EditIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 	// UniqueIdentity
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
+	// Other
+	MoveIdenitity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -77,18 +81,20 @@ type localUniqueIdentity struct {
 	*models.UniqueIdentityDataOutput
 }
 
-func (s *service) GetCountry(countryCode string, tx *sql.Tx) (*models.CountryDataOutput, error) {
-	log.Info(fmt.Sprintf("GetCountry: code:%s tx:%v", countryCode, tx != nil))
-	countryData := &models.CountryDataOutput{}
-	db := s.db
+func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *models.CountryDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetCountry: countryCode:%s tx:%v", countryCode, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("GetCountry(exit): countryCode:%s tx:%v countryData:%+v err:%v", countryCode, tx != nil, countryData, err))
+	}()
+	countryData = &models.CountryDataOutput{}
 	rows, err := s.query(
-		db,
+		s.db,
 		tx,
 		"select code, name, alpha3 from countries where code = ? limit 1",
 		countryCode,
 	)
 	if err != nil {
-		return nil, err
+		return
 	}
 	fetched := false
 	for rows.Next() {
@@ -98,31 +104,90 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (*models.CountryDat
 			&countryData.Alpha3,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
 		fetched = true
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if !fetched {
 		err = fmt.Errorf("cannot find country by code '%s'", countryCode)
-		return nil, err
+		return
 	}
-	return countryData, nil
+	return
+}
+
+func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("MoveIdentity: identity:%+v uniqueIdentity:%+v tx:%v", &localIdentity{identity}, &localUniqueIdentity{uniqueIdentity}, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("MoveIdentity(exit): identity:%+v uniqueIdentity:%+v tx:%v ok:%v err:%v", &localIdentity{identity}, &localUniqueIdentity{uniqueIdentity}, tx != nil, ok, err))
+	}()
+	if identity.UUID == uniqueIdentity.UUID {
+		return
+	}
+	oldUniqueIdentity, err := s.GetUniqueIdentity(identity.UUID, true, tx)
+	if err != nil {
+		return
+	}
+	identity.UUID = uniqueIdentity.UUID
+	identity, err = s.EditIdentity(identity, true, tx)
+	if err != nil {
+		return
+	}
+	affected, err := s.TouchUniqueIdentity(oldUniqueIdentity.UUID, tx)
+	if err != nil {
+		return
+	}
+	if affected != 1 {
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", &localUniqueIdentity{oldUniqueIdentity}, affected)
+		return
+	}
+	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
+	if err != nil {
+		return
+	}
+	if affected != 1 {
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", &localUniqueIdentity{uniqueIdentity}, affected)
+		return
+	}
+	affected, err = s.TouchIdentity(identity.ID, tx)
+	if err != nil {
+		return
+	}
+	if affected != 1 {
+		err = fmt.Errorf("'%+v' identity update affected %d rows", &localIdentity{identity}, affected)
+		return
+	}
+	ok = true
+	return
 }
 
 func (s *service) AddUniqueIdentity(uniqueIdentity *models.UniqueIdentityDataOutput, refresh bool, tx *sql.Tx) (*models.UniqueIdentityDataOutput, error) {
 	log.Info(fmt.Sprintf("AddUniqueIdentity: uniqueIdentity:%+v refresh:%v tx:%v", &localUniqueIdentity{uniqueIdentity}, refresh, tx != nil))
+	var err error
+	retUniqueIdentity := uniqueIdentity
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddUniqueIdentity(exit): uniqueIdentity:%+v refresh:%v tx:%v retUniqueIdentity:%+v err:%v",
+				&localUniqueIdentity{uniqueIdentity},
+				refresh,
+				tx != nil,
+				&localUniqueIdentity{retUniqueIdentity},
+				err,
+			),
+		)
+	}()
 	if uniqueIdentity.LastModified == nil {
 		uniqueIdentity.LastModified = s.now()
 	}
-	_, err := s.exec(
+	_, err = s.exec(
 		s.db,
 		tx,
 		"insert into uidentities(uuid, last_modified) select ?, str_to_date(?, ?)",
@@ -131,30 +196,34 @@ func (s *service) AddUniqueIdentity(uniqueIdentity *models.UniqueIdentityDataOut
 		DateTimeFormat,
 	)
 	if err != nil {
+		retUniqueIdentity = nil
 		return nil, err
 	}
 	if refresh {
 		var err error
 		uniqueIdentity, err = s.GetUniqueIdentity(uniqueIdentity.UUID, true, tx)
 		if err != nil {
+			retUniqueIdentity = nil
 			return nil, err
 		}
 	}
 	return uniqueIdentity, nil
 }
 
-func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) (*models.UniqueIdentityDataOutput, error) {
+func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) (uniqueIdentityData *models.UniqueIdentityDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetUniqueIdentity: uuid:%s missingFatal:%v tx:%v", uuid, missingFatal, tx != nil))
-	uniqueIdentityData := &models.UniqueIdentityDataOutput{}
-	db := s.db
+	defer func() {
+		log.Info(fmt.Sprintf("GetUniqueIdentity(exit): uuid:%s missingFatal:%v tx:%v uniqueIdentityData:%+v err:%v", uuid, missingFatal, tx != nil, uniqueIdentityData, err))
+	}()
+	uniqueIdentityData = &models.UniqueIdentityDataOutput{}
 	rows, err := s.query(
-		db,
+		s.db,
 		tx,
 		"select uuid, last_modified from uidentities where uuid = ? limit 1",
 		uuid,
 	)
 	if err != nil {
-		return nil, err
+		return
 	}
 	fetched := false
 	for rows.Next() {
@@ -163,26 +232,26 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 			&uniqueIdentityData.LastModified,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
 		fetched = true
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find unique identity uuid '%s'", uuid)
-		return nil, err
+		return
 	}
 	if !fetched {
 		uniqueIdentityData = nil
 	}
-	return uniqueIdentityData, nil
+	return
 }
 
 func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (*models.IdentityDataOutput, error) {
@@ -277,6 +346,15 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (*model
 		profileData = nil
 	}
 	return profileData, nil
+}
+
+func (s *service) TouchIdentity(id string, tx *sql.Tx) (int64, error) {
+	log.Info(fmt.Sprintf("TouchIdentity: id:%s tx:%v", id, tx != nil))
+	res, err := s.exec(s.db, tx, "update identities set last_modified = ? where id = ?", time.Now(), id)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (int64, error) {
@@ -389,8 +467,17 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql
 	return true, nil
 }
 
-func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
-	log.Info(fmt.Sprintf("EditProfile: uuid:%s data:%+v refresh:%v tx:%v", uuid, &localProfile{profileData}, refresh, tx != nil))
+func (s *service) EditIdentity(identityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (*models.IdentityDataOutput, error) {
+	log.Info(fmt.Sprintf("EditIdentity: identityData:%+v refresh:%v tx:%v", &localIdentity{identityData}, refresh, tx != nil))
+	var err error
+	defer func() {
+		log.Info(fmt.Sprintf("EditIdentity(exit): identityData:%+v refresh:%v tx:%v error:%+v", &localIdentity{identityData}, refresh, tx != nil, err))
+	}()
+	return identityData, err
+}
+
+func (s *service) EditProfile(profileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
+	log.Info(fmt.Sprintf("EditProfile: profileData:%+v refresh:%v tx:%v", &localProfile{profileData}, refresh, tx != nil))
 	columns := []string{}
 	values := []interface{}{}
 	if profileData.Name != nil && *profileData.Name != "" {
@@ -465,7 +552,7 @@ func (s *service) EditProfile(uuid string, profileData *models.ProfileDataOutput
 				return nil, err
 			}
 			if affected2 != 1 {
-				return nil, fmt.Errorf("profile '%+v' uidentity update affected %d rows", &localProfile{profileData}, affected2)
+				return nil, fmt.Errorf("profile '%+v' unique identity update affected %d rows", &localProfile{profileData}, affected2)
 			}
 		} else {
 			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", &localProfile{profileData}))
@@ -532,7 +619,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 			to.IsBot = &isBot
 		}
 		// Update profile and refresh after update
-		to, err = s.EditProfile(toUUID, to, true, tx)
+		to, err = s.EditProfile(to, true, tx)
 		if err != nil {
 			return
 		}
@@ -625,8 +712,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 			return
 		}
 	}
-	// FIXME: continue
-	// move_identity_db(session, fid, tuid)
+	_, err = s.MoveIdenitity(from, to, tx)
 	err = tx.Commit()
 	if err != nil {
 		return
