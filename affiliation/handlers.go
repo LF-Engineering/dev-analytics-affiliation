@@ -27,9 +27,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 		}
 		if agent != "" {
 			return fmt.Sprintf("Request IP: %s, Request Agent: %s", r.RemoteAddr, agent)
-		} else {
-			return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
 		}
+		return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
 	}
 	api.AffiliationPutOrgDomainHandler = affiliation.PutOrgDomainHandlerFunc(
 		func(params affiliation.PutOrgDomainParams) middleware.Responder {

@@ -136,6 +136,7 @@ func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdent
 		return
 	}
 	identity.UUID = uniqueIdentity.UUID
+	identity.LastModified = s.now()
 	identity, err = s.EditIdentity(identity, true, tx)
 	if err != nil {
 		return
@@ -154,10 +155,6 @@ func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdent
 	}
 	if affected != 1 {
 		err = fmt.Errorf("'%+v' unique identity update affected %d rows", &localUniqueIdentity{uniqueIdentity}, affected)
-		return
-	}
-	affected, err = s.TouchIdentity(identity.ID, tx)
-	if err != nil {
 		return
 	}
 	if affected != 1 {
@@ -532,7 +529,75 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 			),
 		)
 	}()
-	// FIXME: implement
+	if identityData.ID == "" || identityData.UUID == "" || identityData.Source == "" {
+		err = fmt.Errorf("identity '%+v' missing id or uuid or source", &localIdentity{identityData})
+		identityData = nil
+		return
+	}
+	if identityData.LastModified == nil {
+		identityData.LastModified = s.now()
+	}
+	columns := []string{"id", "uuid", "source"}
+	values := []interface{}{identityData.ID, identityData.UUID, identityData.Source}
+	if identityData.Name != nil && *identityData.Name != "" {
+		columns = append(columns, "name")
+		values = append(values, *identityData.Name)
+	}
+	if identityData.Username != nil && *identityData.Username != "" {
+		columns = append(columns, "username")
+		values = append(values, *identityData.Username)
+	}
+	if identityData.Email != nil && *identityData.Email != "" {
+		columns = append(columns, "email")
+		values = append(values, *identityData.Email)
+	}
+	update := "aupdate identities set "
+	for _, column := range columns {
+		update += fmt.Sprintf("%s = ?, ", column)
+	}
+	update += " last_modified = str_to_date(?, ?) where id = ?"
+	values = append(values, identityData.LastModified)
+	values = append(values, DateTimeFormat)
+	values = append(values, identityData.ID)
+	var res sql.Result
+	res, err = s.exec(s.db, tx, update, values...)
+	if err != nil {
+		identityData = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		identityData = nil
+		return
+	}
+	if affected > 1 {
+		err = fmt.Errorf("identity '%+v' update affected %d rows", &localIdentity{identityData}, affected)
+		identityData = nil
+		return
+	} else if affected == 1 {
+		affected2 := int64(0)
+		// Mark identity's matching unique identity as modified
+		affected2, err = s.TouchUniqueIdentity(identityData.UUID, tx)
+		if err != nil {
+			identityData = nil
+			return
+		}
+		if affected2 != 1 {
+			err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", &localIdentity{identityData}, affected2)
+			identityData = nil
+			return
+		}
+	} else {
+		log.Info(fmt.Sprintf("EditIdentity: identity '%+v' update didn't affected any rows", &localIdentity{identityData}))
+	}
+	if refresh {
+		identityData, err = s.GetIdentity(identityData.ID, true, tx)
+		if err != nil {
+			identityData = nil
+			return
+		}
+	}
 	return
 }
 
@@ -551,6 +616,11 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			),
 		)
 	}()
+	if profileData.UUID == "" {
+		err = fmt.Errorf("profile '%+v' missing uuid", &localProfile{profileData})
+		profileData = nil
+		return
+	}
 	columns := []string{}
 	values := []interface{}{}
 	if profileData.Name != nil && *profileData.Name != "" {
@@ -605,7 +675,6 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		profileData = nil
 		return
 	}
-	db := s.db
 	nColumns := len(columns)
 	if nColumns > 0 {
 		lastIndex := nColumns - 1
@@ -619,7 +688,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		update += " where uuid = ?"
 		values = append(values, profileData.UUID)
 		var res sql.Result
-		res, err = s.exec(db, tx, update, values...)
+		res, err = s.exec(s.db, tx, update, values...)
 		if err != nil {
 			profileData = nil
 			return
@@ -636,6 +705,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			return
 		} else if affected == 1 {
 			affected2 := int64(0)
+			// Mark profile's unique identity as modified
 			affected2, err = s.TouchUniqueIdentity(profileData.UUID, tx)
 			if err != nil {
 				profileData = nil
@@ -803,8 +873,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	if to == nil {
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
-				UUID:         toUUID,
-				LastModified: s.now(),
+				UUID: toUUID,
 			},
 			false,
 			tx,
@@ -830,8 +899,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 	defer func() {
 		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, putOrgDomain, err))
 	}()
-	db := s.db
-	rows, err := s.query(db, nil, "select id from organizations where name = ? limit 1", org)
+	rows, err := s.query(s.db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {
 		return
 	}
@@ -856,7 +924,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 		err = fmt.Errorf("cannot find organization '%s'", org)
 		return
 	}
-	rows, err = s.query(db, nil, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
+	rows, err = s.query(s.db, nil, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
 	if err != nil {
 		return
 	}
@@ -879,7 +947,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 		err = fmt.Errorf("domain '%s' is already assigned to organization '%s'", dom, org)
 		return
 	}
-	tx, err := db.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return
 	}
@@ -890,7 +958,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 		}
 	}()
 	_, err = s.exec(
-		db,
+		s.db,
 		tx,
 		"insert into domains_organizations(organization_id, domain, is_top_domain) select ?, ?, ?",
 		orgID,
@@ -904,7 +972,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 	affected := int64(0)
 	if overwrite {
 		res, err = s.exec(
-			db,
+			s.db,
 			tx,
 			"delete from enrollments where uuid in (select distinct sub.uuid from ("+
 				"select distinct uuid from profiles where email like ? "+
@@ -924,7 +992,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 			putOrgDomain.Info = "deleted: " + putOrgDomain.Deleted
 		}
 		res, err = s.exec(
-			db,
+			s.db,
 			tx,
 			"insert into enrollments(start, end, uuid, organization_id) "+
 				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
@@ -952,7 +1020,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 		}
 	} else {
 		res, err = s.exec(
-			db,
+			s.db,
 			tx,
 			"insert into enrollments(start, end, uuid, organization_id) "+
 				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
