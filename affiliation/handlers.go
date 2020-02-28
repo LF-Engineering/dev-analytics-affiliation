@@ -1,6 +1,11 @@
 package affiliation
 
 import (
+	"fmt"
+	"strings"
+
+	"net/http"
+
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations/affiliation"
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
@@ -11,80 +16,98 @@ import (
 
 // Configure setups handlers on api with Service
 func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
+	requestInfo := func(r *http.Request) string {
+		agent := ""
+		hdr := r.Header
+		if hdr != nil {
+			uAgentAry, ok := hdr["User-Agent"]
+			if ok {
+				agent = strings.Join(uAgentAry, ", ")
+			}
+		}
+		if agent != "" {
+			return fmt.Sprintf("Request IP: %s, Request Agent: %s", r.RemoteAddr, agent)
+		} else {
+			return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
+		}
+	}
 	api.AffiliationPutOrgDomainHandler = affiliation.PutOrgDomainHandlerFunc(
 		func(params affiliation.PutOrgDomainParams) middleware.Responder {
-			log.Info("entering PutOrgDomainHandlerFunc")
+			log.Info("PutOrgDomainHandlerFunc")
 			ctx := params.HTTPRequest.Context()
 
 			var nilRequestID *string
 			requestID := log.GetRequestID(nilRequestID)
 			service.SetServiceRequestID(requestID)
 
+			info := requestInfo(params.HTTPRequest)
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-			}).Info("PutOrgDomainHandlerFunc")
+			}).Info("PutOrgDomainHandlerFunc: " + info)
 
 			result, err := service.PutOrgDomain(ctx, &params)
 			if err != nil {
-				return swagger.ErrorHandler("PutOrgDomain", err)
+				return swagger.ErrorHandler("PutOrgDomainHandlerFunc(error): "+info, err)
 			}
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 				"Payload":      result,
-			}).Info("PutOrgDomainHandlerFunc")
+			}).Info("PutOrgDomainHandlerFunc(ok): " + info)
 
 			return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
 	api.AffiliationPutMergeUniqueIdentitiesHandler = affiliation.PutMergeUniqueIdentitiesHandlerFunc(
 		func(params affiliation.PutMergeUniqueIdentitiesParams) middleware.Responder {
-			log.Info("entering PutMergeUniqueIdentitiesHandlerFunc")
+			log.Info("PutMergeUniqueIdentitiesHandlerFunc")
 			ctx := params.HTTPRequest.Context()
 
 			var nilRequestID *string
 			requestID := log.GetRequestID(nilRequestID)
 			service.SetServiceRequestID(requestID)
 
+			info := requestInfo(params.HTTPRequest)
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-			}).Info("PutMergeUniqueIdentitiesHandlerFunc")
+			}).Info("PutMergeUniqueIdentitiesHandlerFunc: " + info)
 
 			result, err := service.PutMergeUniqueIdentities(ctx, &params)
 			if err != nil {
-				return swagger.ErrorHandler("PutMergeUniqueIdentities", err)
+				return swagger.ErrorHandler("PutMergeUniqueIdentitiesHandlerFunc(error): "+info, err)
 			}
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 				"Payload":      result,
-			}).Info("PutMergeUniqueIdentitiesHandlerFunc")
+			}).Info("PutMergeUniqueIdentitiesHandlerFunc(ok): " + info)
 
 			return affiliation.NewPutMergeUniqueIdentitiesOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
 	api.AffiliationPutMoveIdentityHandler = affiliation.PutMoveIdentityHandlerFunc(
 		func(params affiliation.PutMoveIdentityParams) middleware.Responder {
-			log.Info("entering PutMoveIdentityHandlerFunc")
+			log.Info("PutMoveIdentityHandlerFunc")
 			ctx := params.HTTPRequest.Context()
 
 			var nilRequestID *string
 			requestID := log.GetRequestID(nilRequestID)
 			service.SetServiceRequestID(requestID)
 
+			info := requestInfo(params.HTTPRequest)
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-			}).Info("PutMoveIdentityHandlerFunc")
+			}).Info("PutMoveIdentityHandlerFunc: " + info)
 
 			result, err := service.PutMoveIdentity(ctx, &params)
 			if err != nil {
-				return swagger.ErrorHandler("PutMoveIdentity", err)
+				return swagger.ErrorHandler("PutMoveIdentityHandlerFunc(error): "+info, err)
 			}
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 				"Payload":      result,
-			}).Info("PutMoveIdentityHandlerFunc")
+			}).Info("PutMoveIdentityHandlerFunc(ok): " + info)
 
 			return affiliation.NewPutMoveIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
 		},

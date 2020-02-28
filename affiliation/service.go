@@ -18,6 +18,8 @@ import (
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations/affiliation"
+
+	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 )
 
 const (
@@ -25,11 +27,17 @@ const (
 )
 
 type Service interface {
+	// External methods
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
+
+	// Internal methods
+	getPemCert(*jwt.Token, string) (string, error)
+	checkToken(string) (string, error)
+	checkTokenAndPermission(interface{}) (string, string, string, error)
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -196,13 +204,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 // overwrite - optional query parameter:     if overwrite=true is set, all profiles found are force-updated/affiliated to the given organization
 //                                           if overwite is not set, API will not change any profiles which already have any affiliation(s)
 // is_top_domain - optional query parameter: if you specify is_top_domain=true it will set 'is_top_domain' DB column to true, else it will set false
-func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error) {
-	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
-	if err != nil {
-		return nil, err
-	}
-	// Do the actual API call
+func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (putOrgDomain *models.PutOrgDomainOutput, err error) {
 	org := params.OrgName
 	dom := params.Domain
 	overwrite := false
@@ -213,13 +215,37 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	if params.IsTopDomain != nil {
 		isTopDomain = *params.IsTopDomain
 	}
-	putOrgDomain, err := s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v apiName:%s project:%s username:%s putOrgDomain:%+v err:%v",
+				org,
+				dom,
+				overwrite,
+				isTopDomain,
+				apiName,
+				project,
+				username,
+				putOrgDomain,
+				err,
+			),
+		)
+	}()
 	if err != nil {
-		return nil, errors.Wrap(err, apiName)
+		return
+	}
+	// Do the actual API call
+	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
 	}
 	putOrgDomain.User = username
 	putOrgDomain.Scope = project
-	return putOrgDomain, nil
+	return
 }
 
 // PutMergeUniqueIdentities: API
@@ -242,24 +268,41 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // {fromUUID} - required path parameter: uidentity/profile uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
-func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error) {
-	// Check token and permission
-	apiName, _, _, err := s.checkTokenAndPermission(params)
-	if err != nil {
-		return nil, err
-	}
-	// Do the actual API call
+func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliation.PutMergeUniqueIdentitiesParams) (profileData *models.ProfileDataOutput, err error) {
 	fromUUID := params.FromUUID
 	toUUID := params.ToUUID
+	log.Info(fmt.Sprintf("PutMergeUniqueIdentities: fromUUID:%s toUUID:%s", fromUUID, toUUID))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutMergeUniqueIdentities(exit): fromUUID:%s toUUID:%s apiName:%s project:%s username:%s profileData:%+v err:%v",
+				fromUUID,
+				toUUID,
+				apiName,
+				project,
+				username,
+				profileData,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
 	err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID)
 	if err != nil {
-		return nil, errors.Wrap(err, apiName)
+		err = errors.Wrap(err, apiName)
+		return
 	}
-	profileData, err := s.shDB.GetProfile(toUUID, true, nil)
+	profileData, err = s.shDB.GetProfile(toUUID, true, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "FIXME:"+apiName)
+		err = errors.Wrap(err, "FIXME:"+apiName)
+		return
 	}
-	return profileData, nil
+	return
 }
 
 // PutMoveIdentity: API
@@ -279,22 +322,39 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // {fromID} - required path parameter: identity id to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
-func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error) {
-	// Check token and permission
-	apiName, _, _, err := s.checkTokenAndPermission(params)
-	if err != nil {
-		return nil, err
-	}
-	// Do the actual API call
+func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMoveIdentityParams) (profileData *models.ProfileDataOutput, err error) {
 	fromID := params.FromID
 	toUUID := params.ToUUID
+	log.Info(fmt.Sprintf("PutMoveIdentity: fromID:%s toUUID:%s", fromID, toUUID))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutMoveIdentity(exit): fromID:%s toUUID:%s apiName:%s project:%s username:%s profileData:%+v err:%v",
+				fromID,
+				toUUID,
+				apiName,
+				project,
+				username,
+				profileData,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
 	err = s.shDB.MoveIdentity(fromID, toUUID)
 	if err != nil {
-		return nil, errors.Wrap(err, apiName)
+		err = errors.Wrap(err, apiName)
+		return
 	}
-	profileData, err := s.shDB.GetProfile(toUUID, true, nil)
+	profileData, err = s.shDB.GetProfile(toUUID, true, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "FIXME:"+apiName)
+		err = errors.Wrap(err, "FIXME:"+apiName)
+		return
 	}
-	return profileData, nil
+	return
 }

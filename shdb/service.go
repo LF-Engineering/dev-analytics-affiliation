@@ -168,18 +168,17 @@ func (s *service) MoveIdenitity(identity *models.IdentityDataOutput, uniqueIdent
 	return
 }
 
-func (s *service) AddUniqueIdentity(uniqueIdentity *models.UniqueIdentityDataOutput, refresh bool, tx *sql.Tx) (*models.UniqueIdentityDataOutput, error) {
-	log.Info(fmt.Sprintf("AddUniqueIdentity: uniqueIdentity:%+v refresh:%v tx:%v", &localUniqueIdentity{uniqueIdentity}, refresh, tx != nil))
-	var err error
-	retUniqueIdentity := uniqueIdentity
+func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataOutput, refresh bool, tx *sql.Tx) (uniqueIdentity *models.UniqueIdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddUniqueIdentity: inUniqueIdentity:%+v refresh:%v tx:%v", &localUniqueIdentity{inUniqueIdentity}, refresh, tx != nil))
+	uniqueIdentity = inUniqueIdentity
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"AddUniqueIdentity(exit): uniqueIdentity:%+v refresh:%v tx:%v retUniqueIdentity:%+v err:%v",
-				&localUniqueIdentity{uniqueIdentity},
+				"AddUniqueIdentity(exit): inUniqueIdentity:%+v refresh:%v tx:%v uniqueIdentity:%+v err:%v",
+				&localUniqueIdentity{inUniqueIdentity},
 				refresh,
 				tx != nil,
-				&localUniqueIdentity{retUniqueIdentity},
+				&localUniqueIdentity{uniqueIdentity},
 				err,
 			),
 		)
@@ -196,24 +195,32 @@ func (s *service) AddUniqueIdentity(uniqueIdentity *models.UniqueIdentityDataOut
 		DateTimeFormat,
 	)
 	if err != nil {
-		retUniqueIdentity = nil
-		return nil, err
+		uniqueIdentity = nil
+		return
 	}
 	if refresh {
-		var err error
 		uniqueIdentity, err = s.GetUniqueIdentity(uniqueIdentity.UUID, true, tx)
 		if err != nil {
-			retUniqueIdentity = nil
-			return nil, err
+			uniqueIdentity = nil
+			return
 		}
 	}
-	return uniqueIdentity, nil
+	return
 }
 
 func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) (uniqueIdentityData *models.UniqueIdentityDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetUniqueIdentity: uuid:%s missingFatal:%v tx:%v", uuid, missingFatal, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("GetUniqueIdentity(exit): uuid:%s missingFatal:%v tx:%v uniqueIdentityData:%+v err:%v", uuid, missingFatal, tx != nil, uniqueIdentityData, err))
+		log.Info(
+			fmt.Sprintf(
+				"GetUniqueIdentity(exit): uuid:%s missingFatal:%v tx:%v uniqueIdentityData:%+v err:%v",
+				uuid,
+				missingFatal,
+				tx != nil,
+				&localUniqueIdentity{uniqueIdentityData},
+				err,
+			),
+		)
 	}()
 	uniqueIdentityData = &models.UniqueIdentityDataOutput{}
 	rows, err := s.query(
@@ -254,18 +261,29 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 	return
 }
 
-func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (*models.IdentityDataOutput, error) {
+func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetIdentity: id:%s missingFatal:%v tx:%v", id, missingFatal, tx != nil))
-	identityData := &models.IdentityDataOutput{}
-	db := s.db
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetIdentity(exit): id:%s missingFatal:%v tx:%v identityData:%+v err:%v",
+				id,
+				missingFatal,
+				tx != nil,
+				&localIdentity{identityData},
+				err,
+			),
+		)
+	}()
+	identityData = &models.IdentityDataOutput{}
 	rows, err := s.query(
-		db,
+		s.db,
 		tx,
 		"select id, uuid, source, name, username, email, last_modified from identities where id = ? limit 1",
 		id,
 	)
 	if err != nil {
-		return nil, err
+		return
 	}
 	fetched := false
 	for rows.Next() {
@@ -279,40 +297,51 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (*models
 			&identityData.LastModified,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
 		fetched = true
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find identity id '%s'", id)
-		return nil, err
+		return
 	}
 	if !fetched {
 		identityData = nil
 	}
-	return identityData, nil
+	return
 }
 
-func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
+func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetProfile: uuid:%s missignFatal:%v tx:%v", uuid, missingFatal, tx != nil))
-	profileData := &models.ProfileDataOutput{}
-	db := s.db
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetProfile(exit): uuid:%s missignFatal:%v tx:%v profileData:%+v err:%v",
+				uuid,
+				missingFatal,
+				tx != nil,
+				&localProfile{profileData},
+				err,
+			),
+		)
+	}()
+	profileData = &models.ProfileDataOutput{}
 	rows, err := s.query(
-		db,
+		s.db,
 		tx,
 		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
 		uuid,
 	)
 	if err != nil {
-		return nil, err
+		return
 	}
 	fetched := false
 	for rows.Next() {
@@ -326,52 +355,60 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (*model
 			&profileData.CountryCode,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
 		fetched = true
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find profile uuid '%s'", uuid)
-		return nil, err
+		return
 	}
 	if !fetched {
 		profileData = nil
 	}
-	return profileData, nil
+	return
 }
 
-func (s *service) TouchIdentity(id string, tx *sql.Tx) (int64, error) {
+func (s *service) TouchIdentity(id string, tx *sql.Tx) (affected int64, err error) {
 	log.Info(fmt.Sprintf("TouchIdentity: id:%s tx:%v", id, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("TouchIdentity(exit): id:%s tx:%v affected:%d err:%v", id, tx != nil, affected, err))
+	}()
 	res, err := s.exec(s.db, tx, "update identities set last_modified = ? where id = ?", time.Now(), id)
 	if err != nil {
-		return 0, err
+		return
 	}
-	return res.RowsAffected()
+	affected, err = res.RowsAffected()
+	return
 }
 
-func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (int64, error) {
+func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, err error) {
 	log.Info(fmt.Sprintf("TouchUniqueIdentity: uuid:%s tx:%v", uuid, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%d", uuid, tx != nil, affected, err))
+	}()
 	res, err := s.exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
 	if err != nil {
-		return 0, err
+		return
 	}
-	return res.RowsAffected()
+	affected, err = res.RowsAffected()
+	return
 }
 
-func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool, tx *sql.Tx) (bool, error) {
+func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool, tx *sql.Tx) (ok bool, err error) {
 	log.Info(fmt.Sprintf("DeleteProfileArchive: uuid:%s missingFatal:%v onlyLast:%v tx:%v", uuid, missingFatal, onlyLast, tx != nil))
-	var (
-		err error
-		res sql.Result
-	)
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteProfileArchive(exit): uuid:%s missingFatal:%v onlyLast:%v tx:%v ok:%v err:%v", uuid, missingFatal, onlyLast, tx != nil, ok, err))
+	}()
+	var res sql.Result
 	if onlyLast {
 		del := "delete from profiles_archive where uuid = ? and archived_at = (" +
 			"select max(archived_at) from profiles_archive where uuid = ?)"
@@ -381,25 +418,29 @@ func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool,
 		res, err = s.exec(s.db, tx, del, uuid)
 	}
 	if err != nil {
-		return false, err
+		return
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting archived profile uuid '%s' had no effect", uuid)
-		return false, err
+		return
 	}
-	return true, nil
+	ok = true
+	return
 }
 
-func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (bool, error) {
+func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (ok bool, err error) {
 	log.Info(fmt.Sprintf("UnarchiveProfile: uuid:%s replace:%v tx:%v", uuid, replace, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("UnarchiveProfile(exit): uuid:%s replace:%v tx:%v ok:%v err:%v", uuid, replace, tx != nil, ok, err))
+	}()
 	if replace {
-		_, err := s.DeleteProfile(uuid, false, false, tx)
+		_, err = s.DeleteProfile(uuid, false, false, tx)
 		if err != nil {
-			return false, err
+			return
 		}
 	}
 	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
@@ -407,77 +448,109 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (bool,
 		"where uuid = ? order by archived_at desc limit 1"
 	res, err := s.exec(s.db, tx, insert, uuid)
 	if err != nil {
-		return false, err
+		return
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return
 	}
 	if affected == 0 {
 		err = fmt.Errorf("unachiving uuid '%s' created no data", uuid)
-		return false, err
+		return
 	}
 	_, err = s.DeleteProfileArchive(uuid, true, true, tx)
 	if err != nil {
-		return false, err
+		return
 	}
-	return true, nil
+	ok = true
+	return
 }
 
-func (s *service) ArchiveProfile(uuid string, tx *sql.Tx) (bool, error) {
+func (s *service) ArchiveProfile(uuid string, tx *sql.Tx) (ok bool, err error) {
 	log.Info(fmt.Sprintf("ArchiveProfile: uuid:%s tx:%v", uuid, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("ArchiveProfile(exit): uuid:%s tx:%v ok:%v err:%v", uuid, tx != nil, ok, err))
+	}()
 	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
 		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1"
 	res, err := s.exec(s.db, tx, insert, uuid)
 	if err != nil {
-		return false, err
+		return
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving uuid '%s' created no data", uuid)
-		return false, err
+		return
 	}
-	return true, nil
+	ok = true
+	return
 }
 
-func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql.Tx) (bool, error) {
+func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql.Tx) (ok bool, err error) {
 	log.Info(fmt.Sprintf("DeleteProfile: uuid:%s archive:%v missingFatal:%v tx:%v", uuid, archive, missingFatal, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteProfile(exit): uuid:%s archive:%v missingFatal:%v tx:%v ok:%v err:%v", uuid, archive, missingFatal, tx != nil, ok, err))
+	}()
 	if archive {
-		_, err := s.ArchiveProfile(uuid, tx)
+		_, err = s.ArchiveProfile(uuid, tx)
 		if err != nil {
-			return false, err
+			return
 		}
 	}
 	del := "delete from profiles where uuid = ?"
 	res, err := s.exec(s.db, tx, del, uuid)
 	if err != nil {
-		return false, err
+		return
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting uuid '%s' had no effect", uuid)
-		return false, err
+		return
 	}
-	return true, nil
+	ok = true
+	return
 }
 
-func (s *service) EditIdentity(identityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (*models.IdentityDataOutput, error) {
-	log.Info(fmt.Sprintf("EditIdentity: identityData:%+v refresh:%v tx:%v", &localIdentity{identityData}, refresh, tx != nil))
-	var err error
+func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("EditIdentity: inIdentityData:%+v refresh:%v tx:%v", &localIdentity{inIdentityData}, refresh, tx != nil))
+	identityData = inIdentityData
 	defer func() {
-		log.Info(fmt.Sprintf("EditIdentity(exit): identityData:%+v refresh:%v tx:%v error:%+v", &localIdentity{identityData}, refresh, tx != nil, err))
+		log.Info(
+			fmt.Sprintf(
+				"EditIdentity(exit): inIdentityData:%+v refresh:%v tx:%v identityData:%+v err:%v",
+				&localIdentity{inIdentityData},
+				refresh,
+				tx != nil,
+				&localIdentity{identityData},
+				err,
+			),
+		)
 	}()
-	return identityData, err
+	// FIXME: implement
+	return
 }
 
-func (s *service) EditProfile(profileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (*models.ProfileDataOutput, error) {
-	log.Info(fmt.Sprintf("EditProfile: profileData:%+v refresh:%v tx:%v", &localProfile{profileData}, refresh, tx != nil))
+func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
+	log.Info(fmt.Sprintf("EditProfile: inProfileData:%+v refresh:%v tx:%v", &localProfile{inProfileData}, refresh, tx != nil))
+	profileData = inProfileData
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"EditProfile(exit): inProfileData:%+v refresh:%v tx:%v profileData:%+v err:%v",
+				&localProfile{inProfileData},
+				refresh,
+				tx != nil,
+				&localProfile{profileData},
+				err,
+			),
+		)
+	}()
 	columns := []string{}
 	values := []interface{}{}
 	if profileData.Name != nil && *profileData.Name != "" {
@@ -491,22 +564,27 @@ func (s *service) EditProfile(profileData *models.ProfileDataOutput, refresh boo
 	// Database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
 	if profileData.IsBot != nil {
 		if *profileData.IsBot != 0 && *profileData.IsBot != 1 {
-			return nil, fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", &localProfile{profileData})
+			err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", &localProfile{profileData})
+			profileData = nil
+			return
 		}
 		columns = append(columns, "is_bot")
 		values = append(values, *profileData.IsBot)
 	}
 	if profileData.CountryCode != nil && *profileData.CountryCode != "" {
-		_, err := s.GetCountry(*profileData.CountryCode, tx)
+		_, err = s.GetCountry(*profileData.CountryCode, tx)
 		if err != nil {
-			return nil, err
+			profileData = nil
+			return
 		}
 		columns = append(columns, "country_code")
 		values = append(values, *profileData.CountryCode)
 	}
 	if profileData.Gender != nil {
 		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			return nil, fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", &localProfile{profileData})
+			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", &localProfile{profileData})
+			profileData = nil
+			return
 		}
 		columns = append(columns, "gender")
 		values = append(values, *profileData.Gender)
@@ -515,13 +593,17 @@ func (s *service) EditProfile(profileData *models.ProfileDataOutput, refresh boo
 			values = append(values, 100)
 		} else {
 			if *profileData.GenderAcc < 1 || *profileData.GenderAcc > 100 {
-				return nil, fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", &localProfile{profileData})
+				err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", &localProfile{profileData})
+				profileData = nil
+				return
 			}
 			values = append(values, *profileData.GenderAcc)
 		}
 	}
 	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		return nil, fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", &localProfile{profileData})
+		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", &localProfile{profileData})
+		profileData = nil
+		return
 	}
 	db := s.db
 	nColumns := len(columns)
@@ -536,23 +618,33 @@ func (s *service) EditProfile(profileData *models.ProfileDataOutput, refresh boo
 		}
 		update += " where uuid = ?"
 		values = append(values, profileData.UUID)
-		res, err := s.exec(db, tx, update, values...)
+		var res sql.Result
+		res, err = s.exec(db, tx, update, values...)
 		if err != nil {
-			return nil, err
+			profileData = nil
+			return
 		}
-		affected, err := res.RowsAffected()
+		affected := int64(0)
+		affected, err = res.RowsAffected()
 		if err != nil {
-			return nil, err
+			profileData = nil
+			return
 		}
 		if affected > 1 {
-			return nil, fmt.Errorf("profile '%+v' update affected %d rows", &localProfile{profileData}, affected)
+			err = fmt.Errorf("profile '%+v' update affected %d rows", &localProfile{profileData}, affected)
+			profileData = nil
+			return
 		} else if affected == 1 {
-			affected2, err := s.TouchUniqueIdentity(profileData.UUID, tx)
+			affected2 := int64(0)
+			affected2, err = s.TouchUniqueIdentity(profileData.UUID, tx)
 			if err != nil {
-				return nil, err
+				profileData = nil
+				return
 			}
 			if affected2 != 1 {
-				return nil, fmt.Errorf("profile '%+v' unique identity update affected %d rows", &localProfile{profileData}, affected2)
+				err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", &localProfile{profileData}, affected2)
+				profileData = nil
+				return
 			}
 		} else {
 			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", &localProfile{profileData}))
@@ -561,16 +653,20 @@ func (s *service) EditProfile(profileData *models.ProfileDataOutput, refresh boo
 		log.Info(fmt.Sprintf("EditProfile: profile '%+v' nothing to update", &localProfile{profileData}))
 	}
 	if refresh {
-		var err error
 		profileData, err = s.GetProfile(profileData.UUID, true, tx)
 		if err != nil {
-			return nil, err
+			profileData = nil
+			return
 		}
 	}
-	return profileData, nil
+	return
 }
 
 func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
+	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s", fromUUID, toUUID))
+	defer func() {
+		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s err:%v", fromUUID, toUUID, err))
+	}()
 	if fromUUID == toUUID {
 		return
 	}
@@ -678,6 +774,10 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 }
 
 func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
+	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s", fromID, toUUID))
+	defer func() {
+		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s err:%v", fromID, toUUID, err))
+	}()
 	from, err := s.GetIdentity(fromID, true, nil)
 	if err != nil {
 		return
@@ -687,7 +787,8 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 		return
 	}
 	if to == nil && fromID != toUUID {
-		return fmt.Errorf("profile uuid '%s' is not found and identity id is different: '%s'", toUUID, &localIdentity{from})
+		err = fmt.Errorf("profile uuid '%s' is not found and identity id is different: '%s'", toUUID, &localIdentity{from})
+		return
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -723,61 +824,64 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 }
 
 // PutOrgDomain - add domain to organization
-func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*models.PutOrgDomainOutput, error) {
+func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
 	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
-	putOrgDomain := &models.PutOrgDomainOutput{}
+	putOrgDomain = &models.PutOrgDomainOutput{}
+	defer func() {
+		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, putOrgDomain, err))
+	}()
 	db := s.db
 	rows, err := s.query(db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {
-		return nil, err
+		return
 	}
 	var orgID int
 	fetched := false
 	for rows.Next() {
 		err = rows.Scan(&orgID)
 		if err != nil {
-			return nil, err
+			return
 		}
 		fetched = true
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if !fetched {
 		err = fmt.Errorf("cannot find organization '%s'", org)
-		return nil, err
+		return
 	}
 	rows, err = s.query(db, nil, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
 	if err != nil {
-		return nil, err
+		return
 	}
 	dummy := 0
 	for rows.Next() {
 		err = rows.Scan(&dummy)
 		if err != nil {
-			return nil, err
+			return
 		}
 	}
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = rows.Close()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if dummy == 1 {
 		err = fmt.Errorf("domain '%s' is already assigned to organization '%s'", dom, org)
-		return nil, err
+		return
 	}
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, err
+		return
 	}
 	// Rollback unless tx was set to nil after successful commit
 	defer func() {
@@ -794,10 +898,12 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 		isTopDomain,
 	)
 	if err != nil {
-		return nil, err
+		return
 	}
+	var res sql.Result
+	affected := int64(0)
 	if overwrite {
-		res, err := s.exec(
+		res, err = s.exec(
 			db,
 			tx,
 			"delete from enrollments where uuid in (select distinct sub.uuid from ("+
@@ -807,11 +913,11 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 			"%"+dom,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
-		affected, err := res.RowsAffected()
+		affected, err = res.RowsAffected()
 		if err != nil {
-			return nil, err
+			return
 		}
 		if affected > 0 {
 			putOrgDomain.Deleted = fmt.Sprintf("%d", affected)
@@ -830,11 +936,11 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 			"%"+dom,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
 		affected, err = res.RowsAffected()
 		if err != nil {
-			return nil, err
+			return
 		}
 		if affected > 0 {
 			putOrgDomain.Added = fmt.Sprintf("%d", affected)
@@ -845,7 +951,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 			}
 		}
 	} else {
-		res, err := s.exec(
+		res, err = s.exec(
 			db,
 			tx,
 			"insert into enrollments(start, end, uuid, organization_id) "+
@@ -859,11 +965,11 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 			"%"+dom,
 		)
 		if err != nil {
-			return nil, err
+			return
 		}
-		affected, err := res.RowsAffected()
+		affected, err = res.RowsAffected()
 		if err != nil {
-			return nil, err
+			return
 		}
 		if affected > 0 {
 			putOrgDomain.Added = fmt.Sprintf("%d", affected)
@@ -872,7 +978,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 	}
 	err = tx.Commit()
 	if err != nil {
-		return nil, err
+		return
 	}
 	// Set tx to nil, so deferred rollback will not happen
 	tx = nil
@@ -886,11 +992,11 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (*m
 	} else {
 		putOrgDomain.Info += ", " + info
 	}
-	return putOrgDomain, nil
+	return
 }
 
-func (p *localProfile) String() string {
-	s := "{UUID:" + p.UUID + ","
+func (p *localProfile) String() (s string) {
+	s = "{UUID:" + p.UUID + ","
 	if p.Name == nil {
 		s += "Name:nil,"
 	} else {
@@ -921,11 +1027,11 @@ func (p *localProfile) String() string {
 	} else {
 		s += "CountryCode:" + *p.CountryCode + "}"
 	}
-	return s
+	return
 }
 
-func (p *localIdentity) String() string {
-	s := "{ID:" + p.ID + ",UUID:" + p.UUID + ",Source:" + p.Source + ","
+func (p *localIdentity) String() (s string) {
+	s = "{ID:" + p.ID + ",UUID:" + p.UUID + ",Source:" + p.Source + ","
 	if p.Name == nil {
 		s += "Name:nil,"
 	} else {
@@ -946,22 +1052,22 @@ func (p *localIdentity) String() string {
 	} else {
 		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
 	}
-	return s
+	return
 }
 
-func (p *localUniqueIdentity) String() string {
-	s := "{UUID:" + p.UUID + ","
+func (p *localUniqueIdentity) String() (s string) {
+	s = "{UUID:" + p.UUID + ","
 	if p.LastModified == nil {
 		s += "LastModified:nil}"
 	} else {
 		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
 	}
-	return s
+	return
 }
 
 func (s *service) now() *strfmt.DateTime {
-	now := strfmt.DateTime(time.Now())
-	return &now
+	n := strfmt.DateTime(time.Now())
+	return &n
 }
 
 func (s *service) queryOut(query string, args ...interface{}) {
@@ -984,20 +1090,20 @@ func (s *service) queryOut(query string, args ...interface{}) {
 	}
 }
 
-func (s *service) queryDB(db *sqlx.DB, query string, args ...interface{}) (*sql.Rows, error) {
-	rows, err := db.Query(query, args...)
+func (s *service) queryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
+	rows, err = db.Query(query, args...)
 	if err != nil {
 		s.queryOut(query, args...)
 	}
-	return rows, err
+	return
 }
 
-func (s *service) queryTX(db *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
-	rows, err := db.Query(query, args...)
+func (s *service) queryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
+	rows, err = db.Query(query, args...)
 	if err != nil {
 		s.queryOut(query, args...)
 	}
-	return rows, err
+	return
 }
 
 func (s *service) query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
@@ -1007,20 +1113,20 @@ func (s *service) query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface
 	return s.queryTX(tx, query, args...)
 }
 
-func (s *service) execDB(db *sqlx.DB, query string, args ...interface{}) (sql.Result, error) {
-	res, err := db.Exec(query, args...)
+func (s *service) execDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
+	res, err = db.Exec(query, args...)
 	if err != nil {
 		s.queryOut(query, args...)
 	}
-	return res, err
+	return
 }
 
-func (s *service) execTX(db *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
-	res, err := db.Exec(query, args...)
+func (s *service) execTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
+	res, err = db.Exec(query, args...)
 	if err != nil {
 		s.queryOut(query, args...)
 	}
-	return res, err
+	return
 }
 
 func (s *service) exec(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
