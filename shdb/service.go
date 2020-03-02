@@ -36,6 +36,10 @@ type Service interface {
 	TouchIdentity(string, *sql.Tx) (int64, error)
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 	EditIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
+	DeleteIdentity(int64, bool, bool, *time.Time, *sql.Tx) (bool, error)
+	ArchiveIdentity(int64, *time.Time, *sql.Tx) (bool, error)
+	UnarchiveIdentity(int64, bool, *time.Time, *sql.Tx) (bool, error)
+	DeleteIdentityArchive(int64, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	// UniqueIdentity
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
@@ -1285,6 +1289,137 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	}
 	_, err = s.DeleteProfileArchive(uuid, true, tm == nil, tm, tx)
 	if err != nil {
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) DeleteIdentityArchive(id int64, missingFatal, onlyLast bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteIdentityArchive: id:%d missingFatal:%v onlyLast:%v tm:%v tx:%v", id, missingFatal, onlyLast, tm, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteIdentityArchive(exit): id:%s missingFatal:%v onlyLast:%v tm:%v tx:%v ok:%v err:%v", id, missingFatal, onlyLast, tm, tx != nil, ok, err))
+	}()
+	var res sql.Result
+	if tm != nil {
+		del := "delete from identities_archive where archived_at = ?"
+		res, err = s.exec(s.db, tx, del, tm)
+	} else {
+		if onlyLast {
+			del := "delete from identities_archive where id = ? and archived_at = (" +
+				"select max(archived_at) from identities_archive where id = ?)"
+			res, err = s.exec(s.db, tx, del, id, id)
+		} else {
+			del := "delete from identities_archive where id = ?"
+			res, err = s.exec(s.db, tx, del, id)
+		}
+	}
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting archived identity id '%d' had no effect", id)
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) UnarchiveIdentity(id int64, replace bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("UnarchiveIdentity: id:%d replace:%v tm:%v tx:%v", id, replace, tm, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("UnarchiveIdentity(exit): id:%d replace:%v tm:%v tx:%v ok:%v err:%v", id, replace, tm, tx != nil, ok, err))
+	}()
+	if replace {
+		_, err = s.DeleteIdentity(id, false, false, nil, tx)
+		if err != nil {
+			return
+		}
+	}
+	var res sql.Result
+	if tm != nil {
+		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
+			"select id, uuid, source, name, email, username, now() from identities_archive " +
+			"where id = ? order by archived_at desc limit 1"
+		res, err = s.exec(s.db, tx, insert, id)
+	} else {
+		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
+			"select id, uuid, source, name, email, username, now() from identities_archive " +
+			"where id = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, insert, id, tm)
+	}
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if affected == 0 {
+		err = fmt.Errorf("unachiving identity id '%d' created no data", id)
+		return
+	}
+	_, err = s.DeleteIdentityArchive(id, true, tm == nil, tm, tx)
+	if err != nil {
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) ArchiveIdentity(id int64, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("ArchiveIdentity: id:%d tm:%v tx:%v", id, tm, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("ArchiveIdentity(exit): id:%d tm:%v tx:%v ok:%v err:%v", id, tm, tx != nil, ok, err))
+	}()
+	if tm == nil {
+		t := time.Now()
+		tm = &t
+	}
+	insert := "insert into identities_archive(id, uuid, source, name, email, username, last_modified, archived_at) " +
+		"select id, uuid, source, name, email, username, last_modified, ? from identities where id = ? limit 1"
+	res, err := s.exec(s.db, tx, insert, tm, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if affected == 0 {
+		err = fmt.Errorf("archiving identity id '%d' created no data", id)
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) DeleteIdentity(id int64, archive, missingFatal bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteIdentity: id:%d archive:%v missingFatal:%v tm:%v tx:%v", id, archive, missingFatal, tm, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteIdentity(exit): id:%d archive:%v missingFatal:%v tm:%v tx:%v ok:%v err:%v", id, archive, missingFatal, tm, tx != nil, ok, err))
+	}()
+	if archive {
+		_, err = s.ArchiveIdentity(id, tm, tx)
+		if err != nil {
+			return
+		}
+	}
+	del := "delete from identities where id = ?"
+	res, err := s.exec(s.db, tx, del, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting identity id '%d' had no effect", id)
 		return
 	}
 	ok = true
