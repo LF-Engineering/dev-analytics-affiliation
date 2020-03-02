@@ -21,3 +21,16 @@ CREATE TABLE `uidentities` (
   `uuid` varchar(128) COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `last_modified` datetime(6) DEFAULT NULL,
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+
+DROP TABLE IF EXISTS `enrollments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `enrollments` (
+  `archived_at` datetime(6) NOT NULL DEFAULT now(),
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `start` datetime NOT NULL,
+  `end` datetime NOT NULL,
+  `uuid` varchar(128) COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `organization_id` int(11) NOT NULL,
+) ENGINE=InnoDB AUTO_INCREMENT=5347 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;

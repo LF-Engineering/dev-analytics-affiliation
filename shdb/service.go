@@ -47,6 +47,11 @@ type Service interface {
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	EditEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
+	AddEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
+	DeleteEnrollment(int64, bool, bool, *sql.Tx) (bool, error)
+	ArchiveEnrollment(int64, *sql.Tx) (bool, error)
+	UnarchiveEnrollment(int64, bool, *sql.Tx) (bool, error)
+	DeleteEnrollmentArchive(int64, bool, bool, *sql.Tx) (bool, error)
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// Other
@@ -150,6 +155,7 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 		log.Info(fmt.Sprintf("MergeDateRanges(exit): dates:%+v mergeddates:%+v err:%v", dates, mergedDates, err))
 	}()
 	mergedDates = dates
+	// FIXME: implement this
 	return
 }
 
@@ -158,42 +164,6 @@ func (s *service) MergeEnrollments(uuid string, organization *models.Organizatio
 	defer func() {
 		log.Info(fmt.Sprintf("MergeEnrollments(exit): uuid:%s organization:%+v tx:%v err:%v", uuid, organization, tx != nil, err))
 	}()
-	/*
-	   disjoint = session.query(Enrollment).\
-	       filter(Enrollment.uidentity == uidentity,
-	              Enrollment.organization == org).all()
-
-	   if not disjoint:
-	       entity = '-'.join((uuid, organization))
-	       raise NotFoundError(entity=entity)
-
-	   dates = [(enr.start, enr.end) for enr in disjoint]
-
-	   for st, en in utils.merge_date_ranges(dates):
-	       # We prefer this method to find duplicates
-	       # to avoid integrity exceptions when creating
-	       # enrollments that are already in the database
-	       is_dup = lambda x, st, en: x.start == st and x.end == en
-
-	       filtered = [x for x in disjoint if not is_dup(x, st, en)]
-
-	       if len(filtered) != len(disjoint):
-	           disjoint = filtered
-	           continue
-
-	       # This means no dups where found so we need to add a
-	       # new enrollment
-	       try:
-	           enroll_db(session, uidentity, org,
-	                     from_date=st, to_date=en)
-	       except ValueError as e:
-	           raise InvalidValueError(e)
-
-	   # Remove disjoint enrollments from the registry
-	   for enr in disjoint:
-	       delete_enrollment_db(session, enr)
-	*/
-	// FIXME: implement this
 	uniqueIdentity, err := s.GetUniqueIdentity(uuid, true, tx)
 	if err != nil {
 		return
@@ -229,6 +199,17 @@ func (s *service) MergeEnrollments(uuid string, organization *models.Organizatio
 		if len(filtered) != len(disjoint) {
 			disjoint = filtered
 			continue
+		}
+		newEnrollment := &models.EnrollmentDataOutput{UUID: uuid, OrganizationID: organization.ID, Start: st, End: en}
+		_, err = s.AddEnrollment(newEnrollment, false, tx)
+		if err != nil {
+			return
+		}
+	}
+	for _, rol := range disjoint {
+		_, err = s.DeleteEnrollment(rol.ID, true, true, tx)
+		if err != nil {
+			return
 		}
 	}
 	return
@@ -956,6 +937,120 @@ func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, 
 	return
 }
 
+func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteEnrollmentArchive: id:%d missingFatal:%v onlyLast:%v tx:%v", id, missingFatal, onlyLast, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteEnrollmentArchive(exit): id:%d missingFatal:%v onlyLast:%v tx:%v ok:%v err:%v", id, missingFatal, onlyLast, tx != nil, ok, err))
+	}()
+	var res sql.Result
+	if onlyLast {
+		del := "delete from enrollments_archive where id = ? and archived_at = (" +
+			"select max(archived_at) from enrollments_archive where id = ?)"
+		res, err = s.exec(s.db, tx, del, id, id)
+	} else {
+		del := "delete from enrollments_archive where id = ?"
+		res, err = s.exec(s.db, tx, del, id)
+	}
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting archived enrollment id '%d' had no effect", id)
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) UnarchiveEnrollment(id int64, replace bool, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("UnarchiveEnrollment: id:%d replace:%v tx:%v", id, replace, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("UnarchiveEnrollment(exit): id:%d replace:%v tx:%v ok:%v err:%v", id, replace, tx != nil, ok, err))
+	}()
+	if replace {
+		_, err = s.DeleteEnrollment(id, false, false, tx)
+		if err != nil {
+			return
+		}
+	}
+	insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
+		"select id, uuid, organization_id, start, end from enrollments_archive " +
+		"where id = ? order by archived_at desc limit 1"
+	res, err := s.exec(s.db, tx, insert, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if affected == 0 {
+		err = fmt.Errorf("unachiving enrollment id '%d' created no data", id)
+		return
+	}
+	_, err = s.DeleteEnrollmentArchive(id, true, true, tx)
+	if err != nil {
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) ArchiveEnrollment(id int64, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("ArchiveEnrollment: id:%d tx:%v", id, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("ArchiveEnrollment(exit): id:%d tx:%v ok:%v err:%v", id, tx != nil, ok, err))
+	}()
+	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end) " +
+		"select id, uuid, organization_id, start, end from enrollments where id = ? limit 1"
+	res, err := s.exec(s.db, tx, insert, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if affected == 0 {
+		err = fmt.Errorf("archiving enrollment id '%d' created no data", id)
+		return
+	}
+	ok = true
+	return
+}
+
+func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteEnrollment: id:%d archive:%v missingFatal:%v tx:%v", id, archive, missingFatal, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteEnrollment(exit): id:%d archive:%v missingFatal:%v tx:%v ok:%v err:%v", id, archive, missingFatal, tx != nil, ok, err))
+	}()
+	if archive {
+		_, err = s.ArchiveEnrollment(id, tx)
+		if err != nil {
+			return
+		}
+	}
+	del := "delete from enrollments where id = ?"
+	res, err := s.exec(s.db, tx, del, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting enrollment id '%d' had no effect", id)
+		return
+	}
+	ok = true
+	return
+}
+
 func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool, tx *sql.Tx) (ok bool, err error) {
 	log.Info(fmt.Sprintf("DeleteProfileArchive: uuid:%s missingFatal:%v onlyLast:%v tx:%v", uuid, missingFatal, onlyLast, tx != nil))
 	defer func() {
@@ -1067,6 +1162,88 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql
 		return
 	}
 	ok = true
+	return
+}
+
+func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, refresh bool, tx *sql.Tx) (enrollmentData *models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddEnrollment: inEnrollmentData:%+v refresh:%v tx:%v", inEnrollmentData, refresh, tx != nil))
+	enrollmentData = inEnrollmentData
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddEnrollment(exit): inEnrollmentData:%+v refresh:%v tx:%v enrollmentData:%+v err:%v",
+				inEnrollmentData,
+				refresh,
+				tx != nil,
+				enrollmentData,
+				err,
+			),
+		)
+	}()
+	if enrollmentData.UUID == "" || enrollmentData.OrganizationID < 1 {
+		err = fmt.Errorf("enrollment '%+v' missing uuid or organization_id", enrollmentData)
+		enrollmentData = nil
+		return
+	}
+	insert := "insert into enrollments(uuid, organization_id, start, end) select ?, ?, str_to_date(?, ?), str_to_date(?, ?)"
+	var res sql.Result
+	res, err = s.exec(
+		s.db,
+		tx,
+		insert,
+		enrollmentData.UUID,
+		enrollmentData.OrganizationID,
+		enrollmentData.Start,
+		DateTimeFormat,
+		enrollmentData.End,
+		DateTimeFormat,
+	)
+	if err != nil {
+		enrollmentData = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		enrollmentData = nil
+		return
+	}
+	if affected > 1 {
+		err = fmt.Errorf("enrollment '%+v' insert affected %d rows", enrollmentData, affected)
+		enrollmentData = nil
+		return
+	} else if affected == 1 {
+		affected2 := int64(0)
+		// Mark enrollment's matching unique identity as modified
+		affected2, err = s.TouchUniqueIdentity(enrollmentData.UUID, tx)
+		if err != nil {
+			enrollmentData = nil
+			return
+		}
+		if affected2 != 1 {
+			err = fmt.Errorf("enrollment '%+v' unique identity update affected %d rows", enrollmentData, affected2)
+			enrollmentData = nil
+			return
+		}
+	} else {
+		err = fmt.Errorf("adding enrollment '%+v' didn't affected any rows", enrollmentData)
+		enrollmentData = nil
+		return
+	}
+	if refresh {
+		id := int64(0)
+		id, err = res.LastInsertId()
+		if err != nil {
+			enrollmentData = nil
+			return
+		}
+		enrollmentData.ID = id
+		enrollmentData, err = s.GetEnrollment(enrollmentData.ID, true, tx)
+		if err != nil {
+			enrollmentData = nil
+			return
+		}
+	}
 	return
 }
 
