@@ -52,6 +52,7 @@ type Service interface {
 	ArchiveEnrollment(int64, *sql.Tx) (bool, error)
 	UnarchiveEnrollment(int64, bool, *sql.Tx) (bool, error)
 	DeleteEnrollmentArchive(int64, bool, bool, *sql.Tx) (bool, error)
+	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// Other
@@ -93,7 +94,16 @@ func New(db *sqlx.DB) Service {
 }
 
 // DateTimeFormat - this is how we format datetime for MariaDB
-const DateTimeFormat = "%Y-%m-%dT%H:%i:%s.%fZ"
+const (
+	DateTimeFormat = "%Y-%m-%dT%H:%i:%s.%fZ"
+)
+
+var (
+	// MinPeriodDate - default start data for enrollments
+	MinPeriodDate = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+	// MaxPeriodDate - default end date for enrollments
+	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+)
 
 type localProfile struct {
 	*models.ProfileDataOutput
@@ -1165,6 +1175,34 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql
 	return
 }
 
+func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput, forUpdate bool, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("ValidateEnrollment: enrollmentData:%+v forUpdate:%v tx:%v", enrollmentData, forUpdate, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("ValidateEnrollment(exit): enrollmentData:%+v forUpdate:%v tx:%v err:%v", enrollmentData, forUpdate, tx != nil, err))
+	}()
+	if forUpdate && enrollmentData.ID < 1 {
+		err = fmt.Errorf("enrollment '%+v' missing id", enrollmentData)
+		return
+	}
+	if enrollmentData.UUID == "" || enrollmentData.OrganizationID < 1 {
+		err = fmt.Errorf("enrollment '%+v' missing uuid or organization_id", enrollmentData)
+		return
+	}
+	if time.Time(enrollmentData.Start).Before(MinPeriodDate) || time.Time(enrollmentData.Start).After(MaxPeriodDate) {
+		err = fmt.Errorf("enrollment '%+v' start date must be between %v and %v", enrollmentData, MinPeriodDate, MaxPeriodDate)
+		return
+	}
+	if time.Time(enrollmentData.End).Before(MinPeriodDate) || time.Time(enrollmentData.End).After(MaxPeriodDate) {
+		err = fmt.Errorf("enrollment '%+v' end date must be between %v and %v", enrollmentData, MinPeriodDate, MaxPeriodDate)
+		return
+	}
+	if time.Time(enrollmentData.End).Before(time.Time(enrollmentData.Start)) {
+		err = fmt.Errorf("enrollment '%+v' end date must be after start date", enrollmentData)
+		return
+	}
+	return
+}
+
 func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, refresh bool, tx *sql.Tx) (enrollmentData *models.EnrollmentDataOutput, err error) {
 	log.Info(fmt.Sprintf("AddEnrollment: inEnrollmentData:%+v refresh:%v tx:%v", inEnrollmentData, refresh, tx != nil))
 	enrollmentData = inEnrollmentData
@@ -1180,8 +1218,8 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, r
 			),
 		)
 	}()
-	if enrollmentData.UUID == "" || enrollmentData.OrganizationID < 1 {
-		err = fmt.Errorf("enrollment '%+v' missing uuid or organization_id", enrollmentData)
+	err = s.ValidateEnrollment(enrollmentData, false, tx)
+	if err != nil {
 		enrollmentData = nil
 		return
 	}
@@ -1262,8 +1300,9 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 			),
 		)
 	}()
-	if enrollmentData.UUID == "" || enrollmentData.ID < 1 || enrollmentData.OrganizationID < 1 {
-		err = fmt.Errorf("enrollment '%+v' missing uuid or id or organization_id", enrollmentData)
+	err = s.ValidateEnrollment(enrollmentData, true, tx)
+	if err != nil {
+		err = fmt.Errorf("enrollment '%+v' didn't pass update validation", enrollmentData)
 		enrollmentData = nil
 		return
 	}
