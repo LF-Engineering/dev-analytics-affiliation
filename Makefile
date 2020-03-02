@@ -24,7 +24,7 @@ run: fmt vet lint
 	go build -o ./main -a $(LDFLAGS)
 	./main
 
-fastrun:
+fastrun: fmt
 	go build -o ./main -a $(LDFLAGS)
 	./main
 

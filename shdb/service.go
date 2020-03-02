@@ -55,6 +55,7 @@ type Service interface {
 	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 	MergeEnrollments(string, *models.OrganizationDataOutput, *sql.Tx) error
+	MergeDateRanges([][]strfmt.DateTime) ([][]strfmt.DateTime, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -143,11 +144,93 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 	return
 }
 
+func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]strfmt.DateTime, err error) {
+	log.Info(fmt.Sprintf("MergeDateRanges: dates:%+v", dates))
+	defer func() {
+		log.Info(fmt.Sprintf("MergeDateRanges(exit): dates:%+v mergeddates:%+v err:%v", dates, mergedDates, err))
+	}()
+	mergedDates = dates
+	return
+}
+
 func (s *service) MergeEnrollments(uuid string, organization *models.OrganizationDataOutput, tx *sql.Tx) (err error) {
 	log.Info(fmt.Sprintf("MergeEnrollments: uuid:%s organization:%+v tx:%v", uuid, organization, tx != nil))
 	defer func() {
 		log.Info(fmt.Sprintf("MergeEnrollments(exit): uuid:%s organization:%+v tx:%v err:%v", uuid, organization, tx != nil, err))
 	}()
+	/*
+	   disjoint = session.query(Enrollment).\
+	       filter(Enrollment.uidentity == uidentity,
+	              Enrollment.organization == org).all()
+
+	   if not disjoint:
+	       entity = '-'.join((uuid, organization))
+	       raise NotFoundError(entity=entity)
+
+	   dates = [(enr.start, enr.end) for enr in disjoint]
+
+	   for st, en in utils.merge_date_ranges(dates):
+	       # We prefer this method to find duplicates
+	       # to avoid integrity exceptions when creating
+	       # enrollments that are already in the database
+	       is_dup = lambda x, st, en: x.start == st and x.end == en
+
+	       filtered = [x for x in disjoint if not is_dup(x, st, en)]
+
+	       if len(filtered) != len(disjoint):
+	           disjoint = filtered
+	           continue
+
+	       # This means no dups where found so we need to add a
+	       # new enrollment
+	       try:
+	           enroll_db(session, uidentity, org,
+	                     from_date=st, to_date=en)
+	       except ValueError as e:
+	           raise InvalidValueError(e)
+
+	   # Remove disjoint enrollments from the registry
+	   for enr in disjoint:
+	       delete_enrollment_db(session, enr)
+	*/
+	// FIXME: implement this
+	uniqueIdentity, err := s.GetUniqueIdentity(uuid, true, tx)
+	if err != nil {
+		return
+	}
+	disjoint, err := s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uuid, organization.ID}, []bool{false, false}, false, tx)
+	if err != nil {
+		return
+	}
+	if len(disjoint) == 0 {
+		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' found no enrollments", s.toLocalUniqueIdentity(uniqueIdentity), organization)
+		return
+	}
+	dates := [][]strfmt.DateTime{}
+	for _, rol := range disjoint {
+		dates = append(dates, []strfmt.DateTime{rol.Start, rol.End})
+	}
+	mergedDates, err := s.MergeDateRanges(dates)
+	if err != nil {
+		return
+	}
+	for _, data := range mergedDates {
+		st := data[0]
+		en := data[1]
+		isDup := func(x *models.EnrollmentDataOutput, st, en strfmt.DateTime) bool {
+			return x.Start == st && x.End == en
+		}
+		filtered := []*models.EnrollmentDataOutput{}
+		for _, rol := range disjoint {
+			if !isDup(rol, st, en) {
+				filtered = append(filtered, rol)
+			}
+		}
+		if len(filtered) != len(disjoint) {
+			disjoint = filtered
+			continue
+		}
+	}
 	return
 }
 
