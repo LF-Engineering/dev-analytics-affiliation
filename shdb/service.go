@@ -28,8 +28,8 @@ type Service interface {
 	// Profile
 	GetProfile(string, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	EditProfile(*models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
-	DeleteProfile(string, bool, bool, *sql.Tx) (bool, error)
-	ArchiveProfile(string, *sql.Tx) (bool, error)
+	DeleteProfile(string, bool, bool, *time.Time, *sql.Tx) (bool, error)
+	ArchiveProfile(string, *time.Time, *sql.Tx) (bool, error)
 	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
 	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
 	// Identity
@@ -40,8 +40,8 @@ type Service interface {
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
-	DeleteUniqueIdentity(string, bool, bool, *sql.Tx) (bool, error)
-	ArchiveUniqueIdentity(string, *sql.Tx) (bool, error)
+	DeleteUniqueIdentity(string, bool, bool, *time.Time, *sql.Tx) (bool, error)
+	ArchiveUniqueIdentity(string, *time.Time, *sql.Tx) (bool, error)
 	UnarchiveUniqueIdentity(string, bool, *sql.Tx) (bool, error)
 	DeleteUniqueIdentityArchive(string, bool, bool, *sql.Tx) (bool, error)
 	// Enrollment
@@ -49,8 +49,8 @@ type Service interface {
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	EditEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	AddEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
-	DeleteEnrollment(int64, bool, bool, *sql.Tx) (bool, error)
-	ArchiveEnrollment(int64, *sql.Tx) (bool, error)
+	DeleteEnrollment(int64, bool, bool, *time.Time, *sql.Tx) (bool, error)
+	ArchiveEnrollment(int64, *time.Time, *sql.Tx) (bool, error)
 	UnarchiveEnrollment(int64, bool, *sql.Tx) (bool, error)
 	DeleteEnrollmentArchive(int64, bool, bool, *sql.Tx) (bool, error)
 	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
@@ -292,7 +292,7 @@ func (s *service) MergeEnrollments(uuid string, organization *models.Organizatio
 		}
 	}
 	for _, rol := range disjoint {
-		_, err = s.DeleteEnrollment(rol.ID, true, true, tx)
+		_, err = s.DeleteEnrollment(rol.ID, false, true, nil, tx)
 		if err != nil {
 			return
 		}
@@ -988,7 +988,7 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tx *sql.Tx)
 		log.Info(fmt.Sprintf("UnarchiveUniqueIdentity(exit): uuid:%s replace:%v tx:%v ok:%v err:%v", uuid, replace, tx != nil, ok, err))
 	}()
 	if replace {
-		_, err = s.DeleteUniqueIdentity(uuid, false, false, tx)
+		_, err = s.DeleteUniqueIdentity(uuid, false, false, nil, tx)
 		if err != nil {
 			return
 		}
@@ -1016,14 +1016,18 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tx *sql.Tx)
 	return
 }
 
-func (s *service) ArchiveUniqueIdentity(uuid string, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("ArchiveUniqueIdentity: uuid:%s tx:%v", uuid, tx != nil))
+func (s *service) ArchiveUniqueIdentity(uuid string, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("ArchiveUniqueIdentity: uuid:%s tm:%v tx:%v", uuid, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("ArchiveUniqueIdentity(exit): uuid:%s tx:%v ok:%v err:%v", uuid, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("ArchiveUniqueIdentity(exit): uuid:%s tm:%v tx:%v ok:%v err:%v", uuid, tm, tx != nil, ok, err))
 	}()
-	insert := "insert into uidentities_archive(uuid, last_modified) " +
-		"select uuid, last_modified from uidentities where uuid = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, uuid)
+	if tm == nil {
+		t := time.Now()
+		tm = &t
+	}
+	insert := "insert into uidentities_archive(uuid, last_modified, archived_at) " +
+		"select uuid, last_modified, ? from uidentities where uuid = ? limit 1"
+	res, err := s.exec(s.db, tx, insert, tm, uuid)
 	if err != nil {
 		return
 	}
@@ -1039,13 +1043,13 @@ func (s *service) ArchiveUniqueIdentity(uuid string, tx *sql.Tx) (ok bool, err e
 	return
 }
 
-func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("DeleteUniqueIdentity: uuid:%s archive:%v missingFatal:%v tx:%v", uuid, archive, missingFatal, tx != nil))
+func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteUniqueIdentity: uuid:%s archive:%v missingFatal:%v tm:%v tx:%v", uuid, archive, missingFatal, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteUniqueIdentity(exit): uuid:%s archive:%v missingFatal:%v tx:%v ok:%v err:%v", uuid, archive, missingFatal, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("DeleteUniqueIdentity(exit): uuid:%s archive:%v missingFatal:%v tm:%v tx:%v ok:%v err:%v", uuid, archive, missingFatal, tm, tx != nil, ok, err))
 	}()
 	if archive {
-		_, err = s.ArchiveUniqueIdentity(uuid, tx)
+		_, err = s.ArchiveUniqueIdentity(uuid, tm, tx)
 		if err != nil {
 			return
 		}
@@ -1102,7 +1106,7 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tx *sql.Tx) (ok bo
 		log.Info(fmt.Sprintf("UnarchiveEnrollment(exit): id:%d replace:%v tx:%v ok:%v err:%v", id, replace, tx != nil, ok, err))
 	}()
 	if replace {
-		_, err = s.DeleteEnrollment(id, false, false, tx)
+		_, err = s.DeleteEnrollment(id, false, false, nil, tx)
 		if err != nil {
 			return
 		}
@@ -1130,14 +1134,18 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tx *sql.Tx) (ok bo
 	return
 }
 
-func (s *service) ArchiveEnrollment(id int64, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("ArchiveEnrollment: id:%d tx:%v", id, tx != nil))
+func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("ArchiveEnrollment: id:%d tm:%v tx:%v", id, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("ArchiveEnrollment(exit): id:%d tx:%v ok:%v err:%v", id, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("ArchiveEnrollment(exit): id:%d tm:%v tx:%v ok:%v err:%v", id, tm, tx != nil, ok, err))
 	}()
-	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end) " +
-		"select id, uuid, organization_id, start, end from enrollments where id = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, id)
+	if tm == nil {
+		t := time.Now()
+		tm = &t
+	}
+	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, archived_at) " +
+		"select id, uuid, organization_id, start, end, ? from enrollments where id = ? limit 1"
+	res, err := s.exec(s.db, tx, insert, tm, id)
 	if err != nil {
 		return
 	}
@@ -1153,13 +1161,13 @@ func (s *service) ArchiveEnrollment(id int64, tx *sql.Tx) (ok bool, err error) {
 	return
 }
 
-func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("DeleteEnrollment: id:%d archive:%v missingFatal:%v tx:%v", id, archive, missingFatal, tx != nil))
+func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteEnrollment: id:%d archive:%v missingFatal:%v tm:%v tx:%v", id, archive, missingFatal, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteEnrollment(exit): id:%d archive:%v missingFatal:%v tx:%v ok:%v err:%v", id, archive, missingFatal, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("DeleteEnrollment(exit): id:%d archive:%v missingFatal:%v tm:%v tx:%v ok:%v err:%v", id, archive, missingFatal, tm, tx != nil, ok, err))
 	}()
 	if archive {
-		_, err = s.ArchiveEnrollment(id, tx)
+		_, err = s.ArchiveEnrollment(id, tm, tx)
 		if err != nil {
 			return
 		}
@@ -1216,7 +1224,7 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (ok bo
 		log.Info(fmt.Sprintf("UnarchiveProfile(exit): uuid:%s replace:%v tx:%v ok:%v err:%v", uuid, replace, tx != nil, ok, err))
 	}()
 	if replace {
-		_, err = s.DeleteProfile(uuid, false, false, tx)
+		_, err = s.DeleteProfile(uuid, false, false, nil, tx)
 		if err != nil {
 			return
 		}
@@ -1244,14 +1252,18 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (ok bo
 	return
 }
 
-func (s *service) ArchiveProfile(uuid string, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("ArchiveProfile: uuid:%s tx:%v", uuid, tx != nil))
+func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("ArchiveProfile: uuid:%s tm:%v tx:%v", uuid, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("ArchiveProfile(exit): uuid:%s tx:%v ok:%v err:%v", uuid, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("ArchiveProfile(exit): uuid:%s tm:%v tx:%v ok:%v err:%v", uuid, tm, tx != nil, ok, err))
 	}()
-	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, uuid)
+	if tm == nil {
+		t := time.Now()
+		tm = &t
+	}
+	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
+		"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
+	res, err := s.exec(s.db, tx, insert, tm, uuid)
 	if err != nil {
 		return
 	}
@@ -1267,13 +1279,13 @@ func (s *service) ArchiveProfile(uuid string, tx *sql.Tx) (ok bool, err error) {
 	return
 }
 
-func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("DeleteProfile: uuid:%s archive:%v missingFatal:%v tx:%v", uuid, archive, missingFatal, tx != nil))
+func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteProfile: uuid:%s archive:%v missingFatal:%v tm:%v tx:%v", uuid, archive, missingFatal, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteProfile(exit): uuid:%s archive:%v missingFatal:%v tx:%v ok:%v err:%v", uuid, archive, missingFatal, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("DeleteProfile(exit): uuid:%s archive:%v missingFatal:%v tm:%v tx:%v ok:%v err:%v", uuid, archive, missingFatal, tm, tx != nil, ok, err))
 	}()
 	if archive {
-		_, err = s.ArchiveProfile(uuid, tx)
+		_, err = s.ArchiveProfile(uuid, tm, tx)
 		if err != nil {
 			return
 		}
@@ -1791,7 +1803,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 		}
 	}
 	// Delete unique identity archiving it to uidentities_archive
-	_, err = s.DeleteUniqueIdentity(fromUUID, true, true, tx)
+	_, err = s.DeleteUniqueIdentity(fromUUID, false, true, nil, tx)
 	if err != nil {
 		return
 	}
