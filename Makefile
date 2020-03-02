@@ -6,6 +6,8 @@ BUILD_GO_VERSION=`go version | sed "s/ /_/g"`
 LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(BUILD_COMMIT) -X main.BuildHostName=$(BUILD_HOSTNAME) -X main.BuildGoVersion=$(BUILD_GO_VERSION)"
 GO_BIN_FILES=main.go
 GO_FMT=gofmt -s -w
+GO_VET=go vet
+GO_LINT=golint -set_exit_status
 
 .PHONY: build clean deploy
 
@@ -18,7 +20,11 @@ build: swagger deps
 	env GOOS=linux GOARCH=amd64 go build -tags aws_lambda -o bin/$(SERVICE) -a $(LDFLAGS) .
 	chmod +x bin/$(SERVICE)
 
-run: fmt
+run: fmt vet lint
+	go build -o ./main -a $(LDFLAGS)
+	./main
+
+fastrun:
 	go build -o ./main -a $(LDFLAGS)
 	./main
 
@@ -44,3 +50,9 @@ deploy: clean build
 
 fmt: ${GO_BIN_FILES}
 	./for_each_go_file.sh "${GO_FMT}"
+
+vet: ${GO_BIN_FILES}
+	ERROR_EXIT_CODE=0 ./for_each_go_file.sh "${GO_VET}"
+
+lint: ${GO_BIN_FILES}
+	./for_each_go_file.sh "${GO_LINT}"

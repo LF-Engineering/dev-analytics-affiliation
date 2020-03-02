@@ -11,5 +11,10 @@ if [ -z "$ONLYRUN" ]
 then
   make swagger && make build && make run
 else
-  make run
+  if [ -z "$NOCHECKS" ]
+  then
+    make run
+  else
+    make fastrun
+  fi
 fi

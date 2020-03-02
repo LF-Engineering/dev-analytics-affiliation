@@ -11,9 +11,11 @@ import (
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 
+	// We use Postgres as an API db
 	_ "github.com/lib/pq"
 )
 
+// Service - accessing API db
 type Service interface {
 	CheckIdentityManagePermission(string, string) (bool, error)
 }

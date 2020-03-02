@@ -332,6 +332,17 @@ definitions:
         type: string
         format: date-time
         example: '2019-09-02 03:00:33.000000'
+  organization-data-output:
+    title: Organization data output
+    description: Organization data
+    type: object
+    properties:
+      id:
+        type: integer
+        example: 35067
+      name:
+        type: string
+        example: CNCF
 schemes:
   - http
 consumes:

@@ -15,9 +15,11 @@ import (
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 
+	// SortingHat database is MariaDB/MySQL format
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// Service - access affiliations MariaDB interface
 type Service interface {
 	// External CRUD methods
 	// Country
@@ -45,11 +47,14 @@ type Service interface {
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	EditEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
+	// Organization
+	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 	GetIdentityUniqueIdentities(*models.UniqueIdentityDataOutput, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
+	MergeEnrollments(string, *models.OrganizationDataOutput, *sql.Tx) error
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -81,6 +86,7 @@ func New(db *sqlx.DB) Service {
 	}
 }
 
+// DateTimeFormat - this is how we format datetime for MariaDB
 const DateTimeFormat = "%Y-%m-%dT%H:%i:%s.%fZ"
 
 type localProfile struct {
@@ -134,6 +140,14 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 		err = fmt.Errorf("cannot find country by code '%s'", countryCode)
 		return
 	}
+	return
+}
+
+func (s *service) MergeEnrollments(uuid string, organization *models.OrganizationDataOutput, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("MergeEnrollments: uuid:%s organization:%+v tx:%v", uuid, organization, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("MergeEnrollments(exit): uuid:%s organization:%+v tx:%v err:%v", uuid, organization, tx != nil, err))
+	}()
 	return
 }
 
@@ -248,6 +262,65 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 			uniqueIdentity = nil
 			return
 		}
+	}
+	return
+}
+
+func (s *service) FindOrganizations(columns []string, values []interface{}, missingFatal bool, tx *sql.Tx) (organizations []*models.OrganizationDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindOrganizations: columns:%+v values:%+v missingFatal:%v tx:%v", columns, values, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindOrganizations(exit): columns:%+v values:%+v missingFatal:%v tx:%v organizations:%+v err:%v",
+				columns,
+				values,
+				missingFatal,
+				tx != nil,
+				organizations,
+				err,
+			),
+		)
+	}()
+	sel := "select id, name from organizations"
+	nColumns := len(columns)
+	lastIndex := nColumns - 1
+	if nColumns > 0 {
+		sel += " where"
+	}
+	for index := range columns {
+		column := columns[index]
+		sel += " " + column + " = ?"
+		if index < lastIndex {
+			sel += ","
+		}
+	}
+	sel += " order by uuid asc, start asc, end asc"
+	rows, err := s.query(s.db, tx, sel, values)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		organizationData := &models.OrganizationDataOutput{}
+		err = rows.Scan(
+			&organizationData.ID,
+			&organizationData.Name,
+		)
+		if err != nil {
+			return
+		}
+		organizations = append(organizations, organizationData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(organizations) == 0 {
+		err = fmt.Errorf("cannot find organizations for %+v/%+v", columns, values)
+		return
 	}
 	return
 }
@@ -1145,7 +1218,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		}
 	}
 	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given: %+v", s.toLocalProfile(profileData))
+		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.toLocalProfile(profileData))
 		profileData = nil
 		return
 	}
@@ -1303,45 +1376,21 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
-	// FIXME continue
-	/*
-	       # Update identities
-	       for identity in fuid.identities:
-	           move_identity_db(session, identity, tuid)
-
-	       # Move those enrollments that to_uid does not have.
-	       # It is needed to copy the list in-place to avoid
-	       # sync problems when enrollments are moved.
-	       for rol in fuid.enrollments[:]:
-	           enrollment = session.query(Enrollment).\
-	               filter(Enrollment.uidentity == tuid,
-	                      Enrollment.organization == rol.organization,
-	                      Enrollment.start == rol.start,
-	                      Enrollment.end == rol.end).first()
-
-	           if not enrollment:
-	               move_enrollment_db(session, rol, tuid)
-
-	       # For some reason, uuid are not updated until changes are
-	       # committed (flush does nothing). Force to commit changes
-	       # to avoid deletion of identities when removing 'fuid'
-	       session.commit()
-
-	       delete_unique_identity_db(session, fuid)
-
-	       # Retrieve of organizations to merge the enrollments,
-	       # before closing the session
-	       query = session.query(Organization.name).\
-	           join(Enrollment).\
-	           filter(Enrollment.uidentity == tuid).distinct()
-
-	       orgs = [org.name for org in query]
-
-	   # Merge enrollments
-	   for org in orgs:
-	       merge_enrollments(db, to_uuid, org)
-	*/
-	fmt.Printf("fromUU=%+v toUU=%+v\n", s.toLocalUniqueIdentity(fromUU), s.toLocalUniqueIdentity(toUU))
+	orgs, err := s.FindOrganizations(
+		[]string{"uuid"},
+		[]interface{}{toUUID},
+		false,
+		tx,
+	)
+	if err != nil {
+		return
+	}
+	for _, org := range orgs {
+		err = s.MergeEnrollments(toUUID, org, tx)
+		if err != nil {
+			return
+		}
+	}
 	err = tx.Commit()
 	if err != nil {
 		return

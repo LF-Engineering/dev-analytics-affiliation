@@ -26,6 +26,7 @@ const (
 	maxConcurrentRequests = 50
 )
 
+// Service - API interface
 type Service interface {
 	// External methods
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
@@ -64,18 +65,20 @@ func New(apiDB apidb.Service, shDB shdb.Service, es elastic.Service) Service {
 	}
 }
 
+// Jwks - keys to get certificate data
 type Jwks struct {
 	Keys []JSONWebKeys `json:"keys"`
 }
 
+// JSONWebKeys keys to get certificate data
 type JSONWebKeys struct {
-	Alg string   `json:"alg"`
-	Kty string   `json:"kty"`
-	Kid string   `json:"kid"`
-	Use string   `json:"use"`
-	N   string   `json:"n"`
-	E   string   `json:"e"`
-	X5t string   `json:"e"`
+	Alg string `json:"alg"`
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	Use string `json:"use"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+	//X5t string   `json:"e"`
 	X5c []string `json:"x5c"`
 }
 

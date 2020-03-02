@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Start - AWS lambda entry
 func Start(api *operations.DevAnalyticsAffiliationAPI, _ int) error {
 	server := restapi.NewServer(api)
 	server.ConfigureAPI()

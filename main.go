@@ -32,9 +32,9 @@ var (
 	BuildStamp = "None"
 	// GitHash is the tag for current hash the build represents
 	GitHash = "None"
-	// Build uname -a
+	// BuildHostName uname -a
 	BuildHostName = "None"
-	//build go version
+	// BuildGoVersion go version
 	BuildGoVersion = "None"
 	host           = "None"
 )
