@@ -12,3 +12,12 @@ CREATE TABLE `profiles_archive` (
   `country_code` varchar(2) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `uidentities_archive`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `uidentities` (
+  `archived_at` datetime(6) NOT NULL DEFAULT now(),
+  `uuid` varchar(128) COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `last_modified` datetime(6) DEFAULT NULL,
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
