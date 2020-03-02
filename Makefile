@@ -8,6 +8,8 @@ GO_BIN_FILES=main.go
 GO_FMT=gofmt -s -w
 GO_VET=go vet
 GO_LINT=golint -set_exit_status
+GO_TEST=go test
+GO_TEST_FILES=main_test.go
 
 .PHONY: build clean deploy
 
@@ -56,3 +58,6 @@ vet: ${GO_BIN_FILES}
 
 lint: ${GO_BIN_FILES}
 	./for_each_go_file.sh "${GO_LINT}"
+
+test:
+	${GO_TEST} ${GO_TEST_FILES}
