@@ -194,7 +194,8 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 		}
 		return time.Time(sortedDates[i][idx]).Before(time.Time(sortedDates[j][idx]))
 	})
-	saved := sortedDates[0]
+	saved := []strfmt.DateTime{sortedDates[0][0], sortedDates[0][1]}
+	minRange, maxRange := false, false
 	for _, data := range sortedDates {
 		st := data[0]
 		en := data[1]
@@ -206,24 +207,39 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 			err = fmt.Errorf("end date %v must be between %v and %v", en, MinPeriodDate, MaxPeriodDate)
 			return
 		}
+		// st <= saved[1]
 		if !time.Time(st).After(time.Time(saved[1])) {
+			// saved[0] == MIN_PERIOD_DATE
 			if !time.Time(saved[0]).After(MinPeriodDate) {
 				saved[0] = st
+				minRange = true
 			}
-			if !time.Time(saved[1]).Before(MaxPeriodDate) || en == saved[1] {
+			// if MAX_PERIOD_DATE in (en, saved[1]):
+			if !time.Time(saved[1]).Before(MaxPeriodDate) || !time.Time(en).Before(MaxPeriodDate) {
+				// if saved1 > en
 				if time.Time(saved[1]).After(time.Time(en)) {
 					saved[1] = en
 				}
+				maxRange = true
 			} else {
+				// if saved1 < en
 				if time.Time(saved[1]).Before(time.Time(en)) {
 					saved[1] = en
 				}
 			}
 		} else {
-			mergedDates = append(mergedDates, saved)
+			// st > saved[1]
+			mergedDates = append(mergedDates, []strfmt.DateTime{saved[0], saved[1]})
 			saved[0] = st
 			saved[1] = en
 		}
+	}
+	mergedDates = append(mergedDates, saved)
+	if minRange {
+		mergedDates[0][0] = strfmt.DateTime(MinPeriodDate)
+	}
+	if maxRange {
+		mergedDates[len(mergedDates)-1][1] = strfmt.DateTime(MaxPeriodDate)
 	}
 	return
 }

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"testing"
-  "time"
+	"time"
 
 	"github.com/go-openapi/strfmt"
 
@@ -34,23 +34,138 @@ func equalDates(a1, a2 [][]strfmt.DateTime) bool {
 
 func TestMergeDateRanges(t *testing.T) {
 	var testCases = []struct {
+		name        string
 		input       [][]strfmt.DateTime
 		expected    [][]strfmt.DateTime
 		expectedErr bool
 	}{
-		{},
-    //[2012-08-01T00:00:00.000Z 2013-10-15T00:00:00.000Z] [2014-04-15T00:00:00.000Z 2015-11-20T00:00:00.000Z]
 		{
+			name: "empty",
+		},
+		{
+			name:        "empty 1900",
 			input:       [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC))}},
-      expectedErr: true,
+			expectedErr: true,
 		},
 		{
-			input:    [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC))},{strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))}},
-      expectedErr: true,
+			name:        "wrong items length",
+			input:       [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC))}, {strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))}},
+			expectedErr: true,
 		},
 		{
-			input:    [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)),strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))}},
-			expected: [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)),strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))}},
+			name:     "single",
+			input:    [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))}},
+			expected: [][]strfmt.DateTime{{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))}},
+		},
+		{
+			name: "unchanged",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 2 -> 1",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2014, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2013, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 3 -> 2",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2015, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 4 -> 2",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2010, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2012, 12, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2015, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2010, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 4 -> 2 (from 1900)",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2012, 12, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2015, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 4 -> 2 (to 2100)",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2010, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2012, 12, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2015, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2010, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 4 -> 2 (from 1900 to 2100)",
+			input: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2012, 12, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2015, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))},
+			},
+		},
+		{
+			name: "merge 4 -> 2 shuffled",
+			input: [][]strfmt.DateTime{
+				{
+					strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC)),
+					strfmt.DateTime(time.Date(2015, 4, 15, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					strfmt.DateTime(time.Date(2015, 11, 20, 0, 0, 0, 0, time.UTC)),
+					strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC)),
+					strfmt.DateTime(time.Date(2012, 8, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					strfmt.DateTime(time.Date(2012, 12, 15, 0, 0, 0, 0, time.UTC)),
+					strfmt.DateTime(time.Date(2010, 8, 1, 0, 0, 0, 0, time.UTC)),
+				},
+			},
+			expected: [][]strfmt.DateTime{
+				{strfmt.DateTime(time.Date(2010, 8, 1, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2013, 10, 15, 0, 0, 0, 0, time.UTC))},
+				{strfmt.DateTime(time.Date(2014, 4, 15, 0, 0, 0, 0, time.UTC)), strfmt.DateTime(time.Date(2017, 11, 20, 0, 0, 0, 0, time.UTC))},
+			},
 		},
 	}
 	s := shdb.New(nil)
@@ -58,17 +173,17 @@ func TestMergeDateRanges(t *testing.T) {
 		expected := test.expected
 		expectedErr := test.expectedErr
 		got, err := s.MergeDateRanges(test.input)
-    gotErr := err != nil
+		gotErr := err != nil
 		if gotErr != expectedErr {
 			t.Errorf(
-          "test number %d, expected error %v, got %v, test case: {input:%v, expected:%v, expectedErr:%v}",
-				index+1, expectedErr, gotErr, test.input, test.expected, test.expectedErr,
+				"test number %d (%s), expected error %v, got %v, test case: {input:%v, expected:%v, expectedErr:%v}",
+				index+1, test.name, expectedErr, gotErr, test.input, test.expected, test.expectedErr,
 			)
 		}
 		if !equalDates(got, expected) {
 			t.Errorf(
-				"test number %d, expected '%v', got '%v', test case: {input:%v, expected:%v, expectedErr:%v}",
-				index+1, expectedErr, gotErr, test.input, test.expected, test.expectedErr,
+				"test number %d (%s), expected '%v', got '%v', test case: {input:%v, expected:%v, expectedErr:%v}",
+				index+1, test.name, expected, got, test.input, test.expected, test.expectedErr,
 			)
 		}
 	}
