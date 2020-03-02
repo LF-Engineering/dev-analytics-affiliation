@@ -39,6 +39,7 @@ type Service interface {
 	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
+	GetIdentityUniqueIdentities(*models.UniqueIdentityDataOutput, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -257,6 +258,64 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 	}
 	if !fetched {
 		uniqueIdentityData = nil
+	}
+	return
+}
+
+func (s *service) GetIdentityUniqueIdentities(uniqueIdentity *models.UniqueIdentityDataOutput, missingFatal bool, tx *sql.Tx) (identities []*models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetIdentityUniqueIdentities: uniqueIdentity:%+v missingFatal:%v tx:%v", s.toLocalUniqueIdentity(uniqueIdentity), missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetIdentityUniqueIdentities(exit): uniqueIdentity:%s missingFatal:%v tx:%v identities:%+v err:%v",
+				s.toLocalUniqueIdentity(uniqueIdentity),
+				missingFatal,
+				tx != nil,
+				s.toLocalIdentities(identities),
+				err,
+			),
+		)
+	}()
+	rows, err := s.query(
+		s.db,
+		tx,
+		"select id, uuid, source, name, username, email, last_modified from identities where uuid = ?",
+		uniqueIdentity.UUID,
+	)
+	if err != nil {
+		return
+	}
+	fetched := false
+	for rows.Next() {
+		identityData := &models.IdentityDataOutput{}
+		err = rows.Scan(
+			&identityData.ID,
+			&identityData.UUID,
+			&identityData.Source,
+			&identityData.Name,
+			&identityData.Username,
+			&identityData.Email,
+			&identityData.LastModified,
+		)
+		if err != nil {
+			return
+		}
+		if !fetched {
+			fetched = true
+		}
+		identities = append(identities, identityData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && !fetched {
+		err = fmt.Errorf("cannot find identities uuid '%s'", uniqueIdentity.UUID)
+		return
 	}
 	return
 }
@@ -798,6 +857,16 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 			return
 		}
 	}
+	identities, err := s.GetIdentityUniqueIdentities(fromUU, false, tx)
+	if err != nil {
+		return
+	}
+	for _, identity := range identities {
+		_, err = s.MoveIdentityToUniqueIdentity(identity, toUU, tx)
+		if err != nil {
+			return
+		}
+	}
 	// FIXME continue
 	/*
 	       # Update identities
@@ -1157,6 +1226,17 @@ func (s *service) toLocalIdentity(i *models.IdentityDataOutput) (o *localIdentit
 		return
 	}
 	o = &localIdentity{i}
+	return
+}
+
+func (s *service) toLocalIdentities(ia []*models.IdentityDataOutput) (oa []*localIdentity) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, &localIdentity{i})
+	}
 	return
 }
 
