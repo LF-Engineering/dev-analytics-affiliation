@@ -310,6 +310,28 @@ definitions:
         format: date-time
         x-nullable: true
         example: '2019-09-02 03:00:33.000000'
+  enrollment-data-output:
+    title: Enrollment data output
+    description: Enrollment data
+    type: object
+    properties:
+      id:
+        type: integer
+        example: 35067
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      organization_id:
+        type: integer
+        example: 33073
+      start:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
+      end:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
 schemes:
   - http
 consumes:

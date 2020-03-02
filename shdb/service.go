@@ -37,9 +37,15 @@ type Service interface {
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
+	// Enrollment
+	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
+	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
+	EditEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 	GetIdentityUniqueIdentities(*models.UniqueIdentityDataOutput, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
+	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
+	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -127,6 +133,43 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 	return
 }
 
+func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("MoveEnrollmentToUniqueIdentity: enrollment:%+v uniqueIdentity:%+v tx:%v", enrollment, s.toLocalUniqueIdentity(uniqueIdentity), tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("MoveEnrollmentToUniqueIdentity(exit): enrollment:%+v uniqueIdentity:%+v tx:%v ok:%v err:%v", enrollment, s.toLocalUniqueIdentity(uniqueIdentity), tx != nil, ok, err))
+	}()
+	if enrollment.UUID == uniqueIdentity.UUID {
+		return
+	}
+	oldUniqueIdentity, err := s.GetUniqueIdentity(enrollment.UUID, true, tx)
+	if err != nil {
+		return
+	}
+	enrollment.UUID = uniqueIdentity.UUID
+	enrollment, err = s.EditEnrollment(enrollment, true, tx)
+	if err != nil {
+		return
+	}
+	affected, err := s.TouchUniqueIdentity(oldUniqueIdentity.UUID, tx)
+	if err != nil {
+		return
+	}
+	if affected != 1 {
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(oldUniqueIdentity), affected)
+		return
+	}
+	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
+	if err != nil {
+		return
+	}
+	if affected != 1 {
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(uniqueIdentity), affected)
+		return
+	}
+	ok = true
+	return
+}
+
 func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (ok bool, err error) {
 	log.Info(fmt.Sprintf("MoveIdentityToUniqueIdentity: identity:%+v uniqueIdentity:%+v tx:%v", s.toLocalIdentity(identity), s.toLocalUniqueIdentity(uniqueIdentity), tx != nil))
 	defer func() {
@@ -159,10 +202,6 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 	}
 	if affected != 1 {
 		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(uniqueIdentity), affected)
-		return
-	}
-	if affected != 1 {
-		err = fmt.Errorf("'%+v' identity update affected %d rows", s.toLocalIdentity(identity), affected)
 		return
 	}
 	ok = true
@@ -205,6 +244,187 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 			uniqueIdentity = nil
 			return
 		}
+	}
+	return
+}
+
+func (s *service) FindEnrollments(columns []string, values []interface{}, isDate []bool, missingFatal bool, tx *sql.Tx) (enrollments []*models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindEnrollments: columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v", columns, values, isDate, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindEnrollments(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v enrollments:%+v err:%v",
+				columns,
+				values,
+				isDate,
+				missingFatal,
+				tx != nil,
+				enrollments,
+				err,
+			),
+		)
+	}()
+	sel := "select id, uuid, organization_id, start, end from enrollments"
+	vals := []interface{}{}
+	nColumns := len(columns)
+	lastIndex := nColumns - 1
+	if nColumns > 0 {
+		sel += " where"
+	}
+	for index := range columns {
+		column := columns[index]
+		value := values[index]
+		date := isDate[index]
+		if date {
+			sel += " " + column + " = str_to_date(?, ?)"
+			vals = append(vals, value)
+			vals = append(vals, DateTimeFormat)
+		} else {
+			sel += " " + column + " = ?"
+			vals = append(vals, value)
+		}
+		if index < lastIndex {
+			sel += ","
+		}
+	}
+	sel += " order by uuid asc, start asc, end asc"
+	rows, err := s.query(s.db, tx, sel, vals)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		enrollmentData := &models.EnrollmentDataOutput{}
+		err = rows.Scan(
+			&enrollmentData.ID,
+			&enrollmentData.UUID,
+			&enrollmentData.OrganizationID,
+			&enrollmentData.Start,
+			&enrollmentData.End,
+		)
+		if err != nil {
+			return
+		}
+		enrollments = append(enrollments, enrollmentData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(enrollments) == 0 {
+		err = fmt.Errorf("cannot find enrollments for %+v/%+v", columns, values)
+		return
+	}
+	return
+}
+
+func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, tx *sql.Tx) (enrollments []*models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetUniqueIdentityEnrollments: uuid:%s missingFatal:%v tx:%v", uuid, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetUniqueIdentityEnrollments(exit): uuid:%s missingFatal:%v tx:%v enrollments:%+v err:%v",
+				uuid,
+				missingFatal,
+				tx != nil,
+				enrollments,
+				err,
+			),
+		)
+	}()
+	rows, err := s.query(
+		s.db,
+		tx,
+		"select id, uuid, organization_id, start, end from enrollments where uuid = ? order by start asc, end asc",
+		uuid,
+	)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		enrollmentData := &models.EnrollmentDataOutput{}
+		err = rows.Scan(
+			&enrollmentData.ID,
+			&enrollmentData.UUID,
+			&enrollmentData.OrganizationID,
+			&enrollmentData.Start,
+			&enrollmentData.End,
+		)
+		if err != nil {
+			return
+		}
+		enrollments = append(enrollments, enrollmentData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(enrollments) == 0 {
+		err = fmt.Errorf("cannot find enrollments for uuid '%s'", uuid)
+		return
+	}
+	return
+}
+
+func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enrollmentData *models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetEnrollment: id:%d missingFatal:%v tx:%v", id, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetEnrollment(exit): id:%d missingFatal:%v tx:%v enrollmentData:%+v err:%v",
+				id,
+				missingFatal,
+				tx != nil,
+				enrollmentData,
+				err,
+			),
+		)
+	}()
+	enrollmentData = &models.EnrollmentDataOutput{}
+	rows, err := s.query(
+		s.db,
+		tx,
+		"select id, uuid, organization_id, start, end from enrollments where id = ? limit 1",
+		id,
+	)
+	if err != nil {
+		return
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&enrollmentData.ID,
+			&enrollmentData.UUID,
+			&enrollmentData.OrganizationID,
+			&enrollmentData.Start,
+			&enrollmentData.End,
+		)
+		if err != nil {
+			return
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && !fetched {
+		err = fmt.Errorf("cannot find enrollment id '%d'", id)
+		return
+	}
+	if !fetched {
+		enrollmentData = nil
 	}
 	return
 }
@@ -576,6 +796,80 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tx *sql
 	return
 }
 
+func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, refresh bool, tx *sql.Tx) (enrollmentData *models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("EditEnrollment: inEnrollmentData:%+v refresh:%v tx:%v", inEnrollmentData, refresh, tx != nil))
+	enrollmentData = inEnrollmentData
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"EditEnrollment(exit): inEnrollmentData:%+v refresh:%v tx:%v enrollmentData:%+v err:%v",
+				inEnrollmentData,
+				refresh,
+				tx != nil,
+				enrollmentData,
+				err,
+			),
+		)
+	}()
+	if enrollmentData.UUID == "" || enrollmentData.ID < 1 || enrollmentData.OrganizationID < 1 {
+		err = fmt.Errorf("enrollment '%+v' missing uuid or id or organization_id", enrollmentData)
+		enrollmentData = nil
+		return
+	}
+	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to-date(?, ?), end = str_to_date(?, ?) where id = ?"
+	var res sql.Result
+	res, err = s.exec(
+		s.db,
+		tx,
+		update,
+		enrollmentData.UUID,
+		enrollmentData.OrganizationID,
+		enrollmentData.Start,
+		DateTimeFormat,
+		enrollmentData.End,
+		DateTimeFormat,
+		enrollmentData.ID,
+	)
+	if err != nil {
+		enrollmentData = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		enrollmentData = nil
+		return
+	}
+	if affected > 1 {
+		err = fmt.Errorf("enrollment '%+v' update affected %d rows", enrollmentData, affected)
+		enrollmentData = nil
+		return
+	} else if affected == 1 {
+		affected2 := int64(0)
+		// Mark enrollment's matching unique identity as modified
+		affected2, err = s.TouchUniqueIdentity(enrollmentData.UUID, tx)
+		if err != nil {
+			enrollmentData = nil
+			return
+		}
+		if affected2 != 1 {
+			err = fmt.Errorf("enrollment '%+v' unique identity update affected %d rows", enrollmentData, affected2)
+			enrollmentData = nil
+			return
+		}
+	} else {
+		log.Info(fmt.Sprintf("EditEnrollment: enrollment '%+v' update didn't affected any rows", enrollmentData))
+	}
+	if refresh {
+		enrollmentData, err = s.GetEnrollment(enrollmentData.ID, true, tx)
+		if err != nil {
+			enrollmentData = nil
+			return
+		}
+	}
+	return
+}
+
 func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
 	log.Info(fmt.Sprintf("EditIdentity: inIdentityData:%+v refresh:%v tx:%v", s.toLocalIdentity(inIdentityData), refresh, tx != nil))
 	identityData = inIdentityData
@@ -865,6 +1159,30 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 		_, err = s.MoveIdentityToUniqueIdentity(identity, toUU, tx)
 		if err != nil {
 			return
+		}
+		enrollments := []*models.EnrollmentDataOutput{}
+		enrollments, err = s.GetUniqueIdentityEnrollments(fromUUID, false, tx)
+		if err != nil {
+			return
+		}
+		for _, rol := range enrollments {
+			rols := []*models.EnrollmentDataOutput{}
+			rols, err = s.FindEnrollments(
+				[]string{"uuid", "organization_id", "start", "end"},
+				[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End},
+				[]bool{false, false, true, true},
+				false,
+				tx,
+			)
+			if err != nil {
+				return
+			}
+			if len(rols) == 0 {
+				_, err = s.MoveEnrollmentToUniqueIdentity(rol, toUU, tx)
+				if err != nil {
+					return
+				}
+			}
 		}
 	}
 	// FIXME continue
