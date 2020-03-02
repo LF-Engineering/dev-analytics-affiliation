@@ -3,6 +3,7 @@ package shdb
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"time"
 
@@ -164,8 +165,63 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	defer func() {
 		log.Info(fmt.Sprintf("MergeDateRanges(exit): dates:%+v mergeddates:%+v err:%v", dates, mergedDates, err))
 	}()
-	mergedDates = dates
-	// FIXME: implement this
+	if len(dates) == 0 {
+		return
+	}
+	sortedDates := [][]strfmt.DateTime{}
+	for index, pair := range dates {
+		if len(pair) != 2 {
+			err = fmt.Errorf("datetime start-end pair number #%d doesn't have exactly 2 elements: %+v", index, pair)
+			return
+		}
+		newPair := []strfmt.DateTime{}
+		if time.Time(pair[0]).Before(time.Time(pair[1])) {
+			newPair = append(newPair, pair[0])
+			newPair = append(newPair, pair[1])
+		} else {
+			newPair = append(newPair, pair[1])
+			newPair = append(newPair, pair[0])
+		}
+		sortedDates = append(sortedDates, newPair)
+	}
+	sort.Slice(sortedDates, func(i, j int) bool {
+		idx := 0
+		if sortedDates[i][0] == sortedDates[j][0] {
+			idx = 1
+		}
+		return time.Time(sortedDates[i][idx]).Before(time.Time(sortedDates[j][idx]))
+	})
+	saved := sortedDates[0]
+	for _, data := range sortedDates {
+		st := data[0]
+		en := data[1]
+		if time.Time(st).Before(MinPeriodDate) || time.Time(st).After(MaxPeriodDate) {
+			err = fmt.Errorf("start date %v must be between %v and %v", st, MinPeriodDate, MaxPeriodDate)
+			return
+		}
+		if time.Time(en).Before(MinPeriodDate) || time.Time(en).After(MaxPeriodDate) {
+			err = fmt.Errorf("end date %v must be between %v and %v", en, MinPeriodDate, MaxPeriodDate)
+			return
+		}
+		if !time.Time(st).After(time.Time(saved[1])) {
+			if !time.Time(saved[0]).After(MinPeriodDate) {
+				saved[0] = st
+			}
+			if !time.Time(saved[1]).Before(MaxPeriodDate) || en == saved[1] {
+				if time.Time(saved[1]).After(time.Time(en)) {
+					saved[1] = en
+				}
+			} else {
+				if time.Time(saved[1]).Before(time.Time(en)) {
+					saved[1] = en
+				}
+			}
+		} else {
+			mergedDates = append(mergedDates, saved)
+			saved[0] = st
+			saved[1] = en
+		}
+	}
 	return
 }
 
