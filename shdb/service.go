@@ -63,6 +63,7 @@ type Service interface {
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) (bool, error)
 	MergeEnrollments(string, *models.OrganizationDataOutput, *sql.Tx) error
 	MergeDateRanges([][]strfmt.DateTime) ([][]strfmt.DateTime, error)
+	FindUniqueIdentityOrganizations(string, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -74,6 +75,8 @@ type Service interface {
 	toLocalProfile(*models.ProfileDataOutput) *localProfile
 	toLocalIdentity(*models.IdentityDataOutput) *localIdentity
 	toLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *localUniqueIdentity
+	toLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
+	toLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
 	queryOut(string, ...interface{})
 	queryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
 	queryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
@@ -163,7 +166,7 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]strfmt.DateTime, err error) {
 	log.Info(fmt.Sprintf("MergeDateRanges: dates:%+v", dates))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeDateRanges(exit): dates:%+v mergeddates:%+v err:%v", dates, mergedDates, err))
+		log.Info(fmt.Sprintf("MergeDateRanges(exit): dates:%+v mergedDates:%+v err:%v", dates, mergedDates, err))
 	}()
 	if len(dates) == 0 {
 		return
@@ -396,6 +399,51 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 	return
 }
 
+func (s *service) FindUniqueIdentityOrganizations(uuid string, missingFatal bool, tx *sql.Tx) (organizations []*models.OrganizationDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindUniqueIdentityOrganizations: uuid:%s missingFatal:%v tx:%v", uuid, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindUniqueIdentityOrganizations(exit): uuid:%s missingFatal:%v tx:%v organizations:%+v err:%v",
+				uuid,
+				missingFatal,
+				tx != nil,
+				s.toLocalOrganizations(organizations),
+				err,
+			),
+		)
+	}()
+	sel := "select distinct o.id, o.name from organizations o, enrollments e where e.organization_id = o.id and e.uuid = ? order by o.name asc"
+	rows, err := s.query(s.db, tx, sel, uuid)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		organizationData := &models.OrganizationDataOutput{}
+		err = rows.Scan(
+			&organizationData.ID,
+			&organizationData.Name,
+		)
+		if err != nil {
+			return
+		}
+		organizations = append(organizations, organizationData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(organizations) == 0 {
+		err = fmt.Errorf("cannot find organizations for uuid %s", uuid)
+		return
+	}
+	return
+}
+
 func (s *service) FindOrganizations(columns []string, values []interface{}, missingFatal bool, tx *sql.Tx) (organizations []*models.OrganizationDataOutput, err error) {
 	log.Info(fmt.Sprintf("FindOrganizations: columns:%+v values:%+v missingFatal:%v tx:%v", columns, values, missingFatal, tx != nil))
 	defer func() {
@@ -406,7 +454,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 				values,
 				missingFatal,
 				tx != nil,
-				organizations,
+				s.toLocalOrganizations(organizations),
 				err,
 			),
 		)
@@ -421,11 +469,11 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 		column := columns[index]
 		sel += " " + column + " = ?"
 		if index < lastIndex {
-			sel += ","
+			sel += " and"
 		}
 	}
-	sel += " order by uuid asc, start asc, end asc"
-	rows, err := s.query(s.db, tx, sel, values)
+	sel += " order by name asc"
+	rows, err := s.query(s.db, tx, sel, values...)
 	if err != nil {
 		return
 	}
@@ -466,7 +514,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 				isDate,
 				missingFatal,
 				tx != nil,
-				enrollments,
+				s.toLocalEnrollments(enrollments),
 				err,
 			),
 		)
@@ -491,11 +539,11 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 			vals = append(vals, value)
 		}
 		if index < lastIndex {
-			sel += ","
+			sel += " and"
 		}
 	}
 	sel += " order by uuid asc, start asc, end asc"
-	rows, err := s.query(s.db, tx, sel, vals)
+	rows, err := s.query(s.db, tx, sel, vals...)
 	if err != nil {
 		return
 	}
@@ -537,7 +585,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 				uuid,
 				missingFatal,
 				tx != nil,
-				enrollments,
+				s.toLocalEnrollments(enrollments),
 				err,
 			),
 		)
@@ -879,7 +927,7 @@ func (s *service) TouchIdentity(id string, tx *sql.Tx) (affected int64, err erro
 func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, err error) {
 	log.Info(fmt.Sprintf("TouchUniqueIdentity: uuid:%s tx:%v", uuid, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%d", uuid, tx != nil, affected, err))
+		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%v", uuid, tx != nil, affected, err))
 	}()
 	res, err := s.exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
 	if err != nil {
@@ -1731,12 +1779,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
-	orgs, err := s.FindOrganizations(
-		[]string{"uuid"},
-		[]interface{}{toUUID},
-		false,
-		tx,
-	)
+	orgs, err := s.FindUniqueIdentityOrganizations(toUUID, false, tx)
 	if err != nil {
 		return
 	}
@@ -2053,6 +2096,28 @@ func (s *service) now() *strfmt.DateTime {
 	return &n
 }
 
+func (s *service) toLocalOrganizations(ia []*models.OrganizationDataOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, *i)
+	}
+	return
+}
+
+func (s *service) toLocalEnrollments(ia []*models.EnrollmentDataOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, *i)
+	}
+	return
+}
+
 func (s *service) toLocalProfile(i *models.ProfileDataOutput) (o *localProfile) {
 	if i == nil {
 		return
@@ -2101,7 +2166,7 @@ func (s *service) queryOut(query string, args ...interface{}) {
 			case nil:
 				s += fmt.Sprintf("%d:(null) ", vi+1)
 			default:
-				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv).Elem())
+				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
 			}
 		}
 		log.Info("[" + s + "]")
