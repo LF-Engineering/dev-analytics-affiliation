@@ -30,8 +30,8 @@ type Service interface {
 	EditProfile(*models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	DeleteProfile(string, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	ArchiveProfile(string, *time.Time, *sql.Tx) (bool, error)
-	UnarchiveProfile(string, bool, *sql.Tx) (bool, error)
-	DeleteProfileArchive(string, bool, bool, *sql.Tx) (bool, error)
+	UnarchiveProfile(string, bool, *time.Time, *sql.Tx) (bool, error)
+	DeleteProfileArchive(string, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	// Identity
 	TouchIdentity(string, *sql.Tx) (int64, error)
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
@@ -42,8 +42,8 @@ type Service interface {
 	GetUniqueIdentity(string, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
 	DeleteUniqueIdentity(string, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	ArchiveUniqueIdentity(string, *time.Time, *sql.Tx) (bool, error)
-	UnarchiveUniqueIdentity(string, bool, *sql.Tx) (bool, error)
-	DeleteUniqueIdentityArchive(string, bool, bool, *sql.Tx) (bool, error)
+	UnarchiveUniqueIdentity(string, bool, *time.Time, *sql.Tx) (bool, error)
+	DeleteUniqueIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	// Enrollment
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -51,8 +51,8 @@ type Service interface {
 	AddEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	DeleteEnrollment(int64, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	ArchiveEnrollment(int64, *time.Time, *sql.Tx) (bool, error)
-	UnarchiveEnrollment(int64, bool, *sql.Tx) (bool, error)
-	DeleteEnrollmentArchive(int64, bool, bool, *sql.Tx) (bool, error)
+	UnarchiveEnrollment(int64, bool, *time.Time, *sql.Tx) (bool, error)
+	DeleteEnrollmentArchive(int64, bool, bool, *time.Time, *sql.Tx) (bool, error)
 	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
@@ -953,19 +953,24 @@ func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, 
 	return
 }
 
-func (s *service) DeleteUniqueIdentityArchive(uuid string, missingFatal, onlyLast bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("DeleteUniqueIdentityArchive: uuid:%s missingFatal:%v onlyLast:%v tx:%v", uuid, missingFatal, onlyLast, tx != nil))
+func (s *service) DeleteUniqueIdentityArchive(uuid string, missingFatal, onlyLast bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteUniqueIdentityArchive: uuid:%s missingFatal:%v onlyLast:%v tm:%v tx:%v", uuid, missingFatal, onlyLast, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteUniqueIdentityArchive(exit): uuid:%s missingFatal:%v onlyLast:%v tx:%v ok:%v err:%v", uuid, missingFatal, onlyLast, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("DeleteUniqueIdentityArchive(exit): uuid:%s missingFatal:%v onlyLast:%v tm:%v tx:%v ok:%v err:%v", uuid, missingFatal, onlyLast, tm, tx != nil, ok, err))
 	}()
 	var res sql.Result
-	if onlyLast {
-		del := "delete from uidentities_archive where uuid = ? and archived_at = (" +
-			"select max(archived_at) from uidentities_archive where uuid = ?)"
-		res, err = s.exec(s.db, tx, del, uuid, uuid)
+	if tm != nil {
+		del := "delete from uidentities_archive where archived_at = ?"
+		res, err = s.exec(s.db, tx, del, tm)
 	} else {
-		del := "delete from uidentities_archive where uuid = ?"
-		res, err = s.exec(s.db, tx, del, uuid)
+		if onlyLast {
+			del := "delete from uidentities_archive where uuid = ? and archived_at = (" +
+				"select max(archived_at) from uidentities_archive where uuid = ?)"
+			res, err = s.exec(s.db, tx, del, uuid, uuid)
+		} else {
+			del := "delete from uidentities_archive where uuid = ?"
+			res, err = s.exec(s.db, tx, del, uuid)
+		}
 	}
 	if err != nil {
 		return
@@ -982,10 +987,10 @@ func (s *service) DeleteUniqueIdentityArchive(uuid string, missingFatal, onlyLas
 	return
 }
 
-func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("UnarchiveUniqueIdentity: uuid:%s replace:%v tx:%v", uuid, replace, tx != nil))
+func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("UnarchiveUniqueIdentity: uuid:%s replace:%v tm:%v tx:%v", uuid, replace, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("UnarchiveUniqueIdentity(exit): uuid:%s replace:%v tx:%v ok:%v err:%v", uuid, replace, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("UnarchiveUniqueIdentity(exit): uuid:%s replace:%v tm:%v tx:%v ok:%v err:%v", uuid, replace, tm, tx != nil, ok, err))
 	}()
 	if replace {
 		_, err = s.DeleteUniqueIdentity(uuid, false, false, nil, tx)
@@ -993,10 +998,18 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tx *sql.Tx)
 			return
 		}
 	}
-	insert := "insert into uidentities(uuid, last_modified) " +
-		"select uuid, now() from uidentites_archive " +
-		"where uuid = ? order by archived_at desc limit 1"
-	res, err := s.exec(s.db, tx, insert, uuid)
+	var res sql.Result
+	if tm != nil {
+		insert := "insert into uidentities(uuid, last_modified) " +
+			"select uuid, now() from uidentites_archive " +
+			"where uuid = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, insert, uuid, tm)
+	} else {
+		insert := "insert into uidentities(uuid, last_modified) " +
+			"select uuid, now() from uidentites_archive " +
+			"where uuid = ? order by archived_at desc limit 1"
+		res, err = s.exec(s.db, tx, insert, uuid)
+	}
 	if err != nil {
 		return
 	}
@@ -1008,7 +1021,7 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tx *sql.Tx)
 		err = fmt.Errorf("unachiving unique identity uuid '%s' created no data", uuid)
 		return
 	}
-	_, err = s.DeleteUniqueIdentityArchive(uuid, true, true, tx)
+	_, err = s.DeleteUniqueIdentityArchive(uuid, true, tm == nil, tm, tx)
 	if err != nil {
 		return
 	}
@@ -1071,19 +1084,24 @@ func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, 
 	return
 }
 
-func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("DeleteEnrollmentArchive: id:%d missingFatal:%v onlyLast:%v tx:%v", id, missingFatal, onlyLast, tx != nil))
+func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteEnrollmentArchive: id:%d missingFatal:%v onlyLast:%v tm:%v tx:%v", id, missingFatal, onlyLast, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteEnrollmentArchive(exit): id:%d missingFatal:%v onlyLast:%v tx:%v ok:%v err:%v", id, missingFatal, onlyLast, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("DeleteEnrollmentArchive(exit): id:%d missingFatal:%v onlyLast:%v tm:%v tx:%v ok:%v err:%v", id, missingFatal, onlyLast, tm, tx != nil, ok, err))
 	}()
 	var res sql.Result
-	if onlyLast {
-		del := "delete from enrollments_archive where id = ? and archived_at = (" +
-			"select max(archived_at) from enrollments_archive where id = ?)"
-		res, err = s.exec(s.db, tx, del, id, id)
+	if tm != nil {
+		del := "delete from enrollments_archive where archived_at = ?"
+		res, err = s.exec(s.db, tx, del, tm)
 	} else {
-		del := "delete from enrollments_archive where id = ?"
-		res, err = s.exec(s.db, tx, del, id)
+		if onlyLast {
+			del := "delete from enrollments_archive where id = ? and archived_at = (" +
+				"select max(archived_at) from enrollments_archive where id = ?)"
+			res, err = s.exec(s.db, tx, del, id, id)
+		} else {
+			del := "delete from enrollments_archive where id = ?"
+			res, err = s.exec(s.db, tx, del, id)
+		}
 	}
 	if err != nil {
 		return
@@ -1100,10 +1118,10 @@ func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool,
 	return
 }
 
-func (s *service) UnarchiveEnrollment(id int64, replace bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("UnarchiveEnrollment: id:%d replace:%v tx:%v", id, replace, tx != nil))
+func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("UnarchiveEnrollment: id:%d replace:%v tm:%v tx:%v", id, replace, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("UnarchiveEnrollment(exit): id:%d replace:%v tx:%v ok:%v err:%v", id, replace, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("UnarchiveEnrollment(exit): id:%d replace:%v tm:%v tx:%v ok:%v err:%v", id, replace, tm, tx != nil, ok, err))
 	}()
 	if replace {
 		_, err = s.DeleteEnrollment(id, false, false, nil, tx)
@@ -1111,10 +1129,18 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tx *sql.Tx) (ok bo
 			return
 		}
 	}
-	insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
-		"select id, uuid, organization_id, start, end from enrollments_archive " +
-		"where id = ? order by archived_at desc limit 1"
-	res, err := s.exec(s.db, tx, insert, id)
+	var res sql.Result
+	if tm != nil {
+		insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
+			"select id, uuid, organization_id, start, end from enrollments_archive " +
+			"where id = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, insert, id, tm)
+	} else {
+		insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
+			"select id, uuid, organization_id, start, end from enrollments_archive " +
+			"where id = ? order by archived_at desc limit 1"
+		res, err = s.exec(s.db, tx, insert, id)
+	}
 	if err != nil {
 		return
 	}
@@ -1126,7 +1152,7 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tx *sql.Tx) (ok bo
 		err = fmt.Errorf("unachiving enrollment id '%d' created no data", id)
 		return
 	}
-	_, err = s.DeleteEnrollmentArchive(id, true, true, tx)
+	_, err = s.DeleteEnrollmentArchive(id, true, tm == nil, tm, tx)
 	if err != nil {
 		return
 	}
@@ -1189,19 +1215,24 @@ func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tm *tim
 	return
 }
 
-func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("DeleteProfileArchive: uuid:%s missingFatal:%v onlyLast:%v tx:%v", uuid, missingFatal, onlyLast, tx != nil))
+func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("DeleteProfileArchive: uuid:%s missingFatal:%v onlyLast:%v tm:%v tx:%v", uuid, missingFatal, onlyLast, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteProfileArchive(exit): uuid:%s missingFatal:%v onlyLast:%v tx:%v ok:%v err:%v", uuid, missingFatal, onlyLast, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("DeleteProfileArchive(exit): uuid:%s missingFatal:%v onlyLast:%v tm:%v tx:%v ok:%v err:%v", uuid, missingFatal, onlyLast, tm, tx != nil, ok, err))
 	}()
 	var res sql.Result
-	if onlyLast {
-		del := "delete from profiles_archive where uuid = ? and archived_at = (" +
-			"select max(archived_at) from profiles_archive where uuid = ?)"
-		res, err = s.exec(s.db, tx, del, uuid, uuid)
+	if tm != nil {
+		del := "delete from profiles_archive where archived_at = ?"
+		res, err = s.exec(s.db, tx, del, tm)
 	} else {
-		del := "delete from profiles_archive where uuid = ?"
-		res, err = s.exec(s.db, tx, del, uuid)
+		if onlyLast {
+			del := "delete from profiles_archive where uuid = ? and archived_at = (" +
+				"select max(archived_at) from profiles_archive where uuid = ?)"
+			res, err = s.exec(s.db, tx, del, uuid, uuid)
+		} else {
+			del := "delete from profiles_archive where uuid = ?"
+			res, err = s.exec(s.db, tx, del, uuid)
+		}
 	}
 	if err != nil {
 		return
@@ -1218,10 +1249,10 @@ func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool,
 	return
 }
 
-func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (ok bool, err error) {
-	log.Info(fmt.Sprintf("UnarchiveProfile: uuid:%s replace:%v tx:%v", uuid, replace, tx != nil))
+func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx *sql.Tx) (ok bool, err error) {
+	log.Info(fmt.Sprintf("UnarchiveProfile: uuid:%s replace:%v tm:%v tx:%v", uuid, replace, tm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("UnarchiveProfile(exit): uuid:%s replace:%v tx:%v ok:%v err:%v", uuid, replace, tx != nil, ok, err))
+		log.Info(fmt.Sprintf("UnarchiveProfile(exit): uuid:%s replace:%v tm:%v tx:%v ok:%v err:%v", uuid, replace, tm, tx != nil, ok, err))
 	}()
 	if replace {
 		_, err = s.DeleteProfile(uuid, false, false, nil, tx)
@@ -1229,10 +1260,18 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (ok bo
 			return
 		}
 	}
-	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
-		"where uuid = ? order by archived_at desc limit 1"
-	res, err := s.exec(s.db, tx, insert, uuid)
+	var res sql.Result
+	if tm != nil {
+		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+			"where uuid = ? order by archived_at desc limit 1"
+		res, err = s.exec(s.db, tx, insert, uuid)
+	} else {
+		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+			"where uuid = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, insert, uuid, tm)
+	}
 	if err != nil {
 		return
 	}
@@ -1244,7 +1283,7 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tx *sql.Tx) (ok bo
 		err = fmt.Errorf("unachiving profile uuid '%s' created no data", uuid)
 		return
 	}
-	_, err = s.DeleteProfileArchive(uuid, true, true, tx)
+	_, err = s.DeleteProfileArchive(uuid, true, tm == nil, tm, tx)
 	if err != nil {
 		return
 	}
