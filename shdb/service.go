@@ -61,14 +61,14 @@ type Service interface {
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// Other
-	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) error
+	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetUniqueIdentityIdentities(string, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) error
-	MergeEnrollments(string, *models.OrganizationDataOutput, *sql.Tx) error
+	MergeEnrollments(*models.UniqueIdentityDataOutput, *models.OrganizationDataOutput, *sql.Tx) error
 	MergeDateRanges([][]strfmt.DateTime) ([][]strfmt.DateTime, error)
 	FindUniqueIdentityOrganizations(string, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
-	ArchiveUUID(string, *sql.Tx) (time.Time, error)
+	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string) error
@@ -249,16 +249,12 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	return
 }
 
-func (s *service) MergeEnrollments(uuid string, organization *models.OrganizationDataOutput, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("MergeEnrollments: uuid:%s organization:%+v tx:%v", uuid, organization, tx != nil))
+func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutput, organization *models.OrganizationDataOutput, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v tx:%v", s.toLocalUniqueIdentity(uniqueIdentity), organization, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeEnrollments(exit): uuid:%s organization:%+v tx:%v err:%v", uuid, organization, tx != nil, err))
+		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v tx:%v err:%v", s.toLocalUniqueIdentity(uniqueIdentity), organization, tx != nil, err))
 	}()
-	uniqueIdentity, err := s.GetUniqueIdentity(uuid, true, tx)
-	if err != nil {
-		return
-	}
-	disjoint, err := s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uuid, organization.ID}, []bool{false, false}, false, tx)
+	disjoint, err := s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uniqueIdentity.UUID, organization.ID}, []bool{false, false}, false, tx)
 	if err != nil {
 		return
 	}
@@ -290,7 +286,7 @@ func (s *service) MergeEnrollments(uuid string, organization *models.Organizatio
 			disjoint = filtered
 			continue
 		}
-		newEnrollment := &models.EnrollmentDataOutput{UUID: uuid, OrganizationID: organization.ID, Start: st, End: en}
+		newEnrollment := &models.EnrollmentDataOutput{UUID: uniqueIdentity.UUID, OrganizationID: organization.ID, Start: st, End: en}
 		_, err = s.AddEnrollment(newEnrollment, false, tx)
 		if err != nil {
 			return
@@ -341,10 +337,27 @@ func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDa
 	return
 }
 
-func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("MoveIdentityToUniqueIdentity: identity:%+v uniqueIdentity:%+v tx:%v", s.toLocalIdentity(identity), s.toLocalUniqueIdentity(uniqueIdentity), tx != nil))
+func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, unarchive bool, tx *sql.Tx) (err error) {
+	log.Info(
+		fmt.Sprintf(
+			"MoveIdentityToUniqueIdentity: identity:%+v uniqueIdentity:%+v unarchive:%v tx:%v",
+			s.toLocalIdentity(identity),
+			s.toLocalUniqueIdentity(uniqueIdentity),
+			unarchive,
+			tx != nil,
+		),
+	)
 	defer func() {
-		log.Info(fmt.Sprintf("MoveIdentityToUniqueIdentity(exit): identity:%+v uniqueIdentity:%+v tx:%v err:%v", s.toLocalIdentity(identity), s.toLocalUniqueIdentity(uniqueIdentity), tx != nil, err))
+		log.Info(
+			fmt.Sprintf(
+				"MoveIdentityToUniqueIdentity(exit): identity:%+v uniqueIdentity:%+v unarchive:%v tx:%v err:%v",
+				s.toLocalIdentity(identity),
+				s.toLocalUniqueIdentity(uniqueIdentity),
+				unarchive,
+				tx != nil,
+				err,
+			),
+		)
 	}()
 	if identity.UUID == uniqueIdentity.UUID {
 		return
@@ -1863,20 +1876,24 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 	return
 }
 
-func (s *service) ArchiveUUID(uuid string, tx *sql.Tx) (tm time.Time, err error) {
-	log.Info(fmt.Sprintf("ArchiveUUID: uuid:%s", uuid))
+func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time.Time, err error) {
+	log.Info(fmt.Sprintf("ArchiveUUID: uuid:%s itm:%v tx:%v", uuid, itm, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("ArchiveUUID(exit): uuid:%s tm:%v err:%v", uuid, tm, err))
+		log.Info(fmt.Sprintf("ArchiveUUID(exit): uuid:%s itm:%v tx:%v tm:%v err:%v", uuid, itm, tx != nil, tm, err))
 	}()
 	if uuid == "" {
 		return
 	}
-	tm = time.Now()
-	err = s.ArchiveUniqueIdentity(uuid, &tm, tx)
+	itm = tm
+	if tm == nil {
+		t := time.Now()
+		tm = &t
+	}
+	err = s.ArchiveUniqueIdentity(uuid, tm, tx)
 	if err != nil {
 		return
 	}
-	err = s.ArchiveProfile(uuid, &tm, tx)
+	err = s.ArchiveProfile(uuid, tm, tx)
 	if err != nil {
 		return
 	}
@@ -1885,7 +1902,7 @@ func (s *service) ArchiveUUID(uuid string, tx *sql.Tx) (tm time.Time, err error)
 		return
 	}
 	for _, identity := range identities {
-		err = s.ArchiveIdentity(identity.ID, &tm, tx)
+		err = s.ArchiveIdentity(identity.ID, tm, tx)
 		if err != nil {
 			return
 		}
@@ -1895,7 +1912,7 @@ func (s *service) ArchiveUUID(uuid string, tx *sql.Tx) (tm time.Time, err error)
 		return
 	}
 	for _, enrollment := range enrollments {
-		err = s.ArchiveEnrollment(enrollment.ID, &tm, tx)
+		err = s.ArchiveEnrollment(enrollment.ID, tm, tx)
 		if err != nil {
 			return
 		}
@@ -1931,20 +1948,22 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = s.ArchiveUUID(fromUUID, tx)
-	if err != nil {
-		return
-	}
-	_, err = s.ArchiveUUID(toUUID, tx)
-	if err != nil {
-		return
-	}
 	// Rollback unless tx was set to nil after successful commit
 	defer func() {
 		if tx != nil {
 			tx.Rollback()
 		}
 	}()
+	// Archive fromUUID and toUUID objects, all with the same archived_at date
+	archivedDate := time.Now()
+	_, err = s.ArchiveUUID(fromUUID, &archivedDate, tx)
+	if err != nil {
+		return
+	}
+	_, err = s.ArchiveUUID(toUUID, &archivedDate, tx)
+	if err != nil {
+		return
+	}
 	if from != nil && to != nil {
 		if to.Name == nil || (to.Name != nil && *to.Name == "") {
 			to.Name = from.Name
@@ -1974,32 +1993,31 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 		return
 	}
 	for _, identity := range identities {
-		err = s.MoveIdentityToUniqueIdentity(identity, toUU, tx)
+		err = s.MoveIdentityToUniqueIdentity(identity, toUU, false, tx)
 		if err != nil {
 			return
 		}
-		enrollments := []*models.EnrollmentDataOutput{}
-		enrollments, err = s.GetUniqueIdentityEnrollments(fromUUID, false, tx)
+	}
+	enrollments, err := s.GetUniqueIdentityEnrollments(fromUUID, false, tx)
+	if err != nil {
+		return
+	}
+	for _, rol := range enrollments {
+		rols := []*models.EnrollmentDataOutput{}
+		rols, err = s.FindEnrollments(
+			[]string{"uuid", "organization_id", "start", "end"},
+			[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End},
+			[]bool{false, false, true, true},
+			false,
+			tx,
+		)
 		if err != nil {
 			return
 		}
-		for _, rol := range enrollments {
-			rols := []*models.EnrollmentDataOutput{}
-			rols, err = s.FindEnrollments(
-				[]string{"uuid", "organization_id", "start", "end"},
-				[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End},
-				[]bool{false, false, true, true},
-				false,
-				tx,
-			)
+		if len(rols) == 0 {
+			err = s.MoveEnrollmentToUniqueIdentity(rol, toUU, tx)
 			if err != nil {
 				return
-			}
-			if len(rols) == 0 {
-				err = s.MoveEnrollmentToUniqueIdentity(rol, toUU, tx)
-				if err != nil {
-					return
-				}
 			}
 		}
 	}
@@ -2013,7 +2031,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 		return
 	}
 	for _, org := range orgs {
-		err = s.MergeEnrollments(toUUID, org, tx)
+		err = s.MergeEnrollments(toUU, org, tx)
 		if err != nil {
 			return
 		}
@@ -2032,6 +2050,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	defer func() {
 		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s err:%v", fromID, toUUID, err))
 	}()
+	// FIXME: first try to unarchive data
 	from, err := s.GetIdentity(fromID, true, nil)
 	if err != nil {
 		return
@@ -2066,7 +2085,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 			return
 		}
 	}
-	err = s.MoveIdentityToUniqueIdentity(from, to, tx)
+	err = s.MoveIdentityToUniqueIdentity(from, to, true, tx)
 	if err != nil {
 		return
 	}
