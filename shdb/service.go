@@ -1884,7 +1884,7 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	if uuid == "" {
 		return
 	}
-	itm = tm
+	tm = itm
 	if tm == nil {
 		t := time.Now()
 		tm = &t
@@ -2050,7 +2050,6 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	defer func() {
 		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s err:%v", fromID, toUUID, err))
 	}()
-	// FIXME: first try to unarchive data
 	from, err := s.GetIdentity(fromID, true, nil)
 	if err != nil {
 		return
@@ -2060,7 +2059,7 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 		return
 	}
 	if to == nil && fromID != toUUID {
-		err = fmt.Errorf("profile uuid '%s' is not found and identity id is different: '%s'", toUUID, s.toLocalIdentity(from))
+		err = fmt.Errorf("unique identity uuid '%s' is not found and identity id is different: '%+v'", toUUID, s.toLocalIdentity(from))
 		return
 	}
 	tx, err := s.db.Begin()
@@ -2074,6 +2073,11 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 		}
 	}()
 	if to == nil {
+		// FIXME: Unmerge case (if unarchived we already have everything, if not create identity and empty profile)
+		if true {
+			err = fmt.Errorf("merge/unmerge detected")
+			return
+		}
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
 				UUID: toUUID,
