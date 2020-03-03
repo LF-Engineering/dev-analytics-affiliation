@@ -64,6 +64,8 @@ type Service interface {
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
+	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
+	GetArchiveUniqueIdentityIdentities(string, time.Time, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetUniqueIdentityIdentities(string, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) error
@@ -612,6 +614,117 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 	return
 }
 
+func (s *service) GetArchiveUniqueIdentityIdentities(uuid string, tm time.Time, missingFatal bool, tx *sql.Tx) (identities []*models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetArchiveUniqueIdentityIdentities: uuid:%s tm:%v missingFatal:%v tx:%v", uuid, tm, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetArchiveUniqueIdentityIdentities(exit): uuid:%s tm:%v missingFatal:%v tx:%v identities:%+v err:%v",
+				uuid,
+				tm,
+				missingFatal,
+				tx != nil,
+				s.toLocalIdentities(identities),
+				err,
+			),
+		)
+	}()
+	rows, err := s.query(
+		s.db,
+		tx,
+		"select id, uuid, source, name, email, username from identities_archive where uuid = ? and archived_at = ? order by id asc",
+		uuid,
+		tm,
+	)
+	if err != nil {
+		return
+	}
+	now := s.now()
+	for rows.Next() {
+		identityData := &models.IdentityDataOutput{}
+		err = rows.Scan(
+			&identityData.ID,
+			&identityData.UUID,
+			&identityData.Source,
+			&identityData.Name,
+			&identityData.Email,
+			&identityData.Username,
+		)
+		if err != nil {
+			return
+		}
+		identityData.LastModified = now
+		identities = append(identities, identityData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(identities) == 0 {
+		err = fmt.Errorf("cannot find archived identities for uuid '%s'/%v", uuid, tm)
+		return
+	}
+	return
+}
+
+func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time, missingFatal bool, tx *sql.Tx) (enrollments []*models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetArchiveUniqueIdentityEnrollments: uuid:%s tm:%v missingFatal:%v tx:%v", uuid, tm, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetArchiveUniqueIdentityEnrollments(exit): uuid:%s tm:%v missingFatal:%v tx:%v enrollments:%+v err:%v",
+				uuid,
+				tm,
+				missingFatal,
+				tx != nil,
+				s.toLocalEnrollments(enrollments),
+				err,
+			),
+		)
+	}()
+	rows, err := s.query(
+		s.db,
+		tx,
+		"select id, uuid, organization_id, start, end from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
+		uuid,
+		tm,
+	)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		enrollmentData := &models.EnrollmentDataOutput{}
+		err = rows.Scan(
+			&enrollmentData.ID,
+			&enrollmentData.UUID,
+			&enrollmentData.OrganizationID,
+			&enrollmentData.Start,
+			&enrollmentData.End,
+		)
+		if err != nil {
+			return
+		}
+		enrollments = append(enrollments, enrollmentData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(enrollments) == 0 {
+		err = fmt.Errorf("cannot find archive enrollments for uuid '%s'/%v", uuid, tm)
+		return
+	}
+	return
+}
+
 func (s *service) GetUniqueIdentityIdentities(uuid string, missingFatal bool, tx *sql.Tx) (identities []*models.IdentityDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetUniqueIdentityIdentities: uuid:%s missingFatal:%v tx:%v", uuid, missingFatal, tx != nil))
 	defer func() {
@@ -976,8 +1089,8 @@ func (s *service) DeleteUniqueIdentityArchive(uuid string, missingFatal, onlyLas
 	}()
 	var res sql.Result
 	if tm != nil {
-		del := "delete from uidentities_archive where archived_at = ?"
-		res, err = s.exec(s.db, tx, del, tm)
+		del := "delete from uidentities_archive where uuid = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, del, uuid, tm)
 	} else {
 		if onlyLast {
 			del := "delete from uidentities_archive where uuid = ? and archived_at = (" +
@@ -1016,12 +1129,12 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Ti
 	var res sql.Result
 	if tm != nil {
 		insert := "insert into uidentities(uuid, last_modified) " +
-			"select uuid, now() from uidentites_archive " +
+			"select uuid, now() from uidentities_archive " +
 			"where uuid = ? and archived_at = ?"
 		res, err = s.exec(s.db, tx, insert, uuid, tm)
 	} else {
 		insert := "insert into uidentities(uuid, last_modified) " +
-			"select uuid, now() from uidentites_archive " +
+			"select uuid, now() from uidentities_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
 		res, err = s.exec(s.db, tx, insert, uuid)
 	}
@@ -1103,8 +1216,8 @@ func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool,
 	}()
 	var res sql.Result
 	if tm != nil {
-		del := "delete from enrollments_archive where archived_at = ?"
-		res, err = s.exec(s.db, tx, del, tm)
+		del := "delete from enrollments_archive where id = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, del, id, tm)
 	} else {
 		if onlyLast {
 			del := "delete from enrollments_archive where id = ? and archived_at = (" +
@@ -1230,8 +1343,8 @@ func (s *service) DeleteIdentityArchive(id string, missingFatal, onlyLast bool, 
 	}()
 	var res sql.Result
 	if tm != nil {
-		del := "delete from identities_archive where archived_at = ?"
-		res, err = s.exec(s.db, tx, del, tm)
+		del := "delete from identities_archive where id = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, del, id, tm)
 	} else {
 		if onlyLast {
 			del := "delete from identities_archive where id = ? and archived_at = (" +
@@ -1271,13 +1384,13 @@ func (s *service) UnarchiveIdentity(id string, replace bool, tm *time.Time, tx *
 	if tm != nil {
 		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
 			"select id, uuid, source, name, email, username, now() from identities_archive " +
-			"where id = ? order by archived_at desc limit 1"
-		res, err = s.exec(s.db, tx, insert, id)
+			"where id = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, insert, id, tm)
 	} else {
 		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
 			"select id, uuid, source, name, email, username, now() from identities_archive " +
-			"where id = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, insert, id, tm)
+			"where id = ? order by archived_at desc limit 1"
+		res, err = s.exec(s.db, tx, insert, id)
 	}
 	if err != nil {
 		return
@@ -1357,8 +1470,8 @@ func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool,
 	}()
 	var res sql.Result
 	if tm != nil {
-		del := "delete from profiles_archive where archived_at = ?"
-		res, err = s.exec(s.db, tx, del, tm)
+		del := "delete from profiles_archive where uuid = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, del, uuid, tm)
 	} else {
 		if onlyLast {
 			del := "delete from profiles_archive where uuid = ? and archived_at = (" +
@@ -1398,13 +1511,13 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	if tm != nil {
 		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
 			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
-			"where uuid = ? order by archived_at desc limit 1"
-		res, err = s.exec(s.db, tx, insert, uuid)
+			"where uuid = ? and archived_at = ?"
+		res, err = s.exec(s.db, tx, insert, uuid, tm)
 	} else {
 		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
 			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
-			"where uuid = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, insert, uuid, tm)
+			"where uuid = ? order by archived_at desc limit 1"
+		res, err = s.exec(s.db, tx, insert, uuid)
 	}
 	if err != nil {
 		return
@@ -1977,6 +2090,34 @@ func (s *service) UnarchiveUUID(uuid string, tm time.Time, tx *sql.Tx) (err erro
 		err = fmt.Errorf("cannot unarchive empty uuid")
 		return
 	}
+	err = s.UnarchiveUniqueIdentity(uuid, true, &tm, tx)
+	if err != nil {
+		return
+	}
+	err = s.UnarchiveProfile(uuid, true, &tm, tx)
+	if err != nil {
+		return
+	}
+	identities, err := s.GetArchiveUniqueIdentityIdentities(uuid, tm, false, tx)
+	if err != nil {
+		return
+	}
+	for _, identity := range identities {
+		err = s.UnarchiveIdentity(identity.ID, true, &tm, tx)
+		if err != nil {
+			return
+		}
+	}
+	enrollments, err := s.GetArchiveUniqueIdentityEnrollments(uuid, tm, false, tx)
+	if err != nil {
+		return
+	}
+	for _, enrollment := range enrollments {
+		err = s.UnarchiveEnrollment(enrollment.ID, true, &tm, tx)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
@@ -2161,14 +2302,16 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	if err != nil {
 		return
 	}
-	var archivedAt [2]time.Time
+	var archivedAt [2]*time.Time
 	fetched := false
 	for rows.Next() {
 		err = rows.Scan(&archivedAt[0])
 		if err != nil {
 			return
 		}
-		fetched = true
+		if archivedAt[0] != nil {
+			fetched = true
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -2191,7 +2334,9 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 		if err != nil {
 			return
 		}
-		fetched = true
+		if archivedAt[1] != nil {
+			fetched = true
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -2204,11 +2349,11 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	if !fetched {
 		return
 	}
-	if archivedAt[0] != archivedAt[1] {
-		log.Info(fmt.Sprintf("archives exists, but not from the same archiving process: %v differs from %v", archivedAt[0], archivedAt[1]))
+	if *archivedAt[0] != *archivedAt[1] {
+		log.Info(fmt.Sprintf("archives exists, but not from the same archiving process: %v differs from %v", *archivedAt[0], *archivedAt[1]))
 		return
 	}
-	tm := archivedAt[0]
+	tm := *archivedAt[0]
 	rows, err = s.query(s.db, nil, "select distinct uuid from uidentities_archive where archived_at = ?", tm)
 	if err != nil {
 		return

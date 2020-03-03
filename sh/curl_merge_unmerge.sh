@@ -1,6 +1,6 @@
 #!/bin/bash
 export JWT_TOKEN="`cat secret/lgryglicki.token`"
-export TESTING_API=1
+#export TESTING_API=1
 ./sh/mariadb.sh
 ar1="1"
 if [ ! -z "$2" ]
