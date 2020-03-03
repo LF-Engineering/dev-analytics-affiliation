@@ -40,10 +40,15 @@ rawurlencode() {
 project=$(rawurlencode "${1}")
 from_uuid=$(rawurlencode "${2}")
 to_uuid=$(rawurlencode "${3}")
+ar="true"
+if [ "$4" = "0" ]
+then
+  ar="false"
+fi
 
 if [ ! -z "$DEBUG" ]
 then
   echo "$project $from_uuid $to_uuid"
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}?archive=${ar}"
 fi
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}?archive=${ar}"

@@ -28,6 +28,8 @@ type Service interface {
 	// Profile
 	GetProfile(string, bool, *sql.Tx) (*models.ProfileDataOutput, error)
 	EditProfile(*models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
+	AddProfile(*models.ProfileDataOutput, bool, *sql.Tx) (*models.ProfileDataOutput, error)
+	ValidateProfile(*models.ProfileDataOutput, *sql.Tx) error
 	DeleteProfile(string, bool, bool, *time.Time, *sql.Tx) error
 	ArchiveProfile(string, *time.Time, *sql.Tx) error
 	UnarchiveProfile(string, bool, *time.Time, *sql.Tx) error
@@ -71,8 +73,8 @@ type Service interface {
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
 
 	// API endpoints
-	MergeUniqueIdentities(string, string) error
-	MoveIdentity(string, string) error
+	MergeUniqueIdentities(string, string, bool) error
+	MoveIdentity(string, string, bool) error
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 
 	// Internal methods
@@ -1473,6 +1475,43 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tm *tim
 	return
 }
 
+func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("ValidateProfile: profileData:%+v tx:%v", profileData, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("ValidateProfile(exit): profileData:%+v tx:%v err:%v", profileData, tx != nil, err))
+	}()
+	if profileData.UUID == "" {
+		err = fmt.Errorf("profile '%+v' uuid is empty", s.toLocalProfile(profileData))
+		profileData = nil
+		return
+	}
+	if profileData.IsBot != nil && (*profileData.IsBot != 0 && *profileData.IsBot != 1) {
+		err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", s.toLocalProfile(profileData))
+		return
+	}
+	if profileData.CountryCode != nil && *profileData.CountryCode != "" {
+		_, err = s.GetCountry(*profileData.CountryCode, tx)
+		if err != nil {
+			return
+		}
+	}
+	if profileData.Gender != nil {
+		if *profileData.Gender != "male" && *profileData.Gender != "female" {
+			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.toLocalProfile(profileData))
+			return
+		}
+		if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
+			err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.toLocalProfile(profileData))
+			return
+		}
+	}
+	if profileData.Gender == nil && profileData.GenderAcc != nil {
+		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.toLocalProfile(profileData))
+		return
+	}
+	return
+}
+
 func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput, forUpdate bool, tx *sql.Tx) (err error) {
 	log.Info(fmt.Sprintf("ValidateEnrollment: enrollmentData:%+v forUpdate:%v tx:%v", enrollmentData, forUpdate, tx != nil))
 	defer func() {
@@ -1497,6 +1536,82 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 	if time.Time(enrollmentData.End).Before(time.Time(enrollmentData.Start)) {
 		err = fmt.Errorf("enrollment '%+v' end date must be after start date", enrollmentData)
 		return
+	}
+	return
+}
+
+func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddProfile: inprofileData:%+v refresh:%v tx:%v", s.toLocalProfile(inProfileData), refresh, tx != nil))
+	profileData = inProfileData
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddProfile(exit): inProfileData:%+v refresh:%v tx:%v profileData:%+v err:%v",
+				s.toLocalProfile(inProfileData),
+				refresh,
+				tx != nil,
+				s.toLocalProfile(profileData),
+				err,
+			),
+		)
+	}()
+	err = s.ValidateProfile(profileData, tx)
+	if err != nil {
+		profileData = nil
+		return
+	}
+	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
+	var res sql.Result
+	res, err = s.exec(
+		s.db,
+		tx,
+		insert,
+		profileData.UUID,
+		profileData.Name,
+		profileData.Email,
+		profileData.Gender,
+		profileData.GenderAcc,
+		profileData.IsBot,
+		profileData.CountryCode,
+	)
+	if err != nil {
+		profileData = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		profileData = nil
+		return
+	}
+	if affected > 1 {
+		err = fmt.Errorf("profile '%+v' insert affected %d rows", s.toLocalProfile(profileData), affected)
+		profileData = nil
+		return
+	} else if affected == 1 {
+		affected2 := int64(0)
+		// Mark profile's matching unique identity as modified
+		affected2, err = s.TouchUniqueIdentity(profileData.UUID, tx)
+		if err != nil {
+			profileData = nil
+			return
+		}
+		if affected2 != 1 {
+			err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.toLocalProfile(profileData), affected2)
+			profileData = nil
+			return
+		}
+	} else {
+		err = fmt.Errorf("adding profile '%+v' didn't affected any rows", s.toLocalProfile(profileData))
+		profileData = nil
+		return
+	}
+	if refresh {
+		profileData, err = s.GetProfile(profileData.UUID, true, tx)
+		if err != nil {
+			profileData = nil
+			return
+		}
 	}
 	return
 }
@@ -1760,8 +1875,8 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			),
 		)
 	}()
-	if profileData.UUID == "" {
-		err = fmt.Errorf("profile '%+v' missing uuid", s.toLocalProfile(profileData))
+	err = s.ValidateProfile(profileData, tx)
+	if err != nil {
 		profileData = nil
 		return
 	}
@@ -1777,47 +1892,22 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 	}
 	// Database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
 	if profileData.IsBot != nil {
-		if *profileData.IsBot != 0 && *profileData.IsBot != 1 {
-			err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", s.toLocalProfile(profileData))
-			profileData = nil
-			return
-		}
 		columns = append(columns, "is_bot")
 		values = append(values, *profileData.IsBot)
 	}
 	if profileData.CountryCode != nil && *profileData.CountryCode != "" {
-		_, err = s.GetCountry(*profileData.CountryCode, tx)
-		if err != nil {
-			profileData = nil
-			return
-		}
 		columns = append(columns, "country_code")
 		values = append(values, *profileData.CountryCode)
 	}
 	if profileData.Gender != nil {
-		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.toLocalProfile(profileData))
-			profileData = nil
-			return
-		}
 		columns = append(columns, "gender")
 		values = append(values, *profileData.Gender)
 		columns = append(columns, "gender_acc")
 		if profileData.GenderAcc == nil {
 			values = append(values, 100)
 		} else {
-			if *profileData.GenderAcc < 1 || *profileData.GenderAcc > 100 {
-				err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.toLocalProfile(profileData))
-				profileData = nil
-				return
-			}
 			values = append(values, *profileData.GenderAcc)
 		}
-	}
-	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.toLocalProfile(profileData))
-		profileData = nil
-		return
 	}
 	nColumns := len(columns)
 	if nColumns > 0 {
@@ -1920,10 +2010,10 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	return
 }
 
-func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
-	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s", fromUUID, toUUID))
+func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (err error) {
+	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s err:%v", fromUUID, toUUID, err))
+		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v err:%v", fromUUID, toUUID, archive, err))
 	}()
 	if fromUUID == toUUID {
 		return
@@ -1955,14 +2045,16 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 		}
 	}()
 	// Archive fromUUID and toUUID objects, all with the same archived_at date
-	archivedDate := time.Now()
-	_, err = s.ArchiveUUID(fromUUID, &archivedDate, tx)
-	if err != nil {
-		return
-	}
-	_, err = s.ArchiveUUID(toUUID, &archivedDate, tx)
-	if err != nil {
-		return
+	if archive {
+		archivedDate := time.Now()
+		_, err = s.ArchiveUUID(fromUUID, &archivedDate, tx)
+		if err != nil {
+			return
+		}
+		_, err = s.ArchiveUUID(toUUID, &archivedDate, tx)
+		if err != nil {
+			return
+		}
 	}
 	if from != nil && to != nil {
 		if to.Name == nil || (to.Name != nil && *to.Name == "") {
@@ -2045,10 +2137,10 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string) (err error) {
 	return
 }
 
-func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
-	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s", fromID, toUUID))
+func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) {
+	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
 	defer func() {
-		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s err:%v", fromID, toUUID, err))
+		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v err:%v", fromID, toUUID, archive, err))
 	}()
 	from, err := s.GetIdentity(fromID, true, nil)
 	if err != nil {
@@ -2074,12 +2166,18 @@ func (s *service) MoveIdentity(fromID, toUUID string) (err error) {
 	}()
 	if to == nil {
 		// FIXME: Unmerge case (if unarchived we already have everything, if not create identity and empty profile)
-		if true {
-			err = fmt.Errorf("merge/unmerge detected")
-			return
-		}
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
+				UUID: toUUID,
+			},
+			false,
+			tx,
+		)
+		if err != nil {
+			return
+		}
+		_, err = s.AddProfile(
+			&models.ProfileDataOutput{
 				UUID: toUUID,
 			},
 			false,

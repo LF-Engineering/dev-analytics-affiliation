@@ -128,6 +128,11 @@ paths:
           type: string
           required: true
           description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: archive
+          in: query
+          type: boolean
+          default: true
+          description: If set, it will archive data so it can be unmerged later
         - name: Authorization
           in: header
           type: string
@@ -174,6 +179,11 @@ paths:
           type: string
           required: true
           description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: archive
+          in: query
+          type: boolean
+          default: true
+          description: If set, it will attempt to unarchive data
         - name: Authorization
           in: header
           type: string

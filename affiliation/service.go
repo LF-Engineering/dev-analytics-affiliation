@@ -267,14 +267,19 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 // ===========================================================================
 // NOTE: UUIDs used here refer to `profiles` and `profiles_archive` tables
 // ===========================================================================
-// /v1/affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
+// /v1/affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}[?archive=false]:
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // {fromUUID} - required path parameter: uidentity/profile uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
+// archive - optional query parameter: if archive=false it will not archive data to allow unmerge without data loss
 func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliation.PutMergeUniqueIdentitiesParams) (profileData *models.ProfileDataOutput, err error) {
 	fromUUID := params.FromUUID
 	toUUID := params.ToUUID
-	log.Info(fmt.Sprintf("PutMergeUniqueIdentities: fromUUID:%s toUUID:%s", fromUUID, toUUID))
+	archive := true
+	if params.Archive != nil {
+		archive = *params.Archive
+	}
+	log.Info(fmt.Sprintf("PutMergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
@@ -295,7 +300,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		return
 	}
 	// Do the actual API call
-	err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID)
+	err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
@@ -321,14 +326,19 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 // ==================================================================================
 // NOTE: fromID refers to `identities`.`id` while toUUID refers to `profiles`.`uuid`
 // ==================================================================================
-// /v1/affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}:
+// /v1/affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}[?archive=false]:
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // {fromID} - required path parameter: identity id to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
+// archive - optional query parameter: if archive=false it will not attempt to restore data from archive
 func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMoveIdentityParams) (profileData *models.ProfileDataOutput, err error) {
 	fromID := params.FromID
 	toUUID := params.ToUUID
-	log.Info(fmt.Sprintf("PutMoveIdentity: fromID:%s toUUID:%s", fromID, toUUID))
+	archive := true
+	if params.Archive != nil {
+		archive = *params.Archive
+	}
+	log.Info(fmt.Sprintf("PutMoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
@@ -349,7 +359,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		return
 	}
 	// Do the actual API call
-	err = s.shDB.MoveIdentity(fromID, toUUID)
+	err = s.shDB.MoveIdentity(fromID, toUUID, archive)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
