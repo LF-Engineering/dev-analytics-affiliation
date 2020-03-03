@@ -71,6 +71,8 @@ type Service interface {
 	MergeDateRanges([][]strfmt.DateTime) ([][]strfmt.DateTime, error)
 	FindUniqueIdentityOrganizations(string, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
+	UnarchiveUUID(string, time.Time, *sql.Tx) error
+	Unarchive(string, string) (bool, error)
 
 	// API endpoints
 	MergeUniqueIdentities(string, string, bool) error
@@ -1966,12 +1968,25 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 	return
 }
 
+func (s *service) UnarchiveUUID(uuid string, tm time.Time, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("UnarchiveUUID: uuid:%s tm:%v tx:%v", uuid, tm, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("UnarchiveUUID(exit): uuid:%s tm:%v tx:%v err:%v", uuid, tm, tx != nil, err))
+	}()
+	if uuid == "" {
+		err = fmt.Errorf("cannot unarchive empty uuid")
+		return
+	}
+	return
+}
+
 func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time.Time, err error) {
 	log.Info(fmt.Sprintf("ArchiveUUID: uuid:%s itm:%v tx:%v", uuid, itm, tx != nil))
 	defer func() {
 		log.Info(fmt.Sprintf("ArchiveUUID(exit): uuid:%s itm:%v tx:%v tm:%v err:%v", uuid, itm, tx != nil, tm, err))
 	}()
 	if uuid == "" {
+		err = fmt.Errorf("cannot archive empty uuid")
 		return
 	}
 	tm = itm
@@ -2137,11 +2152,130 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 	return
 }
 
+func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
+	log.Info(fmt.Sprintf("Unarchive: ID:%s UUID:%s", id, uuid))
+	defer func() {
+		log.Info(fmt.Sprintf("Unarchive(exit): ID:%s UUID:%s unarchived:%v err:%v", id, uuid, unarchived, err))
+	}()
+	rows, err := s.query(s.db, nil, "select max(archived_at) from identities_archive where id = ?", id)
+	if err != nil {
+		return
+	}
+	var archivedAt [2]time.Time
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(&archivedAt[0])
+		if err != nil {
+			return
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if !fetched {
+		return
+	}
+	rows, err = s.query(s.db, nil, "select max(archived_at) from uidentities_archive where uuid = ?", uuid)
+	if err != nil {
+		return
+	}
+	fetched = false
+	for rows.Next() {
+		err = rows.Scan(&archivedAt[1])
+		if err != nil {
+			return
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if !fetched {
+		return
+	}
+	if archivedAt[0] != archivedAt[1] {
+		log.Info(fmt.Sprintf("archives exists, but not from the same archiving process: %v differs from %v", archivedAt[0], archivedAt[1]))
+		return
+	}
+	tm := archivedAt[0]
+	rows, err = s.query(s.db, nil, "select distinct uuid from uidentities_archive where archived_at = ?", tm)
+	if err != nil {
+		return
+	}
+	uuids := []string{}
+	uu := ""
+	for rows.Next() {
+		err = rows.Scan(&uu)
+		if err != nil {
+			return
+		}
+		uuids = append(uuids, uu)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if len(uuids) != 2 {
+		log.Info(fmt.Sprintf("there should be exactly 2 uuids archived at %v, found %+v", tm, uuids))
+		return
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	// Rollback unless tx was set to nil after successful commit
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	for _, uu := range uuids {
+		err = s.UnarchiveUUID(uu, tm, tx)
+		if err != nil {
+			return
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
+	unarchived = true
+	return
+}
+
 func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) {
 	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
 	defer func() {
 		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v err:%v", fromID, toUUID, archive, err))
 	}()
+	if archive {
+		unarchived := false
+		unarchived, err = s.Unarchive(fromID, toUUID)
+		if err != nil {
+			return
+		}
+		if unarchived {
+			return
+		}
+		log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s nothing unarchived", fromID, toUUID))
+	}
 	from, err := s.GetIdentity(fromID, true, nil)
 	if err != nil {
 		return
@@ -2165,7 +2299,6 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 		}
 	}()
 	if to == nil {
-		// FIXME: Unmerge case (if unarchived we already have everything, if not create identity and empty profile)
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
 				UUID: toUUID,
