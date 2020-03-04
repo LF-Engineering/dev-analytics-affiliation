@@ -49,7 +49,7 @@ func initAPIDB() *sqlx.DB {
 	}
 	d.SetMaxOpenConns(20)
 	d.SetMaxIdleConns(5)
-	d.SetConnMaxLifetime(15 * time.Minute)
+	//d.SetConnMaxLifetime(15 * time.Minute)
 	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "API DB", host)
 	return d
@@ -70,7 +70,7 @@ func initSHDB() *sqlx.DB {
 	}
 	d.SetMaxOpenConns(20)
 	d.SetMaxIdleConns(5)
-	d.SetConnMaxLifetime(15 * time.Minute)
+	//d.SetConnMaxLifetime(15 * time.Minute)
 	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "Affiliation DB", host)
 	return d
