@@ -57,6 +57,60 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPostMatchingBlacklistHandler = affiliation.PostMatchingBlacklistHandlerFunc(
+		func(params affiliation.PostMatchingBlacklistParams) middleware.Responder {
+			log.Info("PostMatchingBlacklistHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PostMatchingBlacklistHandlerFunc: " + info)
+
+			result, err := service.PostMatchingBlacklist(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PostMatchingBlacklistHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      result,
+			}).Info("PostMatchingBlacklistHandlerFunc(ok): " + info)
+
+			return affiliation.NewPostMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationDeleteMatchingBlacklistHandler = affiliation.DeleteMatchingBlacklistHandlerFunc(
+		func(params affiliation.DeleteMatchingBlacklistParams) middleware.Responder {
+			log.Info("DeleteMatchingBlacklistHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("DeleteMatchingBlacklistHandlerFunc: " + info)
+
+			result, err := service.DeleteMatchingBlacklist(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("DeleteMatchingBlacklistHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      result,
+			}).Info("DeleteMatchingBlacklistHandlerFunc(ok): " + info)
+
+			return affiliation.NewDeleteMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPutOrgDomainHandler = affiliation.PutOrgDomainHandlerFunc(
 		func(params affiliation.PutOrgDomainParams) middleware.Responder {
 			log.Info("PutOrgDomainHandlerFunc")

@@ -53,6 +53,7 @@ paths:
       tags:
         - affiliation
         - matching_blacklist
+        - get
       parameters:
         - name: projectSlug
           in: path
@@ -74,6 +75,85 @@ paths:
           type: integer
           default: 0
           description: If set, it will return rows from a given page, page numbering starts from 0
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/matching_blacklist/{email}:
+    post:
+      summary: Add blacklist email
+      operationId: postMatchingBlacklist
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/matching-blacklist-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - matching_blacklist
+        - add
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: email
+          in: path
+          type: string
+          required: true
+          description: email to be added to blacklist
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+    delete:
+      summary: Delete blacklist email
+      operationId: deleteMatchingBlacklist
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - matching_blacklist
+        - delete
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: email
+          in: path
+          type: string
+          required: true
+          description: email to be added to blacklist
         - name: Authorization
           in: header
           type: string
@@ -437,6 +517,14 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/matching-blacklist-output"
+  text-status-output:
+    title: Status text for an API call
+    description: Status text for an API call
+    type: object
+    properties:
+      text:
+        type: string
+        example: API call was succesfull
 schemes:
   - http
 consumes:

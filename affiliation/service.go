@@ -31,6 +31,8 @@ type Service interface {
 	// External methods
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	GetMatchingBlacklist(ctx context.Context, in *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
+	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
+	DeleteMatchingBlacklist(ctx context.Context, in *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	SetServiceRequestID(requestID string)
@@ -173,6 +175,14 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetMatchingBlacklist"
+	case *affiliation.PostMatchingBlacklistParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PostMatchingBlacklist"
+	case *affiliation.DeleteMatchingBlacklistParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteMatchingBlacklist"
 	case *affiliation.PutMergeUniqueIdentitiesParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -206,7 +216,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 
 // GetMatchingBlacklist: API params:
 // /v1/affiliation/{projectSlug}/matching_blacklist[?q=xyz][&rows=100][&page=2]
-// {projectSlug} - required path parameter:  project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+// {projectSlug} - required path parameter: project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
 // q - optional query parameter: if you specify that parameters only email matchin like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored
 // page - optional query parameter: if set, it will return rows from a given page, page numbering starts from 0
@@ -252,6 +262,74 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 	}
 	getMatchingBlacklist.User = username
 	getMatchingBlacklist.Scope = project
+	return
+}
+
+// PostMatchingBlacklist: API params:
+// /v1/affiliation/{projectSlug}/matching_blacklist/{email}
+// {projectSlug} - required path parameter: project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+// {email} - required path parameter: email to be added to blacklisted emails
+func (s *service) PostMatchingBlacklist(ctx context.Context, params *affiliation.PostMatchingBlacklistParams) (postMatchingBlacklist *models.MatchingBlacklistOutput, err error) {
+	email := params.Email
+	log.Info(fmt.Sprintf("PostMatchingBlacklist: email:%s", email))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostMatchingBlacklist(exit): email:%s apiName:%s project:%s username:%s postMatchingBlacklist:%+v err:%v",
+				email,
+				apiName,
+				project,
+				username,
+				postMatchingBlacklist,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	postMatchingBlacklist, err = s.shDB.PostMatchingBlacklist(email)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// DeleteMatchingBlacklist: API params:
+// /v1/affiliation/{projectSlug}/matching_blacklist/{email}
+// {projectSlug} - required path parameter: project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+// {email} - required path parameter: email to be deleted from blacklisted emails
+func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliation.DeleteMatchingBlacklistParams) (status *models.TextStatusOutput, err error) {
+	email := params.Email
+	log.Info(fmt.Sprintf("DeleteMatchingBlacklist: email:%s", email))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteMatchingBlacklist(exit): email:%s apiName:%s project:%s username:%s status:%+v err:%v",
+				email,
+				apiName,
+				project,
+				username,
+				status,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	status, err = s.shDB.DeleteMatchingBlacklist(email)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
 	return
 }
 

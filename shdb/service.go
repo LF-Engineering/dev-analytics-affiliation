@@ -81,6 +81,8 @@ type Service interface {
 
 	// API endpoints
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
+	PostMatchingBlacklist(string) (*models.MatchingBlacklistOutput, error)
+	DeleteMatchingBlacklist(string) (*models.TextStatusOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
@@ -2605,6 +2607,36 @@ func (s *service) QueryMatchingBlackist(tx *sql.Tx, q string, rows, page int64) 
 	if err != nil {
 		return
 	}
+	return
+}
+
+func (s *service) PostMatchingBlacklist(email string) (matchingBlacklistOutput *models.MatchingBlacklistOutput, err error) {
+	log.Info(fmt.Sprintf("PostMatchingBlacklist: email:%s", email))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostMatchingBlacklist(exit): email:%s matchingBlacklistOutput:%+v err:%v",
+				email,
+				matchingBlacklistOutput,
+				err,
+			),
+		)
+	}()
+	return
+}
+
+func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStatusOutput, err error) {
+	log.Info(fmt.Sprintf("DeleteMatchingBlacklist: email:%s", email))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteMatchingBlacklist(exit): email:%s status:%+v err:%v",
+				email,
+				status,
+				err,
+			),
+		)
+	}()
 	return
 }
 
