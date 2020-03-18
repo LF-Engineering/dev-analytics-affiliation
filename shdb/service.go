@@ -63,8 +63,8 @@ type Service interface {
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// MatchingBlacklist
-	ListMatchingBlackist(*sql.Tx, int64, int64) ([]*models.MatchingBlacklistOutput, error)
-	QueryMatchingBlackist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, error)
+	ListMatchingBlackist(*sql.Tx, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
+	QueryMatchingBlackist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -2484,16 +2484,17 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	return
 }
 
-func (s *service) ListMatchingBlackist(tx *sql.Tx, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, err error) {
+func (s *service) ListMatchingBlackist(tx *sql.Tx, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("ListMatchingBlackist: rows:%d page:%d tx:%v", rows, page, tx != nil))
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"ListMatchingBlackist(exit): rows:%d page:%d tx:%v matchingBlacklistOutput:%+v err:%v",
+				"ListMatchingBlackist(exit): rows:%d page:%d tx:%v matchingBlacklistOutput:%+v n_rows:%d err:%v",
 				rows,
 				page,
 				tx != nil,
 				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
+				nRows,
 				err,
 			),
 		)
@@ -2522,20 +2523,40 @@ func (s *service) ListMatchingBlackist(tx *sql.Tx, rows, page int64) (matchingBl
 	if err != nil {
 		return
 	}
+	sel = "select count(*) from matching_blacklist"
+	qrows, err = s.query(s.db, tx, sel)
+	if err != nil {
+		return
+	}
+	for qrows.Next() {
+		err = qrows.Scan(&nRows)
+		if err != nil {
+			return
+		}
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
 	return
 }
 
-func (s *service) QueryMatchingBlackist(tx *sql.Tx, q string, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, err error) {
+func (s *service) QueryMatchingBlackist(tx *sql.Tx, q string, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("QueryMatchingBlackist: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"QueryMatchingBlackist(exit): q:%s rows:%d page:%d tx:%v matchingBlacklistOutput:%+v err:%v",
+				"QueryMatchingBlackist(exit): q:%s rows:%d page:%d tx:%v matchingBlacklistOutput:%+v n_rows:%d err:%v",
 				q,
 				rows,
 				page,
 				tx != nil,
 				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
+				nRows,
 				err,
 			),
 		)
@@ -2565,6 +2586,25 @@ func (s *service) QueryMatchingBlackist(tx *sql.Tx, q string, rows, page int64) 
 	if err != nil {
 		return
 	}
+	sel = "select count(*) from matching_blacklist where excluded like ?"
+	qrows, err = s.query(s.db, tx, sel, qLike)
+	if err != nil {
+		return
+	}
+	for qrows.Next() {
+		err = qrows.Scan(&nRows)
+		if err != nil {
+			return
+		}
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -2584,15 +2624,30 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 		)
 	}()
 	var ary []*models.MatchingBlacklistOutput
+	nRows := int64(0)
 	if q == "" {
-		ary, err = s.ListMatchingBlackist(nil, rows, page)
+		ary, nRows, err = s.ListMatchingBlackist(nil, rows, page)
 	} else {
-		ary, err = s.QueryMatchingBlackist(nil, q, rows, page)
+		ary, nRows, err = s.QueryMatchingBlackist(nil, q, rows, page)
 	}
 	if err != nil {
 		return
 	}
-	getMatchingBlacklist.List = ary
+	getMatchingBlacklist.Emails = ary
+	if rows == 0 {
+		getMatchingBlacklist.NPages = 1
+	} else {
+		pages := nRows / rows
+		if nRows%rows != 0 {
+			pages++
+		}
+		getMatchingBlacklist.NPages = pages
+	}
+	getMatchingBlacklist.Page = page
+	if q != "" {
+		getMatchingBlacklist.Search = "q=" + q
+	}
+	getMatchingBlacklist.Rows = nRows
 	return
 }
 
@@ -2843,7 +2898,7 @@ func (s *service) now() *strfmt.DateTime {
 }
 
 func (s *service) toLocalGetMatchingBlacklist(ia *models.GetMatchingBlacklistOutput) (oa []interface{}) {
-	for _, i := range ia.List {
+	for _, i := range ia.Emails {
 		if i == nil {
 			oa = append(oa, nil)
 			continue

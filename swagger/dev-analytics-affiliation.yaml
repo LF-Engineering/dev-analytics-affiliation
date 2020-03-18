@@ -421,7 +421,19 @@ definitions:
       scope:
         type: string
         example: academy-software-foundation/opencue
-      list:
+      n_pages:
+        type: integer
+        example: 10
+      page:
+        type: integer
+        example: 0
+      search:
+        type: string
+        example: 'q=root'
+      rows:
+        type: integer
+        example: 55
+      emails:
         type: array
         items:
           $ref: "#/definitions/matching-blacklist-output"
