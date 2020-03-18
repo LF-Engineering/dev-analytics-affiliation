@@ -29,6 +29,40 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - health
+  /affiliation/{projectSlug}/matching_blacklist:
+    get:
+      summary: Get blacklisted emails
+      operationId: getMatchingBlacklist
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/get-metching-blacklist-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - matching_blacklist
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{orgName}/add_domain/{domain}/to_project/{projectSlug}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
@@ -353,6 +387,16 @@ definitions:
       name:
         type: string
         example: CNCF
+  get-metching-blacklist-output:
+    title: Matching blacklist data output
+    description: Matching blacklist data
+    type: array
+    items:
+      type: object
+      properties:
+        excluded:
+          type: string
+          example: skip@domain.org
 schemes:
   - http
 consumes:
