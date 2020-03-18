@@ -218,18 +218,18 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 // /v1/affiliation/{projectSlug}/matching_blacklist[?q=xyz][&rows=100][&page=2]
 // {projectSlug} - required path parameter: project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
 // q - optional query parameter: if you specify that parameters only email matchin like '%q%' will be returned
-// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored
-// page - optional query parameter: if set, it will return rows from a given page, page numbering starts from 0
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.GetMatchingBlacklistParams) (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
 	q := ""
 	if params.Q != nil {
 		q = *params.Q
 	}
-	rows := int64(0)
+	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
 	}
-	page := int64(0)
+	page := int64(1)
 	if params.Page != nil {
 		page = *params.Page
 	}

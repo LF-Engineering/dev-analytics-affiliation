@@ -68,13 +68,13 @@ paths:
         - name: rows
           in: query
           type: integer
-          default: 0
+          default: 10
           description: rows per page, if 0 no paging is used and page parameter is ignored
         - name: page
           in: query
           type: integer
-          default: 0
-          description: If set, it will return rows from a given page, page numbering starts from 0
+          default: 1
+          description: If set, it will return rows from a given page
         - name: Authorization
           in: header
           type: string
@@ -506,7 +506,7 @@ definitions:
         example: 10
       page:
         type: integer
-        example: 0
+        example: 1
       search:
         type: string
         example: 'q=root'

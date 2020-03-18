@@ -2614,7 +2614,7 @@ func (s *service) ListMatchingBlacklist(tx *sql.Tx, rows, page int64) (matchingB
 	}()
 	sel := "select excluded from matching_blacklist order by 1"
 	if rows > 0 {
-		sel += fmt.Sprintf("  limit %d offset %d", rows, page*rows)
+		sel += fmt.Sprintf("  limit %d offset %d", rows, (page-1)*rows)
 	}
 	qrows, err := s.query(s.db, tx, sel)
 	if err != nil {
@@ -2677,7 +2677,7 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 	qLike := "%" + q + "%"
 	sel := "select excluded from matching_blacklist where excluded like ? order by 1"
 	if rows > 0 {
-		sel += fmt.Sprintf("  limit %d offset %d", rows, page*rows)
+		sel += fmt.Sprintf("  limit %d offset %d", rows, (page-1)*rows)
 	}
 	qrows, err := s.query(s.db, tx, sel, qLike)
 	if err != nil {
