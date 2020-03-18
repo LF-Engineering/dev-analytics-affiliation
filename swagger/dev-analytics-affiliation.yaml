@@ -59,6 +59,21 @@ paths:
           type: string
           required: true
           description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: q
+          in: query
+          type: string
+          default: ''
+          description: If set, it will return emails matching '%q%'
+        - name: rows
+          in: query
+          type: integer
+          default: 0
+          description: rows per page, if 0 no paging is used and page parameter is ignored
+        - name: page
+          in: query
+          type: integer
+          default: 0
+          description: If set, it will return rows from a given page, page numbering starts from 0
         - name: Authorization
           in: header
           type: string

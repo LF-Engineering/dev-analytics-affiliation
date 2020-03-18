@@ -63,7 +63,8 @@ type Service interface {
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	// MatchingBlacklist
-	ListMatchingBlackist(*sql.Tx) ([]*models.MatchingBlacklistOutput, error)
+	ListMatchingBlackist(*sql.Tx, int64, int64) ([]*models.MatchingBlacklistOutput, error)
+	QueryMatchingBlackist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -79,7 +80,7 @@ type Service interface {
 	Unarchive(string, string) (bool, error)
 
 	// API endpoints
-	GetMatchingBlacklist() (*models.GetMatchingBlacklistOutput, error)
+	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
@@ -2483,12 +2484,14 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	return
 }
 
-func (s *service) ListMatchingBlackist(tx *sql.Tx) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, err error) {
-	log.Info(fmt.Sprintf("ListMatchingBlackist: tx:%v", tx != nil))
+func (s *service) ListMatchingBlackist(tx *sql.Tx, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, err error) {
+	log.Info(fmt.Sprintf("ListMatchingBlackist: rows:%d page:%d tx:%v", rows, page, tx != nil))
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"ListMatchingBlackist(exit): tx:%v matchingBlacklistOutput:%+v err:%v",
+				"ListMatchingBlackist(exit): rows:%d page:%d tx:%v matchingBlacklistOutput:%+v err:%v",
+				rows,
+				page,
 				tx != nil,
 				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
 				err,
@@ -2496,43 +2499,96 @@ func (s *service) ListMatchingBlackist(tx *sql.Tx) (matchingBlacklistOutput []*m
 		)
 	}()
 	sel := "select excluded from matching_blacklist order by 1"
-	rows, err := s.query(s.db, tx, sel)
+	if rows > 0 {
+		sel += fmt.Sprintf("  limit %d offset %d", rows, page*rows)
+	}
+	qrows, err := s.query(s.db, tx, sel)
 	if err != nil {
 		return
 	}
-	for rows.Next() {
+	for qrows.Next() {
 		matchingBlacklistData := &models.MatchingBlacklistOutput{}
-		err = rows.Scan(&matchingBlacklistData.Excluded)
+		err = qrows.Scan(&matchingBlacklistData.Excluded)
 		if err != nil {
 			return
 		}
 		matchingBlacklistOutput = append(matchingBlacklistOutput, matchingBlacklistData)
 	}
-	err = rows.Err()
+	err = qrows.Err()
 	if err != nil {
 		return
 	}
-	err = rows.Close()
+	err = qrows.Close()
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (s *service) GetMatchingBlacklist() (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
-	log.Info("GetMatchingBlacklist")
+func (s *service) QueryMatchingBlackist(tx *sql.Tx, q string, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, err error) {
+	log.Info(fmt.Sprintf("QueryMatchingBlackist: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"QueryMatchingBlackist(exit): q:%s rows:%d page:%d tx:%v matchingBlacklistOutput:%+v err:%v",
+				q,
+				rows,
+				page,
+				tx != nil,
+				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
+				err,
+			),
+		)
+	}()
+	qLike := "%" + q + "%"
+	sel := "select excluded from matching_blacklist where excluded like ? order by 1"
+	if rows > 0 {
+		sel += fmt.Sprintf("  limit %d offset %d", rows, page*rows)
+	}
+	qrows, err := s.query(s.db, tx, sel, qLike)
+	if err != nil {
+		return
+	}
+	for qrows.Next() {
+		matchingBlacklistData := &models.MatchingBlacklistOutput{}
+		err = qrows.Scan(&matchingBlacklistData.Excluded)
+		if err != nil {
+			return
+		}
+		matchingBlacklistOutput = append(matchingBlacklistOutput, matchingBlacklistData)
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
+	log.Info(fmt.Sprintf("GetMatchingBlacklist: q:%s rows:%d page:%d", q, rows, page))
 	getMatchingBlacklist = &models.GetMatchingBlacklistOutput{}
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetMatchingBlacklist(exit): getMatchingBlacklist:%+v err:%v",
+				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d getMatchingBlacklist:%+v err:%v",
+				q,
+				rows,
+				page,
 				s.toLocalGetMatchingBlacklist(getMatchingBlacklist),
 				err,
 			),
 		)
 	}()
 	var ary []*models.MatchingBlacklistOutput
-	ary, err = s.ListMatchingBlackist(nil)
+	if q == "" {
+		ary, err = s.ListMatchingBlackist(nil, rows, page)
+	} else {
+		ary, err = s.QueryMatchingBlackist(nil, q, rows, page)
+	}
 	if err != nil {
 		return
 	}

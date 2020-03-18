@@ -28,11 +28,13 @@ rawurlencode() {
 }
 
 project=$(rawurlencode "${1}")
-term=$(rawurlencode "${2}")
+q=$(rawurlencode "${2}")
+rows=$(rawurlencode "${3}")
+page=$(rawurlencode "${4}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist?q=${q}&rows=${rows}&page=${page}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist?q=${q}&rows=${rows}&page=${page}"
