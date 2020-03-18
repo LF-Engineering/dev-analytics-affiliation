@@ -43,7 +43,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/get-metching-blacklist-output"
+            $ref: "#/definitions/get-matching-blacklist-output"
         "400":
           $ref: "#/responses/invalid-request"
         "401":
@@ -387,16 +387,29 @@ definitions:
       name:
         type: string
         example: CNCF
-  get-metching-blacklist-output:
+  matching-blacklist-output:
     title: Matching blacklist data output
     description: Matching blacklist data
-    type: array
-    items:
-      type: object
-      properties:
-        excluded:
-          type: string
-          example: skip@domain.org
+    type: object
+    properties:
+      excluded:
+        type: string
+        example: skip@domain.org
+  get-matching-blacklist-output:
+    title: Matching blacklist data output
+    description: Matching blacklist data
+    type: object
+    properties:
+      user:
+        type: string
+        example: lukaszgryglicki
+      scope:
+        type: string
+        example: academy-software-foundation/opencue
+      list:
+        type: array
+        items:
+          $ref: "#/definitions/matching-blacklist-output"
 schemes:
   - http
 consumes:

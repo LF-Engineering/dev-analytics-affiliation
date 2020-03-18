@@ -16,15 +16,21 @@ require (
 	github.com/go-openapi/swag v0.19.8
 	github.com/go-openapi/validate v0.19.7
 	github.com/go-sql-driver/mysql v1.4.0
-	github.com/go-swagger/go-swagger v0.23.0 // indirect
+	github.com/golang/protobuf v1.3.5 // indirect
+	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/joho/godotenv v1.3.0
+	github.com/kr/pretty v0.2.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/labstack/gommon v0.2.8
 	github.com/lib/pq v1.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/tencentyun/scf-go-lib v0.0.0-20200116145541-9a6ea1bf75b8
+	go.mongodb.org/mongo-driver v1.3.1 // indirect
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
+	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
+	google.golang.org/appengine v1.6.5 // indirect
 )

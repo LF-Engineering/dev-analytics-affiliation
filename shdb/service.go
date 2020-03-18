@@ -62,6 +62,8 @@ type Service interface {
 	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
+	// MatchingBlacklist
+	ListMatchingBlackist(*sql.Tx) ([]*models.MatchingBlacklistOutput, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -77,6 +79,7 @@ type Service interface {
 	Unarchive(string, string) (bool, error)
 
 	// API endpoints
+	GetMatchingBlacklist() (*models.GetMatchingBlacklistOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
@@ -86,8 +89,10 @@ type Service interface {
 	toLocalProfile(*models.ProfileDataOutput) *localProfile
 	toLocalIdentity(*models.IdentityDataOutput) *localIdentity
 	toLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *localUniqueIdentity
+	toLocalGetMatchingBlacklist(*models.GetMatchingBlacklistOutput) []interface{}
 	toLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
 	toLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
+	toLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
 	queryOut(string, ...interface{})
 	queryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
 	queryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
@@ -2478,6 +2483,63 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	return
 }
 
+func (s *service) ListMatchingBlackist(tx *sql.Tx) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, err error) {
+	log.Info(fmt.Sprintf("ListMatchingBlackist: tx:%v", tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"ListMatchingBlackist(exit): tx:%v matchingBlacklistOutput:%+v err:%v",
+				tx != nil,
+				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
+				err,
+			),
+		)
+	}()
+	sel := "select excluded from matching_blacklist order by 1"
+	rows, err := s.query(s.db, tx, sel)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		matchingBlacklistData := &models.MatchingBlacklistOutput{}
+		err = rows.Scan(&matchingBlacklistData.Excluded)
+		if err != nil {
+			return
+		}
+		matchingBlacklistOutput = append(matchingBlacklistOutput, matchingBlacklistData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (s *service) GetMatchingBlacklist() (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
+	log.Info("GetMatchingBlacklist")
+	getMatchingBlacklist = &models.GetMatchingBlacklistOutput{}
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetMatchingBlacklist(exit): getMatchingBlacklist:%+v err:%v",
+				s.toLocalGetMatchingBlacklist(getMatchingBlacklist),
+				err,
+			),
+		)
+	}()
+	var ary []*models.MatchingBlacklistOutput
+	ary, err = s.ListMatchingBlackist(nil)
+	if err != nil {
+		return
+	}
+	getMatchingBlacklist.List = ary
+	return
+}
+
 // PutOrgDomain - add domain to organization
 func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
 	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
@@ -2722,6 +2784,28 @@ func (p *localUniqueIdentity) String() (s string) {
 func (s *service) now() *strfmt.DateTime {
 	n := strfmt.DateTime(time.Now())
 	return &n
+}
+
+func (s *service) toLocalGetMatchingBlacklist(ia *models.GetMatchingBlacklistOutput) (oa []interface{}) {
+	for _, i := range ia.List {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, *i)
+	}
+	return
+}
+
+func (s *service) toLocalMatchingBlacklist(ia []*models.MatchingBlacklistOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, *i)
+	}
+	return
 }
 
 func (s *service) toLocalOrganizations(ia []*models.OrganizationDataOutput) (oa []interface{}) {

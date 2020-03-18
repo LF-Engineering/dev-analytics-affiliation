@@ -30,6 +30,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 		}
 		return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
 	}
+	api.AffiliationGetMatchingBlacklistHandler = affiliation.GetMatchingBlacklistHandlerFunc(
+		func(params affiliation.GetMatchingBlacklistParams) middleware.Responder {
+			log.Info("GetMatchingBlacklistHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetMatchingBlacklistHandlerFunc: " + info)
+
+			result, err := service.GetMatchingBlacklist(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetMatchingBlacklistHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      result,
+			}).Info("GetMatchingBlacklistHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPutOrgDomainHandler = affiliation.PutOrgDomainHandlerFunc(
 		func(params affiliation.PutOrgDomainParams) middleware.Responder {
 			log.Info("PutOrgDomainHandlerFunc")

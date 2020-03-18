@@ -30,6 +30,7 @@ const (
 type Service interface {
 	// External methods
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
+	GetMatchingBlacklist(ctx context.Context, in *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	SetServiceRequestID(requestID string)
@@ -168,6 +169,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PutOrgDomain"
+	case *affiliation.GetMatchingBlacklistParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetMatchingBlacklist"
 	case *affiliation.PutMergeUniqueIdentitiesParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -196,6 +201,39 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		err = errors.Wrap(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), apiName)
 		return
 	}
+	return
+}
+
+// GetMatchingBlacklist: API params:
+// /v1/affiliation/{projectSlug}/matching_blacklist
+// {projectSlug} - required path parameter:  project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.GetMatchingBlacklistParams) (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
+	log.Info("GetMatchingBlacklist")
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetMatchingBlacklist(exit): apiName:%s project:%s username:%s getMatchingBlacklist:%+v err:%v",
+				apiName,
+				project,
+				username,
+				getMatchingBlacklist,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	getMatchingBlacklist, err = s.shDB.GetMatchingBlacklist()
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	getMatchingBlacklist.User = username
+	getMatchingBlacklist.Scope = project
 	return
 }
 
