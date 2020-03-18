@@ -86,9 +86,10 @@ type Service interface {
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
 	PostMatchingBlacklist(string) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(string) (*models.TextStatusOutput, error)
+	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
+	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
-	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 
 	// Internal methods
 	now() *strfmt.DateTime
@@ -2753,6 +2754,53 @@ func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStat
 	err = s.DropMatchingBlacklist(email, true, nil)
 	if err == nil {
 		status.Text = "Deleted blacklist email: " + email
+	}
+	return
+}
+
+func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrganizations *models.GetListOrganizationsOutput, err error) {
+	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
+	getListOrganizations = &models.GetListOrganizationsOutput{}
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetListOrganizations(exit): q:%s rows:%d page:%d getListOrganizations:%+v err:%v",
+				q,
+				rows,
+				page,
+				//s.toLocalGetListOrganizations(getListOrganizations),
+				getListOrganizations,
+				err,
+			),
+		)
+	}()
+	nRows := int64(0)
+	/*
+		var ary []*models.OrganizationNestedDataOutput
+		if q == "" {
+			ary, nRows, err = s.ListOrganizationsNested(nil, rows, page)
+		} else {
+			ary, nRows, err = s.QueryOrganizationsNested(nil, q, rows, page)
+		}
+		if err != nil {
+			return
+		}
+		getListOrganizations.Organizations = ary
+		getListOrganizations.NRecords = nRows
+		getListOrganizations.Rows = len(ary)
+	*/
+	if rows == 0 {
+		getListOrganizations.NPages = 1
+	} else {
+		pages := nRows / rows
+		if nRows%rows != 0 {
+			pages++
+		}
+		getListOrganizations.NPages = pages
+	}
+	getListOrganizations.Page = page
+	if q != "" {
+		getListOrganizations.Search = "q=" + q
 	}
 	return
 }

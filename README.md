@@ -41,6 +41,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_post_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations.sh odpi/egeria 'CNCF' 5 1 ``.
 
 
 # SortingHat
