@@ -158,6 +158,55 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/list_organizations:
+    get:
+      summary: Get organizations
+      operationId: getListOrganizations
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/get-list-organizations-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - list_organizations
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: q
+          in: query
+          type: string
+          default: ''
+          description: If set, it will return emails matching '%q%'
+        - name: rows
+          in: query
+          type: integer
+          default: 10
+          description: rows per page, if 0 no paging is used and page parameter is ignored
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: If set, it will return rows from a given page
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{orgName}/add_domain/{domain}/to_project/{projectSlug}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
@@ -517,6 +566,69 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/matching-blacklist-output"
+  domain-data-output:
+    title: Domain data
+    description: Domain data
+    type: object
+    properties:
+      id:
+        type: integer
+        example: 1000
+      organization_id:
+        type: integer
+        example: 2000
+      # this should be called 'domain' but we need to stay compatible
+      name:
+        type: string
+        example: cncf.io
+      is_top_domain:
+        type: boolean
+        example: true
+  organization-nested-data-output:
+    title: Organization data with nested organization domains
+    description: Organization data with nested organization domains
+    type: object
+    properties:
+      id:
+        type: integer
+        example: 1000
+      name:
+        type: string
+        example: CNCF
+      domains:
+        type: array
+        items:
+          $ref: "#/definitions/domain-data-output"
+  get-list-organizations-output:
+    title: List organizations data output
+    description: List organizations data
+    type: object
+    properties:
+      user:
+        type: string
+        example: lukaszgryglicki
+      scope:
+        type: string
+        example: academy-software-foundation/opencue
+      n_pages:
+        type: integer
+        example: 10
+      page:
+        type: integer
+        example: 1
+      search:
+        type: string
+        example: 'q=root'
+      n_records:
+        type: integer
+        example: 55
+      rows:
+        type: integer
+        example: 9
+      organizations:
+        type: array
+        items:
+          $ref: "#/definitions/organization-nested-data-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call
