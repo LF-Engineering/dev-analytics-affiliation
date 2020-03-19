@@ -42,6 +42,16 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_post_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations.sh odpi/egeria 'CNCF' 5 1 ``.
+  - `` DEBUG='' JWT_TOKEN=`cat secret/lgryglicki.token` API_URL='http://127.0.0.1:18080' ./sh/curl_get_list_organizations.sh odpi/egeria 'google' 2>/dev/null | jq ``.
+
+
+# Docker
+
+To deploy to docker:
+
+- Build docker image: `DOCKER_USER=... docker/build_image.sh`.
+- Run it: `DOCKER_USER=... docker/run.sh`. It will serve on 18080 instead of 8080 port.
+- Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
 
 
 # SortingHat

@@ -19,6 +19,10 @@ then
   echo "$0: please specify to uidentity uuid as a 3rd arg"
   exit 4
 fi
+if [ -z "$API_URL" ]
+then
+  export API_URL="http://127.0.0.1:8080"
+fi
 
 rawurlencode() {
   local string="${1}"
@@ -49,6 +53,6 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo "$project $from_id $to_uuid"
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
 fi
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"

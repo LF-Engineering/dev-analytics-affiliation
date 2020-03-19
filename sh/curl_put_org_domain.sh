@@ -19,6 +19,10 @@ then
   echo "$0: please specify project slug as a 3rd arg"
   exit 4
 fi
+if [ -z "$API_URL" ]
+then
+  export API_URL="http://127.0.0.1:8080"
+fi
 
 rawurlencode() {
   local string="${1}"
@@ -56,7 +60,7 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo "$org $dom $scope $ov $top"
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "http://127.0.0.1:8080/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${org}/add_domain/${dom}/to_project/${scope}?overwrite=${ov}&is_top_domain=${top}"

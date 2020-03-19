@@ -14,6 +14,10 @@ then
   echo "$0: please specify email as a 2nd arg"
   exit 2
 fi
+if [ -z "$API_URL" ]
+then
+  export API_URL="http://127.0.0.1:8080"
+fi
 
 rawurlencode() {
   local string="${1}"
@@ -37,7 +41,7 @@ email=$(rawurlencode "${2}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist/${email}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/matching_blacklist/${email}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist/${email}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/matching_blacklist/${email}"

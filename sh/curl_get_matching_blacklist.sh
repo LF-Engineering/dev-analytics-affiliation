@@ -9,6 +9,10 @@ then
   echo "$0: please specify project slug as a 1st arg"
   exit 2
 fi
+if [ -z "$API_URL" ]
+then
+  export API_URL="http://127.0.0.1:8080"
+fi
 
 rawurlencode() {
   local string="${1}"
@@ -34,7 +38,7 @@ page=$(rawurlencode "${4}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist?q=${q}&rows=${rows}&page=${page}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/matching_blacklist?q=${q}&rows=${rows}&page=${page}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "http://127.0.0.1:8080/v1/affiliation/${project}/matching_blacklist?q=${q}&rows=${rows}&page=${page}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/matching_blacklist?q=${q}&rows=${rows}&page=${page}"

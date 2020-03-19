@@ -10,6 +10,7 @@ GO_VET=go vet
 GO_LINT=golint -set_exit_status
 GO_TEST=go test
 GO_TEST_FILES=main_test.go
+GO_STATIC=CGO_ENABLED=0
 
 .PHONY: build clean deploy
 
@@ -21,6 +22,9 @@ swagger: setup_dev clean
 build: swagger deps
 	env GOOS=linux GOARCH=amd64 go build -tags aws_lambda -o bin/$(SERVICE) -a $(LDFLAGS) .
 	chmod +x bin/$(SERVICE)
+
+docker: fmt
+	${GO_STATIC} go build -o ./main -a $(LDFLAGS)
 
 run: fmt vet lint
 	go build -o ./main -a $(LDFLAGS)
