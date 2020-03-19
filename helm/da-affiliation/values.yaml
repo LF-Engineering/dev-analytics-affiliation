@@ -20,8 +20,8 @@ apiImage: 'lukaszgryglicki/dev-analytics-affiliation-api'
 apiServiceName: api-service
 apiPodName: api
 apiRestartPolicy: Always
-apiMaxSurge: 1
-apiMaxUnavailable: 0
+apiMaxSurge: 0
+apiMaxUnavailable: 1
 name: da-affiliation
 namespace: da-affiliation
 nameOverride: da-affiliation

@@ -244,6 +244,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 			page = 1
 		}
 	}
+	getListOrganizations = &models.GetListOrganizationsOutput{}
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)

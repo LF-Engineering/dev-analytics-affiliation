@@ -54,6 +54,33 @@ To deploy to docker:
 - Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
 
 
+# Kubernetes/Helm
+
+To deploy on Kubernetes
+
+- Go to `helm/`, run (LF real world example): `NODES=4 ./setup.sh prod`.
+- Eventually adjust Helm chart to your needs, including `setup.sh` and `delete.sh` shell scripts.
+- Run from repository root directory (test env): `` API_URL="`cat helm/da-affiliation/secrets/API_URL.test.secret`"  JWT_TOKEN=`cat secret/lgryglicki.test.token` ./sh/curl_get_list_organizations.sh darst '' 20 2 ``.
+- Run from repository root directory (prod env): `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`"  JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations.sh odpi/egeria '' 20 2 ``.
+
+
+# Testing API
+
+API is deployed on teh LF both test and prod LF Kubernetes clusters.
+
+- You can get test API endpoint URL from `helm/da-affiliation/secrets/API_URL.test.secret` file or by running: `testk.sh -n da-affiliation get svc` - take EXTERNAL-IP column and add `:8080` port.
+- You can get prod API endpoint URL from `helm/da-affiliation/secrets/API_URL.prod.secret` file or by running: `prodk.sh -n da-affiliation get svc` - take EXTERNAL-IP column and add `:8080` port.
+- To actually execute any API call from commandline you will need JWT token (it expires after 24 hours), to get that token value you need to:
+  - Go to lfanalytics.io or test.lfanalytics.io (depending which environment token is needed), sign out if your are signed in.
+  - Sign in again.
+  - Hit back buton in the browser - you will land on the authorization URL, copy that URL from the browser.
+  - URL will be in format `` https://[redacted]/auth#access_token=....&id_token=XXXXXX&scope=...&expires_in=....&token_type=Bearer&state=... ``. Copy the `XXXXXX` value - this is your JWT_TOKE valid for the next 24 hours.
+  - Save token somewhere, for example in `token.secret` file.
+  - Try any API via: `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`"  JWT_TOKEN=`cat token.secret` ./sh/curl_get_list_organizations.sh odpi/egeria google 2>/dev/null | jq ``.
+  - You need to have permission to manage identities in the API database, if you don't have it you can login to test API database using `helm/da-affiliation/secrets/API_DB_ENDPOINT.test.secret` file to get database connect string.
+  - Then: `PGPASSWORD=... psql -h db.host.com -U dbuser dbname` and add permissions for your user by running `sql/add_permissions.sql` query replacing `lgryglicki` username with you own username.
+
+
 # SortingHat
 
 To debug what SortingHat package executes try:
