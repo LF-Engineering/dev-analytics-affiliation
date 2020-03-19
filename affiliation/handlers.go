@@ -30,6 +30,17 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 		}
 		return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
 	}
+	maxPayload := 0x8000
+	logPayload := func(payload interface{}) interface{} {
+		s := fmt.Sprintf("%+v", payload)
+		l := len(s)
+		if l > maxPayload {
+			half := maxPayload >> 1
+			s = s[0:half] + "(...)" + s[len(s)-half:]
+			return s
+		}
+		return payload
+	}
 	api.AffiliationGetUnaffiliatedHandler = affiliation.GetUnaffiliatedHandlerFunc(
 		func(params affiliation.GetUnaffiliatedParams) middleware.Responder {
 			log.Info("GetUnaffiliatedHandlerFunc")
@@ -51,7 +62,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("GetUnaffiliatedHandlerFunc(ok): " + info)
 
 			return affiliation.NewGetUnaffiliatedOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -78,7 +89,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("GetListOrganizationsHandlerFunc(ok): " + info)
 
 			return affiliation.NewGetListOrganizationsOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -105,7 +116,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("GetMatchingBlacklistHandlerFunc(ok): " + info)
 
 			return affiliation.NewGetMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -132,7 +143,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("PostMatchingBlacklistHandlerFunc(ok): " + info)
 
 			return affiliation.NewPostMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -159,7 +170,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("DeleteMatchingBlacklistHandlerFunc(ok): " + info)
 
 			return affiliation.NewDeleteMatchingBlacklistOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -186,7 +197,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("PutOrgDomainHandlerFunc(ok): " + info)
 
 			return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -213,7 +224,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("PutMergeUniqueIdentitiesHandlerFunc(ok): " + info)
 
 			return affiliation.NewPutMergeUniqueIdentitiesOK().WithXREQUESTID(requestID).WithPayload(result)
@@ -240,7 +251,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-				"Payload":      result,
+				"Payload":      logPayload(result),
 			}).Info("PutMoveIdentityHandlerFunc(ok): " + info)
 
 			return affiliation.NewPutMoveIdentityOK().WithXREQUESTID(requestID).WithPayload(result)

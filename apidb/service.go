@@ -32,7 +32,10 @@ func New(db *sqlx.DB) Service {
 }
 
 func (s *service) CheckIdentityManagePermission(username, scope string) (allowed bool, err error) {
-	log.Info(fmt.Sprintf("CheckIdentityManagePermission username:%s scope:%s", username, scope))
+	log.Info(fmt.Sprintf("CheckIdentityManagePermission: username:%s scope:%s", username, scope))
+	defer func() {
+		log.Info(fmt.Sprintf("CheckIdentityManagePermission(exit): username:%s scope:%s allowed:%v err:%v", username, scope, allowed, err))
+	}()
 	db := s.db
 	rows, err := s.query(
 		db,

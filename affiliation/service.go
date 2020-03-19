@@ -613,12 +613,24 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 		return
 	}
 	// Do the actual API call
-	getUnaffiliated, err = s.es.GetUnaffiliated(project)
+	more := (topN + 10) * 10
+	if topN == 0 {
+		more = 0
+	}
+	getUnaffiliated, err = s.es.GetUnaffiliated(project, more)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	log.Info(fmt.Sprintf("%+v", getUnaffiliated))
+	getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, nil)
+	if err != nil {
+		getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if topN > 0 && int64(len(getUnaffiliated.Unaffiliated)) > topN {
+		getUnaffiliated.Unaffiliated = getUnaffiliated.Unaffiliated[0:topN]
+	}
 	getUnaffiliated.User = username
 	getUnaffiliated.Scope = project
 	return

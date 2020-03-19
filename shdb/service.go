@@ -81,6 +81,7 @@ type Service interface {
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
 	UnarchiveUUID(string, time.Time, *sql.Tx) error
 	Unarchive(string, string) (bool, error)
+	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
 
 	// API endpoints
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
@@ -100,6 +101,7 @@ type Service interface {
 	toLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
 	toLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
 	toLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
+	toLocalUnaffiliated([]*models.UnaffiliatedDataOutput) []interface{}
 	queryOut(string, ...interface{})
 	queryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
 	queryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
@@ -441,6 +443,80 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 			return
 		}
 	}
+	return
+}
+
+func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOutput, tx *sql.Tx) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
+	inunaff := ""
+	nUnaffiliated := len(inUnaffiliated)
+	if nUnaffiliated > 30 {
+		inunaff = fmt.Sprintf("%d", nUnaffiliated)
+	} else {
+		inunaff = fmt.Sprintf("%+v", s.toLocalUnaffiliated(inUnaffiliated))
+	}
+	log.Info(fmt.Sprintf("CheckUnaffiliated: inUnaffiliated:%s tx:%v", inunaff, tx != nil))
+	defer func() {
+		unaff := ""
+		nUnaffiliated := len(unaffiliated)
+		if nUnaffiliated > 30 {
+			unaff = fmt.Sprintf("%d", nUnaffiliated)
+		} else {
+			unaff = fmt.Sprintf("%+v", s.toLocalUnaffiliated(unaffiliated))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"CheckUnaffiliated(exit): inUnaffiliated:%+v tx:%v unaffiliated:%+v err:%v",
+				inunaff,
+				tx != nil,
+				unaff,
+				err,
+			),
+		)
+	}()
+	sel := "select p.uuid, p.name, e.uuid from profiles p left join enrollments e on p.uuid = e.uuid where p.uuid in ("
+	uuids := []interface{}{}
+	contribs := make(map[string]int64)
+	for _, unaff := range inUnaffiliated {
+		uuid := unaff.UUID
+		uuids = append(uuids, uuid)
+		sel += "?,"
+		contribs[uuid] = unaff.Contributions
+	}
+	sel = sel[0:len(sel)-1] + ")"
+	var rows *sql.Rows
+	rows, err = s.query(s.db, tx, sel, uuids...)
+	if err != nil {
+		return
+	}
+	uuid := ""
+	var (
+		puuid *string
+		pname *string
+	)
+	for rows.Next() {
+		err = rows.Scan(&uuid, &pname, &puuid)
+		if err != nil {
+			return
+		}
+		if puuid == nil {
+			name := ""
+			if pname != nil {
+				name = *pname
+			}
+			unaffiliated = append(unaffiliated, &models.UnaffiliatedDataOutput{UUID: uuid, Name: name, Contributions: contribs[uuid]})
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	sort.Slice(unaffiliated, func(i, j int) bool {
+		return unaffiliated[i].Contributions > unaffiliated[j].Contributions
+	})
 	return
 }
 
@@ -3246,6 +3322,17 @@ func (s *service) toLocalUniqueIdentity(i *models.UniqueIdentityDataOutput) (o *
 		return
 	}
 	o = &localUniqueIdentity{i}
+	return
+}
+
+func (s *service) toLocalUnaffiliated(ia []*models.UnaffiliatedDataOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, *i)
+	}
 	return
 }
 
