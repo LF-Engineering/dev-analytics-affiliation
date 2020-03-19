@@ -1,0 +1,30 @@
+# skipSecrets (will not attempt to create secrets, if you want to create new secrets delete current secrets first and do not set this flag)
+# skipNamespace (will skip sds namespace creation)
+# skiAPI (will skip deploying api)
+# skipSecrets: 1
+# skipNamespace: 1
+# skiAPI: 1
+# nodeNum: 3
+# dryRun: '1'
+# nodeSelector:
+#   lfda: grimoire
+
+# Standard values:
+deployEnv: 'set-me'
+dryRun: ''
+concurrencyPolicy: Forbid
+fullnameOverride: da-affiliation
+imagePullPolicy: Always
+apiCommand: '/usr/bin/main'
+apiImage: 'lukaszgryglicki/dev-analytics-affiliation-api'
+apiServiceName: api-service
+apiPodName: api
+apiRestartPolicy: Never
+apiMaxSurge: 1
+apiMaxUnavailable: 0
+name: da-affiliation
+namespace: da-affiliation
+nameOverride: da-affiliations
+secretType: Opaque
+apiSecret: api-secret
+nodeNum: 1

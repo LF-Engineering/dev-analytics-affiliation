@@ -1,0 +1,114 @@
+{{- $skipAPI := .Values.skipAPI -}}
+{{ if not $skipAPI }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: '{{ .Values.namespace }}'
+  name: '{{ .Values.apiServiceName }}'
+  labels:
+    name: da-affiliation
+    type: api
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    #protocol: TCP
+  selector:
+    name: da-affiliation
+    type: api
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: '{{ .Values.namespace }}'
+  name: '{{ .Values.apiPodName }}'
+  labels:
+    name: da-affiliation
+    type: api
+spec:
+  replicas: {{ .Values.nodeNum }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.apiMaxSurge }}
+      maxUnavailable: {{ .Values.apiMaxUnavailable }}
+  selector:
+    matchLabels:
+      name: da-affiliation
+      type: api
+  template:
+    metadata:
+      namespace: '{{ .Values.namespace }}'
+      labels:
+        name: da-affiliation
+        type: api
+    spec:
+{{ if gt ($root.Values.nodeNum|int) 1 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: type
+                operator: In
+                values:
+                - da-affiliation
+            topologyKey: kubernetes.io/hostname
+{{ end }}
+      containers:
+      - command:
+        - {{ .Values.apiCommand }}
+        name: '{{ .Values.apiPodName }}'
+        image: {{ .Values.apiImage }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: 8080
+        env:
+        - name: API_DB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: API_DB_ENDPOINT.secret
+        - name: SH_DB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: SH_DB_ENDPOINT.secret
+        - name: ELASTIC_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_URL.secret
+        - name: ELASTIC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_USERNAME.secret
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_PASSWORD.secret
+        - name: AUTH0_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_CLIENT_ID.secret
+        - name: AUTH0_DOMAIN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_DOMAIN.secret
+        - name: AUTH0_USERNAME_CLAIM
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_USERNAME_CLAIM.secret
+      restartPolicy: {{ .Values.apiRestartPolicy }}
+      nodeSelector:
+{{- with .Values.appNodeSelector -}}
+{{ toYaml . | nindent 8 }}
+{{ end }}
+{{ end }}
