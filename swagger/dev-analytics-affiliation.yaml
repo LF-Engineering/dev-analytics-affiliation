@@ -29,6 +29,46 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - health
+  /affiliation/{projectSlug}/unaffiliated:
+    get:
+      summary: Get top unaffiliated users
+      operationId: getUnaffiliated
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/get-unaffiliated-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - unaffiliated
+        - get
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: top_n
+          in: query
+          type: integer
+          default: 10
+          description: top N unaffiliated users, if 0 then return all, default top 10
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/matching_blacklist:
     get:
       summary: Get blacklisted emails
@@ -207,7 +247,7 @@ paths:
           in: header
           type: string
           required: true
-  /affiliation/{orgName}/add_domain/{domain}/to_project/{projectSlug}:
+  /affiliation/{projectSlug}/add_domain/{orgName}/{domain}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
       operationId: putOrgDomain
@@ -629,6 +669,35 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/organization-nested-data-output"
+  unaffiliated-data-output:
+    title: Unaffiliated user data
+    description: Unaffiliated user data
+    type: object
+    properties:
+      name:
+        type: string
+        example: Lukasz Gryglicki
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      contributions:
+        type: integer
+        example: 100
+  get-unaffiliated-output:
+    title: Top unaffiliated users output
+    description: Top unaffiliated users output
+    type: object
+    properties:
+      user:
+        type: string
+        example: lukaszgryglicki
+      scope:
+        type: string
+        example: academy-software-foundation/opencue
+      unaffiliated:
+        type: array
+        items:
+          $ref: "#/definitions/unaffiliated-data-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call

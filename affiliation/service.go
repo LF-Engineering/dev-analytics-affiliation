@@ -403,7 +403,7 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 }
 
 // PutOrgDomain: API params:
-// /v1/affiliation/{orgName}/add_domain/{domain}/to_project/{projectSlug}[?overwrite=true][&is_top_domain=true]
+// /v1/affiliation/{projectSlug}/add_domain/{orgName}/{domain}[?overwrite=true][&is_top_domain=true]
 // {orgName} - required path parameter:      organization to add domain to, must be URL encoded, for example 'The%20Microsoft%20company'
 // {domain} - required path parameter:       domain to be added, for example 'microsoft.com'
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
