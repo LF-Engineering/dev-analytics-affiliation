@@ -1,5 +1,5 @@
 # skipSecrets (will not attempt to create secrets, if you want to create new secrets delete current secrets first and do not set this flag)
-# skipNamespace (will skip sds namespace creation)
+# skipNamespace (will skip da-affiliation namespace creation)
 # skiAPI (will skip deploying api)
 # skipSecrets: 1
 # skipNamespace: 1
@@ -19,12 +19,12 @@ apiCommand: '/usr/bin/main'
 apiImage: 'lukaszgryglicki/dev-analytics-affiliation-api'
 apiServiceName: api-service
 apiPodName: api
-apiRestartPolicy: Never
+apiRestartPolicy: Always
 apiMaxSurge: 1
 apiMaxUnavailable: 0
 name: da-affiliation
 namespace: da-affiliation
-nameOverride: da-affiliations
+nameOverride: da-affiliation
 secretType: Opaque
 apiSecret: api-secret
 nodeNum: 1

@@ -21,13 +21,13 @@ then
 fi
 if [ -z "$DRY" ]
 then
-  $helm install "${NS}-namespace" ./da-affiliation --set "namespace=$NS,skipSecrets=1,nodeNum=$NODES"
+  $helm install "${NS}-namespace" ./da-affiliation --set "namespace=$NS,skipSecrets=1,skipAPI=1,nodeNum=$NODES"
   change_namespace.sh $1 "$NS"
   $helm install "$NS" ./da-affiliation --set "namespace=$NS,deployEnv=$denv,skipNamespace=1,nodeNum=$NODES"
   change_namespace.sh $1 default
 else
   echo "Dry run mode"
   change_namespace.sh $1 "$NS"
-  $helm install --debug --dry-run --generate-name ./da-affiliations --set "namespace=$NS,deployEnv=$denv,nodeNum=$NODES,dryRun=1"
+  $helm install --debug --dry-run --generate-name ./da-affiliation --set "namespace=$NS,deployEnv=$denv,nodeNum=$NODES,dryRun=1"
   change_namespace.sh $1 default
 fi

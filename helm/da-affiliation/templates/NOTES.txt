@@ -3,6 +3,6 @@ Please provide secret values for each file in `./secrets/*.secret.example` savin
 Please note that `vim` automatically adds new line to all text files, to remove it run `truncate -s -1` on a saved file.
 
 To install:
-- `helm install da-affiliations ./da-affiliations --set deployEnv=test|prod,nodeNum=4`.
+- `helm install da-affiliation ./da-affiliation --set deployEnv=test|prod,nodeNum=4`.
 
 Please note variables commented out in `./da-affiliation/values.yaml`. You can either uncomment them or pass their values via `--set variable=name`.

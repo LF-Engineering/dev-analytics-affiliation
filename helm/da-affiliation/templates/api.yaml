@@ -45,7 +45,7 @@ spec:
         name: da-affiliation
         type: api
     spec:
-{{ if gt ($root.Values.nodeNum|int) 1 }}
+{{ if gt (.Values.nodeNum|int) 1 }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -54,7 +54,7 @@ spec:
               - key: type
                 operator: In
                 values:
-                - da-affiliation
+                - api
             topologyKey: kubernetes.io/hostname
 {{ end }}
       containers:
