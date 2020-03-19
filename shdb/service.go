@@ -62,8 +62,8 @@ type Service interface {
 	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
+	QueryOrganizationsNested(*sql.Tx, string, int64, int64) ([]*models.OrganizationNestedDataOutput, int64, error)
 	// MatchingBlacklist
-	ListMatchingBlacklist(*sql.Tx, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	QueryMatchingBlacklist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	AddMatchingBlacklist(*models.MatchingBlacklistOutput, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
 	FetchMatchingBlacklist(string, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
@@ -2598,37 +2598,55 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	return
 }
 
-func (s *service) ListMatchingBlacklist(tx *sql.Tx, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, nRows int64, err error) {
-	log.Info(fmt.Sprintf("ListMatchingBlacklist: rows:%d page:%d tx:%v", rows, page, tx != nil))
+func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int64) (orgs []*models.OrganizationNestedDataOutput, nRows int64, err error) {
+	log.Info(fmt.Sprintf("QueryOrganizationsNested: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"ListMatchingBlacklist(exit): rows:%d page:%d tx:%v matchingBlacklistOutput:%+v n_rows:%d err:%v",
+				"QueryOrganizationsNested(exit): q:%s rows:%d page:%d tx:%v orgs:%+v n_rows:%d err:%v",
+				q,
 				rows,
 				page,
 				tx != nil,
-				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
+				orgs,
 				nRows,
 				err,
 			),
 		)
 	}()
-	sel := "select excluded from matching_blacklist order by 1"
-	if rows > 0 {
-		sel += fmt.Sprintf("  limit %d offset %d", rows, (page-1)*rows)
+	qLike := ""
+	sel := "select id from organizations"
+	if q != "" {
+		qLike = "%" + q + "%"
+		sel += " where name like ?"
 	}
-	qrows, err := s.query(s.db, tx, sel)
+	sel += " order by name"
+	if rows > 0 {
+		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
+	}
+	var qrows *sql.Rows
+	if q == "" {
+		qrows, err = s.query(s.db, tx, sel)
+	} else {
+		qrows, err = s.query(s.db, tx, sel, qLike)
+	}
 	if err != nil {
 		return
 	}
+	oids := []int64{}
+	oid := int64(0)
+	sel = "select o.id, o.name, do.id, do.domain, do.is_top_domain from "
+	sel += "organizations o left join domains_organizations do on o.id = do.organization_id"
+	sel += " where o.id in ("
 	for qrows.Next() {
-		matchingBlacklistData := &models.MatchingBlacklistOutput{}
-		err = qrows.Scan(&matchingBlacklistData.Excluded)
+		err = qrows.Scan(&oid)
 		if err != nil {
 			return
 		}
-		matchingBlacklistOutput = append(matchingBlacklistOutput, matchingBlacklistData)
+		oids = append(oids, oid)
+		sel += "?,"
 	}
+	sel = sel[0:len(sel)-1] + ") order by o.name, do.domain"
 	err = qrows.Err()
 	if err != nil {
 		return
@@ -2637,8 +2655,31 @@ func (s *service) ListMatchingBlacklist(tx *sql.Tx, rows, page int64) (matchingB
 	if err != nil {
 		return
 	}
-	sel = "select count(*) from matching_blacklist"
-	qrows, err = s.query(s.db, tx, sel)
+	log.Info(fmt.Sprintf("q=%s, args=%+v\n", sel, oids))
+	/*qrows, err = s.query(s.db, tx, sel, oids...)
+	for qrows.Next() {
+		err = qrows.Scan(&nRows)
+		if err != nil {
+			return
+		}
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}*/
+	sel = "select count(*) from organizations"
+	if q != "" {
+		sel += " where name like ?"
+	}
+	if q == "" {
+		qrows, err = s.query(s.db, tx, sel)
+	} else {
+		qrows, err = s.query(s.db, tx, sel, qLike)
+	}
 	if err != nil {
 		return
 	}
@@ -2675,12 +2716,22 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 			),
 		)
 	}()
-	qLike := "%" + q + "%"
-	sel := "select excluded from matching_blacklist where excluded like ? order by 1"
-	if rows > 0 {
-		sel += fmt.Sprintf("  limit %d offset %d", rows, (page-1)*rows)
+	qLike := ""
+	sel := "select excluded from matching_blacklist"
+	if q != "" {
+		qLike = "%" + q + "%"
+		sel += " where excluded like ?"
 	}
-	qrows, err := s.query(s.db, tx, sel, qLike)
+	sel += " order by 1"
+	if rows > 0 {
+		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
+	}
+	var qrows *sql.Rows
+	if q == "" {
+		qrows, err = s.query(s.db, tx, sel)
+	} else {
+		qrows, err = s.query(s.db, tx, sel, qLike)
+	}
 	if err != nil {
 		return
 	}
@@ -2700,8 +2751,15 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 	if err != nil {
 		return
 	}
-	sel = "select count(*) from matching_blacklist where excluded like ?"
-	qrows, err = s.query(s.db, tx, sel, qLike)
+	sel = "select count(*) from matching_blacklist"
+	if q != "" {
+		sel += " where excluded like ?"
+	}
+	if q == "" {
+		qrows, err = s.query(s.db, tx, sel)
+	} else {
+		qrows, err = s.query(s.db, tx, sel, qLike)
+	}
 	if err != nil {
 		return
 	}
@@ -2775,20 +2833,14 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 		)
 	}()
 	nRows := int64(0)
-	/*
-		var ary []*models.OrganizationNestedDataOutput
-		if q == "" {
-			ary, nRows, err = s.ListOrganizationsNested(nil, rows, page)
-		} else {
-			ary, nRows, err = s.QueryOrganizationsNested(nil, q, rows, page)
-		}
-		if err != nil {
-			return
-		}
-		getListOrganizations.Organizations = ary
-		getListOrganizations.NRecords = nRows
-		getListOrganizations.Rows = len(ary)
-	*/
+	var ary []*models.OrganizationNestedDataOutput
+	ary, nRows, err = s.QueryOrganizationsNested(nil, q, rows, page)
+	if err != nil {
+		return
+	}
+	getListOrganizations.Organizations = ary
+	getListOrganizations.NRecords = nRows
+	getListOrganizations.Rows = int64(len(ary))
 	if rows == 0 {
 		getListOrganizations.NPages = 1
 	} else {
@@ -2822,11 +2874,7 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 	}()
 	var ary []*models.MatchingBlacklistOutput
 	nRows := int64(0)
-	if q == "" {
-		ary, nRows, err = s.ListMatchingBlacklist(nil, rows, page)
-	} else {
-		ary, nRows, err = s.QueryMatchingBlacklist(nil, q, rows, page)
-	}
+	ary, nRows, err = s.QueryMatchingBlacklist(nil, q, rows, page)
 	if err != nil {
 		return
 	}
