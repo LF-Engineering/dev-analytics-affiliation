@@ -30,6 +30,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 		}
 		return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
 	}
+	api.AffiliationGetUnaffiliatedHandler = affiliation.GetUnaffiliatedHandlerFunc(
+		func(params affiliation.GetUnaffiliatedParams) middleware.Responder {
+			log.Info("GetUnaffiliatedHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetUnaffiliatedHandlerFunc: " + info)
+
+			result, err := service.GetUnaffiliated(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetUnaffiliatedHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      result,
+			}).Info("GetUnaffiliatedHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetUnaffiliatedOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetListOrganizationsHandler = affiliation.GetListOrganizationsHandlerFunc(
 		func(params affiliation.GetListOrganizationsParams) middleware.Responder {
 			log.Info("GetListOrganizationsHandlerFunc")

@@ -36,6 +36,7 @@ type Service interface {
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
+	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -196,6 +197,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PutMoveIdentity"
+	case *affiliation.GetUnaffiliatedParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetUnaffiliated"
 	default:
 		err = errors.Wrap(fmt.Errorf("unknown params type"), "checkTokenAndPermission")
 		return
@@ -572,5 +577,49 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		err = errors.Wrap(err, "FIXME:"+apiName)
 		return
 	}
+	return
+}
+
+// GetUnaffiliated: API params:
+// /v1/affiliation/{projectSlug}/unaffiliated[?q=xyz][&top_n=100]
+// {projectSlug} - required path parameter: project to get top unaffiliated users (project slug URL encoded, can be prefixed with "/projects/")
+// top_n - optional query parameter: return Top N unaffiliated users, 0 - means return all
+func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUnaffiliatedParams) (getUnaffiliated *models.GetUnaffiliatedOutput, err error) {
+	topN := int64(10)
+	if params.Topn != nil {
+		topN = *params.Topn
+		if topN < 0 {
+			topN = 0
+		}
+	}
+	getUnaffiliated = &models.GetUnaffiliatedOutput{}
+	log.Info(fmt.Sprintf("GetUnaffiliated: top_n:%d", topN))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetUnaffiliated(exit): top_n:%d apiName:%s project:%s username:%s getUnaffiliated:%d err:%v",
+				topN,
+				apiName,
+				project,
+				username,
+				len(getUnaffiliated.Unaffiliated),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	getUnaffiliated, err = s.es.GetUnaffiliated()
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	log.Info(fmt.Sprintf("%+v", getUnaffiliated))
+	getUnaffiliated.User = username
+	getUnaffiliated.Scope = project
 	return
 }
