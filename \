@@ -2,7 +2,6 @@ package elastic
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/elastic/go-elasticsearch/v7"
@@ -30,26 +29,22 @@ func New(client *elasticsearch.Client) Service {
 }
 
 func (s *service) GetUnaffiliated(projectSlug string) (getUnaffiliated *models.GetUnaffiliatedOutput, err error) {
-	log.Info(fmt.Sprintf("GetUnaffiliated: projectSlug:%s", projectSlug))
-	pattern := strings.TrimSpace(projectSlug)
+  log.Info(fmt.Sprintf("GetUnaffiliated: projectSlug:%s", projectSlug)
 	getUnaffiliated = &models.GetUnaffiliatedOutput{}
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetUnaffiliated(exit): projectSlug:%s pattern:%s getUnaffiliated:%+v err:%v",
-				projectSlug,
-				pattern,
+        "GetUnaffiliated(exit): projectSlug:%s getUnaffiliated:%+v err:%v",
+        projectSlug,
 				s.toLocalUnaffiliated(getUnaffiliated),
 				err,
 			),
 		)
 	}()
-	//${idx}-*,-${idx}-*-raw
-	if strings.HasPrefix(pattern, "/projects/") {
-		pattern = pattern[10:]
-	}
-	pattern = "sds-" + strings.Replace(pattern, "/", "-", -1)
-	pattern = pattern + "-*,-" + pattern + "-*-raw"
+  //idx="sds-${1//\//-}"
+  //${idx}-*,-${idx}-*-raw
+  pattern := projectSlug
+  if strings.StartsWith(pattern, "
 
 	//getUnaffiliated.Unaffiliated = ary
 	return

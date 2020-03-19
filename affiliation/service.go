@@ -613,7 +613,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 		return
 	}
 	// Do the actual API call
-	getUnaffiliated, err = s.es.GetUnaffiliated()
+	getUnaffiliated, err = s.es.GetUnaffiliated(project)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
