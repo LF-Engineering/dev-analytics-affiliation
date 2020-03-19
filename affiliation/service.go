@@ -233,10 +233,16 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
+		if rows < 0 {
+			rows = 0
+		}
 	}
 	page := int64(1)
 	if params.Page != nil {
 		page = *params.Page
+		if page < 1 {
+			page = 1
+		}
 	}
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission
@@ -244,14 +250,14 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetListOrganizations(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizations:%+v err:%v",
+				"GetListOrganizations(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizations:%d err:%v",
 				q,
 				rows,
 				page,
 				apiName,
 				project,
 				username,
-				getListOrganizations,
+				len(getListOrganizations.Organizations),
 				err,
 			),
 		)
@@ -284,10 +290,16 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
+		if rows < 0 {
+			rows = 0
+		}
 	}
 	page := int64(1)
 	if params.Page != nil {
 		page = *params.Page
+		if page < 1 {
+			page = 1
+		}
 	}
 	log.Info(fmt.Sprintf("GetMatchingBlacklist: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission

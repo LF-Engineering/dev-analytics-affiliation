@@ -2603,12 +2603,12 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"QueryOrganizationsNested(exit): q:%s rows:%d page:%d tx:%v orgs:%+v n_rows:%d err:%v",
+				"QueryOrganizationsNested(exit): q:%s rows:%d page:%d tx:%v n_orgs:%d n_rows:%d err:%v",
 				q,
 				rows,
 				page,
 				tx != nil,
-				orgs,
+				len(orgs),
 				nRows,
 				err,
 			),
@@ -2633,9 +2633,9 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 	if err != nil {
 		return
 	}
-	oids := []int64{}
+	oids := []interface{}{}
 	oid := int64(0)
-	sel = "select o.id, o.name, do.id, do.domain, do.is_top_domain from "
+	sel = "select distinct o.id, o.name, do.id, do.domain, do.is_top_domain from "
 	sel += "organizations o left join domains_organizations do on o.id = do.organization_id"
 	sel += " where o.id in ("
 	for qrows.Next() {
@@ -2646,6 +2646,9 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 		oids = append(oids, oid)
 		sel += "?,"
 	}
+	if len(oids) < 1 {
+		return
+	}
 	sel = sel[0:len(sel)-1] + ") order by o.name, do.domain"
 	err = qrows.Err()
 	if err != nil {
@@ -2655,13 +2658,39 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 	if err != nil {
 		return
 	}
-	log.Info(fmt.Sprintf("q=%s, args=%+v\n", sel, oids))
-	/*qrows, err = s.query(s.db, tx, sel, oids...)
+	var (
+		doid        *int64
+		domainName  *string
+		isTopDomain *bool
+		oName       string
+	)
+	qrows, err = s.query(s.db, tx, sel, oids...)
+	if err != nil {
+		return
+	}
+	orgsMap := make(map[string]*models.OrganizationNestedDataOutput)
 	for qrows.Next() {
-		err = qrows.Scan(&nRows)
+		err = qrows.Scan(&oid, &oName, &doid, &domainName, &isTopDomain)
 		if err != nil {
 			return
 		}
+		org, ok := orgsMap[oName]
+		if !ok {
+			orgsMap[oName] = &models.OrganizationNestedDataOutput{ID: oid, Name: oName, Domains: []*models.DomainDataOutput{}}
+		}
+		if doid != nil {
+			org = orgsMap[oName]
+			org.Domains = append(org.Domains, &models.DomainDataOutput{ID: *doid, Name: *domainName, IsTopDomain: *isTopDomain})
+			orgsMap[oName] = org
+		}
+	}
+	oNames := []string{}
+	for oName := range orgsMap {
+		oNames = append(oNames, oName)
+	}
+	sort.Strings(oNames)
+	for _, oName := range oNames {
+		orgs = append(orgs, orgsMap[oName])
 	}
 	err = qrows.Err()
 	if err != nil {
@@ -2670,7 +2699,7 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 	err = qrows.Close()
 	if err != nil {
 		return
-	}*/
+	}
 	sel = "select count(*) from organizations"
 	if q != "" {
 		sel += " where name like ?"
@@ -2822,12 +2851,11 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetListOrganizations(exit): q:%s rows:%d page:%d getListOrganizations:%+v err:%v",
+				"GetListOrganizations(exit): q:%s rows:%d page:%d getListOrganizations:%d err:%v",
 				q,
 				rows,
 				page,
-				//s.toLocalGetListOrganizations(getListOrganizations),
-				getListOrganizations,
+				len(getListOrganizations.Organizations),
 				err,
 			),
 		)
