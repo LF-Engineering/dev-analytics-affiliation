@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strconv"
 	"time"
 
 	"database/sql"
@@ -13,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 
@@ -22,6 +22,7 @@ import (
 
 // Service - access affiliations MariaDB interface
 type Service interface {
+	shared.SharedServiceInterface
 	// External CRUD methods
 	// Country
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
@@ -94,14 +95,6 @@ type Service interface {
 
 	// Internal methods
 	now() *strfmt.DateTime
-	toLocalProfile(*models.ProfileDataOutput) *localProfile
-	toLocalIdentity(*models.IdentityDataOutput) *localIdentity
-	toLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *localUniqueIdentity
-	toLocalGetMatchingBlacklist(*models.GetMatchingBlacklistOutput) []interface{}
-	toLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
-	toLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
-	toLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
-	toLocalUnaffiliated([]*models.UnaffiliatedDataOutput) []interface{}
 	queryOut(string, ...interface{})
 	queryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
 	queryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
@@ -112,6 +105,7 @@ type Service interface {
 }
 
 type service struct {
+	shared.SharedServiceStruct
 	db *sqlx.DB
 }
 
@@ -133,18 +127,6 @@ var (
 	// MaxPeriodDate - default end date for enrollments
 	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 )
-
-type localProfile struct {
-	*models.ProfileDataOutput
-}
-
-type localIdentity struct {
-	*models.IdentityDataOutput
-}
-
-type localUniqueIdentity struct {
-	*models.UniqueIdentityDataOutput
-}
 
 func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *models.CountryDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetCountry: countryCode:%s tx:%v", countryCode, tx != nil))
@@ -270,16 +252,16 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 }
 
 func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutput, organization *models.OrganizationDataOutput, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v tx:%v", s.toLocalUniqueIdentity(uniqueIdentity), organization, tx != nil))
+	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v tx:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v tx:%v err:%v", s.toLocalUniqueIdentity(uniqueIdentity), organization, tx != nil, err))
+		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, tx != nil, err))
 	}()
 	disjoint, err := s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uniqueIdentity.UUID, organization.ID}, []bool{false, false}, false, tx)
 	if err != nil {
 		return
 	}
 	if len(disjoint) == 0 {
-		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' found no enrollments", s.toLocalUniqueIdentity(uniqueIdentity), organization)
+		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization)
 		return
 	}
 	dates := [][]strfmt.DateTime{}
@@ -322,9 +304,9 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 }
 
 func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDataOutput, uniqueIdentity *models.UniqueIdentityDataOutput, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("MoveEnrollmentToUniqueIdentity: enrollment:%+v uniqueIdentity:%+v tx:%v", enrollment, s.toLocalUniqueIdentity(uniqueIdentity), tx != nil))
+	log.Info(fmt.Sprintf("MoveEnrollmentToUniqueIdentity: enrollment:%+v uniqueIdentity:%+v tx:%v", enrollment, s.ToLocalUniqueIdentity(uniqueIdentity), tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("MoveEnrollmentToUniqueIdentity(exit): enrollment:%+v uniqueIdentity:%+v tx:%v err:%v", enrollment, s.toLocalUniqueIdentity(uniqueIdentity), tx != nil, err))
+		log.Info(fmt.Sprintf("MoveEnrollmentToUniqueIdentity(exit): enrollment:%+v uniqueIdentity:%+v tx:%v err:%v", enrollment, s.ToLocalUniqueIdentity(uniqueIdentity), tx != nil, err))
 	}()
 	if enrollment.UUID == uniqueIdentity.UUID {
 		return
@@ -343,7 +325,7 @@ func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDa
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(oldUniqueIdentity), affected)
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(oldUniqueIdentity), affected)
 		return
 	}
 	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
@@ -351,7 +333,7 @@ func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDa
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(uniqueIdentity), affected)
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(uniqueIdentity), affected)
 		return
 	}
 	return
@@ -361,8 +343,8 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 	log.Info(
 		fmt.Sprintf(
 			"MoveIdentityToUniqueIdentity: identity:%+v uniqueIdentity:%+v unarchive:%v tx:%v",
-			s.toLocalIdentity(identity),
-			s.toLocalUniqueIdentity(uniqueIdentity),
+			s.ToLocalIdentity(identity),
+			s.ToLocalUniqueIdentity(uniqueIdentity),
 			unarchive,
 			tx != nil,
 		),
@@ -371,8 +353,8 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 		log.Info(
 			fmt.Sprintf(
 				"MoveIdentityToUniqueIdentity(exit): identity:%+v uniqueIdentity:%+v unarchive:%v tx:%v err:%v",
-				s.toLocalIdentity(identity),
-				s.toLocalUniqueIdentity(uniqueIdentity),
+				s.ToLocalIdentity(identity),
+				s.ToLocalUniqueIdentity(uniqueIdentity),
 				unarchive,
 				tx != nil,
 				err,
@@ -397,7 +379,7 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(oldUniqueIdentity), affected)
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(oldUniqueIdentity), affected)
 		return
 	}
 	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
@@ -405,7 +387,7 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 		return
 	}
 	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.toLocalUniqueIdentity(uniqueIdentity), affected)
+		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(uniqueIdentity), affected)
 		return
 	}
 	return
@@ -449,19 +431,19 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOutput, tx *sql.Tx) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
 	inunaff := ""
 	nUnaffiliated := len(inUnaffiliated)
-	if nUnaffiliated > 30 {
+	if nUnaffiliated > shared.LogListMax {
 		inunaff = fmt.Sprintf("%d", nUnaffiliated)
 	} else {
-		inunaff = fmt.Sprintf("%+v", s.toLocalUnaffiliated(inUnaffiliated))
+		inunaff = fmt.Sprintf("%+v", s.ToLocalUnaffiliated(inUnaffiliated))
 	}
 	log.Info(fmt.Sprintf("CheckUnaffiliated: inUnaffiliated:%s tx:%v", inunaff, tx != nil))
 	defer func() {
 		unaff := ""
 		nUnaffiliated := len(unaffiliated)
-		if nUnaffiliated > 30 {
+		if nUnaffiliated > shared.LogListMax {
 			unaff = fmt.Sprintf("%d", nUnaffiliated)
 		} else {
-			unaff = fmt.Sprintf("%+v", s.toLocalUnaffiliated(unaffiliated))
+			unaff = fmt.Sprintf("%+v", s.ToLocalUnaffiliated(unaffiliated))
 		}
 		log.Info(
 			fmt.Sprintf(
@@ -521,16 +503,16 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 }
 
 func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataOutput, refresh bool, tx *sql.Tx) (uniqueIdentity *models.UniqueIdentityDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddUniqueIdentity: inUniqueIdentity:%+v refresh:%v tx:%v", s.toLocalUniqueIdentity(inUniqueIdentity), refresh, tx != nil))
+	log.Info(fmt.Sprintf("AddUniqueIdentity: inUniqueIdentity:%+v refresh:%v tx:%v", s.ToLocalUniqueIdentity(inUniqueIdentity), refresh, tx != nil))
 	uniqueIdentity = inUniqueIdentity
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"AddUniqueIdentity(exit): inUniqueIdentity:%+v refresh:%v tx:%v uniqueIdentity:%+v err:%v",
-				s.toLocalUniqueIdentity(inUniqueIdentity),
+				s.ToLocalUniqueIdentity(inUniqueIdentity),
 				refresh,
 				tx != nil,
-				s.toLocalUniqueIdentity(uniqueIdentity),
+				s.ToLocalUniqueIdentity(uniqueIdentity),
 				err,
 			),
 		)
@@ -569,7 +551,7 @@ func (s *service) FindUniqueIdentityOrganizations(uuid string, missingFatal bool
 				uuid,
 				missingFatal,
 				tx != nil,
-				s.toLocalOrganizations(organizations),
+				s.ToLocalOrganizations(organizations),
 				err,
 			),
 		)
@@ -615,7 +597,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 				values,
 				missingFatal,
 				tx != nil,
-				s.toLocalOrganizations(organizations),
+				s.ToLocalOrganizations(organizations),
 				err,
 			),
 		)
@@ -675,7 +657,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 				isDate,
 				missingFatal,
 				tx != nil,
-				s.toLocalEnrollments(enrollments),
+				s.ToLocalEnrollments(enrollments),
 				err,
 			),
 		)
@@ -747,7 +729,7 @@ func (s *service) GetArchiveUniqueIdentityIdentities(uuid string, tm time.Time, 
 				tm,
 				missingFatal,
 				tx != nil,
-				s.toLocalIdentities(identities),
+				s.ToLocalIdentities(identities),
 				err,
 			),
 		)
@@ -804,7 +786,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 				tm,
 				missingFatal,
 				tx != nil,
-				s.toLocalEnrollments(enrollments),
+				s.ToLocalEnrollments(enrollments),
 				err,
 			),
 		)
@@ -857,7 +839,7 @@ func (s *service) GetUniqueIdentityIdentities(uuid string, missingFatal bool, tx
 				uuid,
 				missingFatal,
 				tx != nil,
-				s.toLocalIdentities(identities),
+				s.ToLocalIdentities(identities),
 				err,
 			),
 		)
@@ -911,7 +893,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 				uuid,
 				missingFatal,
 				tx != nil,
-				s.toLocalEnrollments(enrollments),
+				s.ToLocalEnrollments(enrollments),
 				err,
 			),
 		)
@@ -1071,7 +1053,7 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 				uuid,
 				missingFatal,
 				tx != nil,
-				s.toLocalUniqueIdentity(uniqueIdentityData),
+				s.ToLocalUniqueIdentity(uniqueIdentityData),
 				err,
 			),
 		)
@@ -1124,7 +1106,7 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identit
 				id,
 				missingFatal,
 				tx != nil,
-				s.toLocalIdentity(identityData),
+				s.ToLocalIdentity(identityData),
 				err,
 			),
 		)
@@ -1182,7 +1164,7 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 				uuid,
 				missingFatal,
 				tx != nil,
-				s.toLocalProfile(profileData),
+				s.ToLocalProfile(profileData),
 				err,
 			),
 		)
@@ -1792,12 +1774,12 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 		log.Info(fmt.Sprintf("ValidateProfile(exit): profileData:%+v tx:%v err:%v", profileData, tx != nil, err))
 	}()
 	if profileData.UUID == "" {
-		err = fmt.Errorf("profile '%+v' uuid is empty", s.toLocalProfile(profileData))
+		err = fmt.Errorf("profile '%+v' uuid is empty", s.ToLocalProfile(profileData))
 		profileData = nil
 		return
 	}
 	if profileData.IsBot != nil && (*profileData.IsBot != 0 && *profileData.IsBot != 1) {
-		err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", s.toLocalProfile(profileData))
+		err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", s.ToLocalProfile(profileData))
 		return
 	}
 	if profileData.CountryCode != nil && *profileData.CountryCode != "" {
@@ -1808,16 +1790,16 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 	}
 	if profileData.Gender != nil {
 		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.toLocalProfile(profileData))
+			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.ToLocalProfile(profileData))
 			return
 		}
 		if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
-			err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.toLocalProfile(profileData))
+			err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.ToLocalProfile(profileData))
 			return
 		}
 	}
 	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.toLocalProfile(profileData))
+		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.ToLocalProfile(profileData))
 		return
 	}
 	return
@@ -1852,16 +1834,16 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 }
 
 func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddProfile: inprofileData:%+v refresh:%v tx:%v", s.toLocalProfile(inProfileData), refresh, tx != nil))
+	log.Info(fmt.Sprintf("AddProfile: inprofileData:%+v refresh:%v tx:%v", s.ToLocalProfile(inProfileData), refresh, tx != nil))
 	profileData = inProfileData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"AddProfile(exit): inProfileData:%+v refresh:%v tx:%v profileData:%+v err:%v",
-				s.toLocalProfile(inProfileData),
+				s.ToLocalProfile(inProfileData),
 				refresh,
 				tx != nil,
-				s.toLocalProfile(profileData),
+				s.ToLocalProfile(profileData),
 				err,
 			),
 		)
@@ -1896,7 +1878,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		return
 	}
 	if affected > 1 {
-		err = fmt.Errorf("profile '%+v' insert affected %d rows", s.toLocalProfile(profileData), affected)
+		err = fmt.Errorf("profile '%+v' insert affected %d rows", s.ToLocalProfile(profileData), affected)
 		profileData = nil
 		return
 	} else if affected == 1 {
@@ -1908,12 +1890,12 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 			return
 		}
 		if affected2 != 1 {
-			err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.toLocalProfile(profileData), affected2)
+			err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.ToLocalProfile(profileData), affected2)
 			profileData = nil
 			return
 		}
 	} else {
-		err = fmt.Errorf("adding profile '%+v' didn't affected any rows", s.toLocalProfile(profileData))
+		err = fmt.Errorf("adding profile '%+v' didn't affected any rows", s.ToLocalProfile(profileData))
 		profileData = nil
 		return
 	}
@@ -2085,22 +2067,22 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 }
 
 func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
-	log.Info(fmt.Sprintf("EditIdentity: inIdentityData:%+v refresh:%v tx:%v", s.toLocalIdentity(inIdentityData), refresh, tx != nil))
+	log.Info(fmt.Sprintf("EditIdentity: inIdentityData:%+v refresh:%v tx:%v", s.ToLocalIdentity(inIdentityData), refresh, tx != nil))
 	identityData = inIdentityData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"EditIdentity(exit): inIdentityData:%+v refresh:%v tx:%v identityData:%+v err:%v",
-				s.toLocalIdentity(inIdentityData),
+				s.ToLocalIdentity(inIdentityData),
 				refresh,
 				tx != nil,
-				s.toLocalIdentity(identityData),
+				s.ToLocalIdentity(identityData),
 				err,
 			),
 		)
 	}()
 	if identityData.ID == "" || identityData.UUID == "" || identityData.Source == "" {
-		err = fmt.Errorf("identity '%+v' missing id or uuid or source", s.toLocalIdentity(identityData))
+		err = fmt.Errorf("identity '%+v' missing id or uuid or source", s.ToLocalIdentity(identityData))
 		identityData = nil
 		return
 	}
@@ -2142,7 +2124,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 		return
 	}
 	if affected > 1 {
-		err = fmt.Errorf("identity '%+v' update affected %d rows", s.toLocalIdentity(identityData), affected)
+		err = fmt.Errorf("identity '%+v' update affected %d rows", s.ToLocalIdentity(identityData), affected)
 		identityData = nil
 		return
 	} else if affected == 1 {
@@ -2154,12 +2136,12 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 			return
 		}
 		if affected2 != 1 {
-			err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.toLocalIdentity(identityData), affected2)
+			err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.ToLocalIdentity(identityData), affected2)
 			identityData = nil
 			return
 		}
 	} else {
-		log.Info(fmt.Sprintf("EditIdentity: identity '%+v' update didn't affected any rows", s.toLocalIdentity(identityData)))
+		log.Info(fmt.Sprintf("EditIdentity: identity '%+v' update didn't affected any rows", s.ToLocalIdentity(identityData)))
 	}
 	if refresh {
 		identityData, err = s.GetIdentity(identityData.ID, true, tx)
@@ -2172,16 +2154,16 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 }
 
 func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
-	log.Info(fmt.Sprintf("EditProfile: inProfileData:%+v refresh:%v tx:%v", s.toLocalProfile(inProfileData), refresh, tx != nil))
+	log.Info(fmt.Sprintf("EditProfile: inProfileData:%+v refresh:%v tx:%v", s.ToLocalProfile(inProfileData), refresh, tx != nil))
 	profileData = inProfileData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"EditProfile(exit): inProfileData:%+v refresh:%v tx:%v profileData:%+v err:%v",
-				s.toLocalProfile(inProfileData),
+				s.ToLocalProfile(inProfileData),
 				refresh,
 				tx != nil,
-				s.toLocalProfile(profileData),
+				s.ToLocalProfile(profileData),
 				err,
 			),
 		)
@@ -2245,7 +2227,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			return
 		}
 		if affected > 1 {
-			err = fmt.Errorf("profile '%+v' update affected %d rows", s.toLocalProfile(profileData), affected)
+			err = fmt.Errorf("profile '%+v' update affected %d rows", s.ToLocalProfile(profileData), affected)
 			profileData = nil
 			return
 		} else if affected == 1 {
@@ -2257,15 +2239,15 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 				return
 			}
 			if affected2 != 1 {
-				err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.toLocalProfile(profileData), affected2)
+				err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.ToLocalProfile(profileData), affected2)
 				profileData = nil
 				return
 			}
 		} else {
-			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", s.toLocalProfile(profileData)))
+			log.Info(fmt.Sprintf("EditProfile: profile '%+v' update didn't affected any rows", s.ToLocalProfile(profileData)))
 		}
 	} else {
-		log.Info(fmt.Sprintf("EditProfile: profile '%+v' nothing to update", s.toLocalProfile(profileData)))
+		log.Info(fmt.Sprintf("EditProfile: profile '%+v' nothing to update", s.ToLocalProfile(profileData)))
 	}
 	if refresh {
 		profileData, err = s.GetProfile(profileData.UUID, true, tx)
@@ -2626,7 +2608,7 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 		return
 	}
 	if to == nil && fromID != toUUID {
-		err = fmt.Errorf("unique identity uuid '%s' is not found and identity id is different: '%+v'", toUUID, s.toLocalIdentity(from))
+		err = fmt.Errorf("unique identity uuid '%s' is not found and identity id is different: '%+v'", toUUID, s.ToLocalIdentity(from))
 		return
 	}
 	tx, err := s.db.Begin()
@@ -2677,14 +2659,21 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int64) (orgs []*models.OrganizationNestedDataOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("QueryOrganizationsNested: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
 	defer func() {
+		list := ""
+		nOrgs := len(orgs)
+		if nOrgs > shared.LogListMax {
+			list = fmt.Sprintf("%d", nOrgs)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalNestedOrganizations(orgs))
+		}
 		log.Info(
 			fmt.Sprintf(
-				"QueryOrganizationsNested(exit): q:%s rows:%d page:%d tx:%v n_orgs:%d n_rows:%d err:%v",
+				"QueryOrganizationsNested(exit): q:%s rows:%d page:%d tx:%v orgs:%s n_rows:%d err:%v",
 				q,
 				rows,
 				page,
 				tx != nil,
-				len(orgs),
+				list,
 				nRows,
 				err,
 			),
@@ -2756,7 +2745,7 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 		}
 		if doid != nil {
 			org = orgsMap[oName]
-			org.Domains = append(org.Domains, &models.DomainDataOutput{ID: *doid, Name: *domainName, IsTopDomain: *isTopDomain})
+			org.Domains = append(org.Domains, &models.DomainDataOutput{ID: *doid, Name: *domainName, IsTopDomain: *isTopDomain, OrganizationID: oid})
 			orgsMap[oName] = org
 		}
 	}
@@ -2808,14 +2797,21 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64) (matchingBlacklistOutput []*models.MatchingBlacklistOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("QueryMatchingBlacklist: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
 	defer func() {
+		list := ""
+		nEmails := len(matchingBlacklistOutput)
+		if nEmails > shared.LogListMax {
+			list = fmt.Sprintf("%d", nEmails)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalMatchingBlacklist(matchingBlacklistOutput))
+		}
 		log.Info(
 			fmt.Sprintf(
-				"QueryMatchingBlacklist(exit): q:%s rows:%d page:%d tx:%v matchingBlacklistOutput:%+v n_rows:%d err:%v",
+				"QueryMatchingBlacklist(exit): q:%s rows:%d page:%d tx:%v matchingBlacklistOutput:%s n_rows:%d err:%v",
 				q,
 				rows,
 				page,
 				tx != nil,
-				s.toLocalMatchingBlacklist(matchingBlacklistOutput),
+				list,
 				nRows,
 				err,
 			),
@@ -2925,13 +2921,20 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
 	getListOrganizations = &models.GetListOrganizationsOutput{}
 	defer func() {
+		list := ""
+		nOrgs := len(getListOrganizations.Organizations)
+		if nOrgs > shared.LogListMax {
+			list = fmt.Sprintf("%d", nOrgs)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalNestedOrganizations(getListOrganizations.Organizations))
+		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListOrganizations(exit): q:%s rows:%d page:%d getListOrganizations:%d err:%v",
+				"GetListOrganizations(exit): q:%s rows:%d page:%d getListOrganizations:%s err:%v",
 				q,
 				rows,
 				page,
-				len(getListOrganizations.Organizations),
+				list,
 				err,
 			),
 		)
@@ -2965,13 +2968,20 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 	log.Info(fmt.Sprintf("GetMatchingBlacklist: q:%s rows:%d page:%d", q, rows, page))
 	getMatchingBlacklist = &models.GetMatchingBlacklistOutput{}
 	defer func() {
+		list := ""
+		nEmails := len(getMatchingBlacklist.Emails)
+		if nEmails > shared.LogListMax {
+			list = fmt.Sprintf("%d", nEmails)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalMatchingBlacklist(getMatchingBlacklist.Emails))
+		}
 		log.Info(
 			fmt.Sprintf(
-				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d getMatchingBlacklist:%+v err:%v",
+				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d getMatchingBlacklist:%s err:%v",
 				q,
 				rows,
 				page,
-				s.toLocalGetMatchingBlacklist(getMatchingBlacklist),
+				list,
 				err,
 			),
 		)
@@ -3171,169 +3181,9 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 	return
 }
 
-func (p *localProfile) String() (s string) {
-	s = "{UUID:" + p.UUID + ","
-	if p.Name == nil {
-		s += "Name:nil,"
-	} else {
-		s += "Name:" + *p.Name + ","
-	}
-	if p.Email == nil {
-		s += "Email:nil,"
-	} else {
-		s += "Email:" + *p.Email + ","
-	}
-	if p.Gender == nil {
-		s += "Gender:nil,"
-	} else {
-		s += "Gender:" + *p.Gender + ","
-	}
-	if p.GenderAcc == nil {
-		s += "GenderAcc:nil,"
-	} else {
-		s += "GenderAcc:" + strconv.FormatInt(*p.GenderAcc, 10) + ","
-	}
-	if p.IsBot == nil {
-		s += "IsBot:nil,"
-	} else {
-		s += "IsBot:" + strconv.FormatInt(*p.IsBot, 10) + ","
-	}
-	if p.CountryCode == nil {
-		s += "CountryCode:nil}"
-	} else {
-		s += "CountryCode:" + *p.CountryCode + "}"
-	}
-	return
-}
-
-func (p *localIdentity) String() (s string) {
-	s = "{ID:" + p.ID + ",UUID:" + p.UUID + ",Source:" + p.Source + ","
-	if p.Name == nil {
-		s += "Name:nil,"
-	} else {
-		s += "Name:" + *p.Name + ","
-	}
-	if p.Username == nil {
-		s += "Username:nil,"
-	} else {
-		s += "Username:" + *p.Username + ","
-	}
-	if p.Email == nil {
-		s += "Email:nil,"
-	} else {
-		s += "Email:" + *p.Email + ","
-	}
-	if p.LastModified == nil {
-		s += "LastModified:nil}"
-	} else {
-		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
-	}
-	return
-}
-
-func (p *localUniqueIdentity) String() (s string) {
-	s = "{UUID:" + p.UUID + ","
-	if p.LastModified == nil {
-		s += "LastModified:nil}"
-	} else {
-		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
-	}
-	return
-}
-
 func (s *service) now() *strfmt.DateTime {
 	n := strfmt.DateTime(time.Now())
 	return &n
-}
-
-func (s *service) toLocalGetMatchingBlacklist(ia *models.GetMatchingBlacklistOutput) (oa []interface{}) {
-	for _, i := range ia.Emails {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
-}
-
-func (s *service) toLocalMatchingBlacklist(ia []*models.MatchingBlacklistOutput) (oa []interface{}) {
-	for _, i := range ia {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
-}
-
-func (s *service) toLocalOrganizations(ia []*models.OrganizationDataOutput) (oa []interface{}) {
-	for _, i := range ia {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
-}
-
-func (s *service) toLocalEnrollments(ia []*models.EnrollmentDataOutput) (oa []interface{}) {
-	for _, i := range ia {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
-}
-
-func (s *service) toLocalProfile(i *models.ProfileDataOutput) (o *localProfile) {
-	if i == nil {
-		return
-	}
-	o = &localProfile{i}
-	return
-}
-
-func (s *service) toLocalIdentity(i *models.IdentityDataOutput) (o *localIdentity) {
-	if i == nil {
-		return
-	}
-	o = &localIdentity{i}
-	return
-}
-
-func (s *service) toLocalIdentities(ia []*models.IdentityDataOutput) (oa []*localIdentity) {
-	for _, i := range ia {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, &localIdentity{i})
-	}
-	return
-}
-
-func (s *service) toLocalUniqueIdentity(i *models.UniqueIdentityDataOutput) (o *localUniqueIdentity) {
-	if i == nil {
-		return
-	}
-	o = &localUniqueIdentity{i}
-	return
-}
-
-func (s *service) toLocalUnaffiliated(ia []*models.UnaffiliatedDataOutput) (oa []interface{}) {
-	for _, i := range ia {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
 }
 
 func (s *service) queryOut(query string, args ...interface{}) {

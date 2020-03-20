@@ -14,6 +14,7 @@ import (
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
@@ -28,6 +29,7 @@ const (
 
 // Service - API interface
 type Service interface {
+	shared.SharedServiceInterface
 	// External methods
 	GetMatchingBlacklist(ctx context.Context, in *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
 	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
@@ -55,6 +57,7 @@ func (s *service) GetServiceRequestID() string {
 }
 
 type service struct {
+	shared.SharedServiceStruct
 	requestID string
 	apiDB     apidb.Service
 	shDB      shdb.Service
@@ -254,16 +257,23 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
+		list := ""
+		nOrgs := len(getListOrganizations.Organizations)
+		if nOrgs > shared.LogListMax {
+			list = fmt.Sprintf("%d", nOrgs)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalNestedOrganizations(getListOrganizations.Organizations))
+		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListOrganizations(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizations:%d err:%v",
+				"GetListOrganizations(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizations:%s err:%v",
 				q,
 				rows,
 				page,
 				apiName,
 				project,
 				username,
-				len(getListOrganizations.Organizations),
+				list,
 				err,
 			),
 		)
@@ -311,16 +321,23 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
+		list := ""
+		nEmails := len(getMatchingBlacklist.Emails)
+		if nEmails > shared.LogListMax {
+			list = fmt.Sprintf("%d", nEmails)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalMatchingBlacklist(getMatchingBlacklist.Emails))
+		}
 		log.Info(
 			fmt.Sprintf(
-				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getMatchingBlacklist:%+v err:%v",
+				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getMatchingBlacklist:%s err:%v",
 				q,
 				rows,
 				page,
 				apiName,
 				project,
 				username,
-				getMatchingBlacklist,
+				list,
 				err,
 			),
 		)

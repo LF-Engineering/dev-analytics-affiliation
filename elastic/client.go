@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
@@ -18,16 +19,16 @@ import (
 
 // Service - interface to access ES data
 type Service interface {
+	shared.SharedServiceInterface
 	// External methods
 	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
 	// Internal methods
 	aggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
 	search(string, io.Reader) (*esapi.Response, error)
-	toLocalUnaffiliatedObj(*models.GetUnaffiliatedOutput) []interface{}
-	toLocalUnaffiliated([]*models.UnaffiliatedDataOutput) []interface{}
 }
 
 type service struct {
+	shared.SharedServiceStruct
 	client *elasticsearch.Client
 }
 
@@ -58,10 +59,10 @@ func (s *service) GetUnaffiliated(projectSlug string, topN int64) (getUnaffiliat
 	defer func() {
 		unaff := ""
 		nUnaffiliated := len(getUnaffiliated.Unaffiliated)
-		if nUnaffiliated > 30 {
+		if nUnaffiliated > shared.LogListMax {
 			unaff = fmt.Sprintf("%d", nUnaffiliated)
 		} else {
-			unaff = fmt.Sprintf("%+v", s.toLocalUnaffiliatedObj(getUnaffiliated))
+			unaff = fmt.Sprintf("%+v", s.ToLocalUnaffiliatedObj(getUnaffiliated))
 		}
 		log.Info(
 			fmt.Sprintf(
@@ -94,10 +95,10 @@ func (s *service) aggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	defer func() {
 		unaff := ""
 		nUnaffiliated := len(unaffiliated)
-		if nUnaffiliated > 30 {
+		if nUnaffiliated > shared.LogListMax {
 			unaff = fmt.Sprintf("%d", nUnaffiliated)
 		} else {
-			unaff = fmt.Sprintf("%+v", s.toLocalUnaffiliated(unaffiliated))
+			unaff = fmt.Sprintf("%+v", s.ToLocalUnaffiliated(unaffiliated))
 		}
 		log.Info(
 			fmt.Sprintf(
@@ -142,26 +143,4 @@ func (s *service) search(index string, query io.Reader) (res *esapi.Response, er
 		s.client.Search.WithIndex(index),
 		s.client.Search.WithBody(query),
 	)
-}
-
-func (s *service) toLocalUnaffiliatedObj(ia *models.GetUnaffiliatedOutput) (oa []interface{}) {
-	for _, i := range ia.Unaffiliated {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
-}
-
-func (s *service) toLocalUnaffiliated(ia []*models.UnaffiliatedDataOutput) (oa []interface{}) {
-	for _, i := range ia {
-		if i == nil {
-			oa = append(oa, nil)
-			continue
-		}
-		oa = append(oa, *i)
-	}
-	return
 }

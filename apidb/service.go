@@ -9,6 +9,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
+
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 
 	// We use Postgres as an API db
@@ -17,10 +19,12 @@ import (
 
 // Service - accessing API db
 type Service interface {
+	shared.SharedServiceInterface
 	CheckIdentityManagePermission(string, string) (bool, error)
 }
 
 type service struct {
+	shared.SharedServiceStruct
 	db *sqlx.DB
 }
 
