@@ -1,8 +1,5 @@
 #!/bin/bash
 # DOCKER_USER=lukaszgryglicki SKIP_TEST=1 SKIP_PROD=1 SKIP_FULL=1 SKIP_MIN=1 SKIP_GRAFANA=1 SKIP_TESTS=1 SKIP_PATRONI=1 SKIP_STATIC=1 SKIP_REPORTS=1 SKIP_API=1 SKIP_PUSH=1 ./images/build_images.sh
-# DOCKER_USER=lukaszgryglicki ./images/remove_images.sh
-# SKIP_TEST=1 (skip test images)
-# SKIP_PROD=1 (skip prod images)
 if [ -z "${DOCKER_USER}" ]
 then
   echo "$0: you need to set docker user via DOCKER_USER=username"

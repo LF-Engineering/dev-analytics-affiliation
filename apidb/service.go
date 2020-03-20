@@ -86,7 +86,7 @@ func (s *service) queryOut(query string, args ...interface{}) {
 			case nil:
 				s += fmt.Sprintf("%d:(null) ", vi+1)
 			default:
-				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv).Elem())
+				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
 			}
 		}
 		log.Info("[" + s + "]")
