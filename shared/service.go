@@ -2,9 +2,18 @@ package shared
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
+	"time"
+
+	"database/sql"
+
+	"github.com/go-openapi/strfmt"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
+
+	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 )
 
 const (
@@ -13,6 +22,7 @@ const (
 
 // SharedServiceInterface - Shared API interface
 type SharedServiceInterface interface {
+	// Formatting data for logs
 	ToLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
 	ToLocalNestedOrganizations([]*models.OrganizationNestedDataOutput) []interface{}
 	ToLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
@@ -22,6 +32,16 @@ type SharedServiceInterface interface {
 	ToLocalIdentity(*models.IdentityDataOutput) *LocalIdentity
 	ToLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *LocalUniqueIdentity
 	ToLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
+	// shared DB functions
+	QueryOut(string, ...interface{})
+	QueryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
+	QueryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
+	Query(*sqlx.DB, *sql.Tx, string, ...interface{}) (*sql.Rows, error)
+	ExecDB(*sqlx.DB, string, ...interface{}) (sql.Result, error)
+	ExecTX(*sql.Tx, string, ...interface{}) (sql.Result, error)
+	Exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
+	// Other utils
+	Now() *strfmt.DateTime
 }
 
 // SharedServiceStruct - Shared API Struct
@@ -219,4 +239,79 @@ func (s *SharedServiceStruct) ToLocalUniqueIdentity(i *models.UniqueIdentityData
 	}
 	o = &LocalUniqueIdentity{i}
 	return
+}
+
+func (s *SharedServiceStruct) Now() *strfmt.DateTime {
+	n := strfmt.DateTime(time.Now())
+	return &n
+}
+
+func (s *SharedServiceStruct) QueryOut(query string, args ...interface{}) {
+	log.Info(query)
+	if len(args) > 0 {
+		s := ""
+		for vi, vv := range args {
+			switch v := vv.(type) {
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128, string, bool, time.Time:
+				s += fmt.Sprintf("%d:%+v ", vi+1, v)
+			case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64, *float32, *float64, *complex64, *complex128, *string, *bool, *time.Time:
+				s += fmt.Sprintf("%d:%+v ", vi+1, v)
+			case nil:
+				s += fmt.Sprintf("%d:(null) ", vi+1)
+			default:
+				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
+			}
+		}
+		log.Info("[" + s + "]")
+	}
+}
+
+func (s *SharedServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
+	rows, err = db.Query(query, args...)
+	if err != nil {
+		log.Info("QueryDB failed")
+		s.QueryOut(query, args...)
+	}
+	return
+}
+
+func (s *SharedServiceStruct) QueryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
+	rows, err = db.Query(query, args...)
+	if err != nil {
+		log.Info("QueryTX failed")
+		s.QueryOut(query, args...)
+	}
+	return
+}
+
+func (s *SharedServiceStruct) Query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
+	if tx == nil {
+		return s.QueryDB(db, query, args...)
+	}
+	return s.QueryTX(tx, query, args...)
+}
+
+func (s *SharedServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
+	res, err = db.Exec(query, args...)
+	if err != nil {
+		log.Info("ExecDB failed")
+		s.QueryOut(query, args...)
+	}
+	return
+}
+
+func (s *SharedServiceStruct) ExecTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
+	res, err = db.Exec(query, args...)
+	if err != nil {
+		log.Info("ExecTX failed")
+		s.QueryOut(query, args...)
+	}
+	return
+}
+
+func (s *SharedServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
+	if tx == nil {
+		return s.ExecDB(db, query, args...)
+	}
+	return s.ExecTX(tx, query, args...)
 }

@@ -2,7 +2,6 @@ package shdb
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -92,16 +91,6 @@ type Service interface {
 	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
-
-	// Internal methods
-	now() *strfmt.DateTime
-	queryOut(string, ...interface{})
-	queryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
-	queryTX(*sql.Tx, string, ...interface{}) (*sql.Rows, error)
-	query(*sqlx.DB, *sql.Tx, string, ...interface{}) (*sql.Rows, error)
-	execDB(*sqlx.DB, string, ...interface{}) (sql.Result, error)
-	execTX(*sql.Tx, string, ...interface{}) (sql.Result, error)
-	exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
 }
 
 type service struct {
@@ -134,7 +123,7 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 		log.Info(fmt.Sprintf("GetCountry(exit): countryCode:%s tx:%v countryData:%+v err:%v", countryCode, tx != nil, countryData, err))
 	}()
 	countryData = &models.CountryDataOutput{}
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select code, name, alpha3 from countries where code = ? limit 1",
@@ -369,7 +358,7 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 		return
 	}
 	identity.UUID = uniqueIdentity.UUID
-	identity.LastModified = s.now()
+	identity.LastModified = s.Now()
 	identity, err = s.EditIdentity(identity, true, tx)
 	if err != nil {
 		return
@@ -408,7 +397,7 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 			),
 		)
 	}()
-	_, err = s.exec(
+	_, err = s.Exec(
 		s.db,
 		tx,
 		"insert into matching_blacklist(excluded) select ?",
@@ -455,7 +444,8 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 			),
 		)
 	}()
-	sel := "select p.uuid, p.name, e.uuid from profiles p left join enrollments e on p.uuid = e.uuid where p.uuid in ("
+	sel := "select p.uuid, p.name, e.uuid from profiles p left join enrollments e on p.uuid = e.uuid"
+	sel += " where (p.is_bot is null or p.is_bot = 0) and p.uuid in ("
 	uuids := []interface{}{}
 	contribs := make(map[string]int64)
 	for _, unaff := range inUnaffiliated {
@@ -466,7 +456,7 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 	}
 	sel = sel[0:len(sel)-1] + ")"
 	var rows *sql.Rows
-	rows, err = s.query(s.db, tx, sel, uuids...)
+	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
 		return
 	}
@@ -518,9 +508,9 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 		)
 	}()
 	if uniqueIdentity.LastModified == nil {
-		uniqueIdentity.LastModified = s.now()
+		uniqueIdentity.LastModified = s.Now()
 	}
-	_, err = s.exec(
+	_, err = s.Exec(
 		s.db,
 		tx,
 		"insert into uidentities(uuid, last_modified) select ?, str_to_date(?, ?)",
@@ -557,7 +547,7 @@ func (s *service) FindUniqueIdentityOrganizations(uuid string, missingFatal bool
 		)
 	}()
 	sel := "select distinct o.id, o.name from organizations o, enrollments e where e.organization_id = o.id and e.uuid = ? order by o.name asc"
-	rows, err := s.query(s.db, tx, sel, uuid)
+	rows, err := s.Query(s.db, tx, sel, uuid)
 	if err != nil {
 		return
 	}
@@ -616,7 +606,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 		}
 	}
 	sel += " order by name asc"
-	rows, err := s.query(s.db, tx, sel, values...)
+	rows, err := s.Query(s.db, tx, sel, values...)
 	if err != nil {
 		return
 	}
@@ -686,7 +676,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 		}
 	}
 	sel += " order by uuid asc, start asc, end asc"
-	rows, err := s.query(s.db, tx, sel, vals...)
+	rows, err := s.Query(s.db, tx, sel, vals...)
 	if err != nil {
 		return
 	}
@@ -734,7 +724,7 @@ func (s *service) GetArchiveUniqueIdentityIdentities(uuid string, tm time.Time, 
 			),
 		)
 	}()
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select id, uuid, source, name, email, username from identities_archive where uuid = ? and archived_at = ? order by id asc",
@@ -744,7 +734,7 @@ func (s *service) GetArchiveUniqueIdentityIdentities(uuid string, tm time.Time, 
 	if err != nil {
 		return
 	}
-	now := s.now()
+	now := s.Now()
 	for rows.Next() {
 		identityData := &models.IdentityDataOutput{}
 		err = rows.Scan(
@@ -791,7 +781,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 			),
 		)
 	}()
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select id, uuid, organization_id, start, end from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
@@ -844,7 +834,7 @@ func (s *service) GetUniqueIdentityIdentities(uuid string, missingFatal bool, tx
 			),
 		)
 	}()
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select id, uuid, source, name, email, username, last_modified from identities where uuid = ? order by id asc",
@@ -898,7 +888,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 			),
 		)
 	}()
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select id, uuid, organization_id, start, end from enrollments where uuid = ? order by start asc, end asc",
@@ -951,7 +941,7 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 		)
 	}()
 	enrollmentData = &models.EnrollmentDataOutput{}
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select id, uuid, organization_id, start, end from enrollments where id = ? limit 1",
@@ -1007,7 +997,7 @@ func (s *service) FetchMatchingBlacklist(email string, missingFatal bool, tx *sq
 		)
 	}()
 	matchingBlacklistData = &models.MatchingBlacklistOutput{}
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select excluded from matching_blacklist where excluded = ? limit 1",
@@ -1059,7 +1049,7 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 		)
 	}()
 	uniqueIdentityData = &models.UniqueIdentityDataOutput{}
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select uuid, last_modified from uidentities where uuid = ? limit 1",
@@ -1112,7 +1102,7 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identit
 		)
 	}()
 	identityData = &models.IdentityDataOutput{}
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select id, uuid, source, name, username, email, last_modified from identities where id = ? limit 1",
@@ -1170,7 +1160,7 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 		)
 	}()
 	profileData = &models.ProfileDataOutput{}
-	rows, err := s.query(
+	rows, err := s.Query(
 		s.db,
 		tx,
 		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
@@ -1218,7 +1208,7 @@ func (s *service) TouchIdentity(id string, tx *sql.Tx) (affected int64, err erro
 	defer func() {
 		log.Info(fmt.Sprintf("TouchIdentity(exit): id:%s tx:%v affected:%d err:%v", id, tx != nil, affected, err))
 	}()
-	res, err := s.exec(s.db, tx, "update identities set last_modified = ? where id = ?", time.Now(), id)
+	res, err := s.Exec(s.db, tx, "update identities set last_modified = ? where id = ?", time.Now(), id)
 	if err != nil {
 		return
 	}
@@ -1231,7 +1221,7 @@ func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, 
 	defer func() {
 		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%v", uuid, tx != nil, affected, err))
 	}()
-	res, err := s.exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
+	res, err := s.Exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
 	if err != nil {
 		return
 	}
@@ -1247,15 +1237,15 @@ func (s *service) DeleteUniqueIdentityArchive(uuid string, missingFatal, onlyLas
 	var res sql.Result
 	if tm != nil {
 		del := "delete from uidentities_archive where uuid = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, del, uuid, tm)
+		res, err = s.Exec(s.db, tx, del, uuid, tm)
 	} else {
 		if onlyLast {
 			del := "delete from uidentities_archive where uuid = ? and archived_at = (" +
 				"select max(archived_at) from uidentities_archive where uuid = ?)"
-			res, err = s.exec(s.db, tx, del, uuid, uuid)
+			res, err = s.Exec(s.db, tx, del, uuid, uuid)
 		} else {
 			del := "delete from uidentities_archive where uuid = ?"
-			res, err = s.exec(s.db, tx, del, uuid)
+			res, err = s.Exec(s.db, tx, del, uuid)
 		}
 	}
 	if err != nil {
@@ -1288,12 +1278,12 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Ti
 		insert := "insert into uidentities(uuid, last_modified) " +
 			"select uuid, now() from uidentities_archive " +
 			"where uuid = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, insert, uuid, tm)
+		res, err = s.Exec(s.db, tx, insert, uuid, tm)
 	} else {
 		insert := "insert into uidentities(uuid, last_modified) " +
 			"select uuid, now() from uidentities_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
-		res, err = s.exec(s.db, tx, insert, uuid)
+		res, err = s.Exec(s.db, tx, insert, uuid)
 	}
 	if err != nil {
 		return
@@ -1324,7 +1314,7 @@ func (s *service) ArchiveUniqueIdentity(uuid string, tm *time.Time, tx *sql.Tx) 
 	}
 	insert := "insert into uidentities_archive(uuid, last_modified, archived_at) " +
 		"select uuid, last_modified, ? from uidentities where uuid = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, tm, uuid)
+	res, err := s.Exec(s.db, tx, insert, tm, uuid)
 	if err != nil {
 		return
 	}
@@ -1345,7 +1335,7 @@ func (s *service) DropMatchingBlacklist(email string, missingFatal bool, tx *sql
 		log.Info(fmt.Sprintf("DropMatchingBlacklist(exit): email:%s missingFatal:%v tx:%v err:%v", email, missingFatal, tx != nil, err))
 	}()
 	del := "delete from matching_blacklist where excluded = ?"
-	res, err := s.exec(s.db, tx, del, email)
+	res, err := s.Exec(s.db, tx, del, email)
 	if err != nil {
 		return
 	}
@@ -1372,7 +1362,7 @@ func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, 
 		}
 	}
 	del := "delete from uidentities where uuid = ?"
-	res, err := s.exec(s.db, tx, del, uuid)
+	res, err := s.Exec(s.db, tx, del, uuid)
 	if err != nil {
 		return
 	}
@@ -1395,15 +1385,15 @@ func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool,
 	var res sql.Result
 	if tm != nil {
 		del := "delete from enrollments_archive where id = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, del, id, tm)
+		res, err = s.Exec(s.db, tx, del, id, tm)
 	} else {
 		if onlyLast {
 			del := "delete from enrollments_archive where id = ? and archived_at = (" +
 				"select max(archived_at) from enrollments_archive where id = ?)"
-			res, err = s.exec(s.db, tx, del, id, id)
+			res, err = s.Exec(s.db, tx, del, id, id)
 		} else {
 			del := "delete from enrollments_archive where id = ?"
-			res, err = s.exec(s.db, tx, del, id)
+			res, err = s.Exec(s.db, tx, del, id)
 		}
 	}
 	if err != nil {
@@ -1436,12 +1426,12 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx 
 		insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
 			"select id, uuid, organization_id, start, end from enrollments_archive " +
 			"where id = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, insert, id, tm)
+		res, err = s.Exec(s.db, tx, insert, id, tm)
 	} else {
 		insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
 			"select id, uuid, organization_id, start, end from enrollments_archive " +
 			"where id = ? order by archived_at desc limit 1"
-		res, err = s.exec(s.db, tx, insert, id)
+		res, err = s.Exec(s.db, tx, insert, id)
 	}
 	if err != nil {
 		return
@@ -1472,7 +1462,7 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 	}
 	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, archived_at) " +
 		"select id, uuid, organization_id, start, end, ? from enrollments where id = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, tm, id)
+	res, err := s.Exec(s.db, tx, insert, tm, id)
 	if err != nil {
 		return
 	}
@@ -1499,7 +1489,7 @@ func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tm *tim
 		}
 	}
 	del := "delete from enrollments where id = ?"
-	res, err := s.exec(s.db, tx, del, id)
+	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
 		return
 	}
@@ -1522,15 +1512,15 @@ func (s *service) DeleteIdentityArchive(id string, missingFatal, onlyLast bool, 
 	var res sql.Result
 	if tm != nil {
 		del := "delete from identities_archive where id = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, del, id, tm)
+		res, err = s.Exec(s.db, tx, del, id, tm)
 	} else {
 		if onlyLast {
 			del := "delete from identities_archive where id = ? and archived_at = (" +
 				"select max(archived_at) from identities_archive where id = ?)"
-			res, err = s.exec(s.db, tx, del, id, id)
+			res, err = s.Exec(s.db, tx, del, id, id)
 		} else {
 			del := "delete from identities_archive where id = ?"
-			res, err = s.exec(s.db, tx, del, id)
+			res, err = s.Exec(s.db, tx, del, id)
 		}
 	}
 	if err != nil {
@@ -1563,12 +1553,12 @@ func (s *service) UnarchiveIdentity(id string, replace bool, tm *time.Time, tx *
 		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
 			"select id, uuid, source, name, email, username, now() from identities_archive " +
 			"where id = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, insert, id, tm)
+		res, err = s.Exec(s.db, tx, insert, id, tm)
 	} else {
 		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
 			"select id, uuid, source, name, email, username, now() from identities_archive " +
 			"where id = ? order by archived_at desc limit 1"
-		res, err = s.exec(s.db, tx, insert, id)
+		res, err = s.Exec(s.db, tx, insert, id)
 	}
 	if err != nil {
 		return
@@ -1599,7 +1589,7 @@ func (s *service) ArchiveIdentity(id string, tm *time.Time, tx *sql.Tx) (err err
 	}
 	insert := "insert into identities_archive(id, uuid, source, name, email, username, last_modified, archived_at) " +
 		"select id, uuid, source, name, email, username, last_modified, ? from identities where id = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, tm, id)
+	res, err := s.Exec(s.db, tx, insert, tm, id)
 	if err != nil {
 		return
 	}
@@ -1626,7 +1616,7 @@ func (s *service) DeleteIdentity(id string, archive, missingFatal bool, tm *time
 		}
 	}
 	del := "delete from identities where id = ?"
-	res, err := s.exec(s.db, tx, del, id)
+	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
 		return
 	}
@@ -1649,15 +1639,15 @@ func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool,
 	var res sql.Result
 	if tm != nil {
 		del := "delete from profiles_archive where uuid = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, del, uuid, tm)
+		res, err = s.Exec(s.db, tx, del, uuid, tm)
 	} else {
 		if onlyLast {
 			del := "delete from profiles_archive where uuid = ? and archived_at = (" +
 				"select max(archived_at) from profiles_archive where uuid = ?)"
-			res, err = s.exec(s.db, tx, del, uuid, uuid)
+			res, err = s.Exec(s.db, tx, del, uuid, uuid)
 		} else {
 			del := "delete from profiles_archive where uuid = ?"
-			res, err = s.exec(s.db, tx, del, uuid)
+			res, err = s.Exec(s.db, tx, del, uuid)
 		}
 	}
 	if err != nil {
@@ -1690,12 +1680,12 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
 			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
 			"where uuid = ? and archived_at = ?"
-		res, err = s.exec(s.db, tx, insert, uuid, tm)
+		res, err = s.Exec(s.db, tx, insert, uuid, tm)
 	} else {
 		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
 			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
-		res, err = s.exec(s.db, tx, insert, uuid)
+		res, err = s.Exec(s.db, tx, insert, uuid)
 	}
 	if err != nil {
 		return
@@ -1726,7 +1716,7 @@ func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (err er
 	}
 	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
 		"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
-	res, err := s.exec(s.db, tx, insert, tm, uuid)
+	res, err := s.Exec(s.db, tx, insert, tm, uuid)
 	if err != nil {
 		return
 	}
@@ -1753,7 +1743,7 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tm *tim
 		}
 	}
 	del := "delete from profiles where uuid = ?"
-	res, err := s.exec(s.db, tx, del, uuid)
+	res, err := s.Exec(s.db, tx, del, uuid)
 	if err != nil {
 		return
 	}
@@ -1855,7 +1845,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 	}
 	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
 	var res sql.Result
-	res, err = s.exec(
+	res, err = s.Exec(
 		s.db,
 		tx,
 		insert,
@@ -1931,7 +1921,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, r
 	}
 	insert := "insert into enrollments(uuid, organization_id, start, end) select ?, ?, str_to_date(?, ?), str_to_date(?, ?)"
 	var res sql.Result
-	res, err = s.exec(
+	res, err = s.Exec(
 		s.db,
 		tx,
 		insert,
@@ -2014,7 +2004,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 	}
 	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to-date(?, ?), end = str_to_date(?, ?) where id = ?"
 	var res sql.Result
-	res, err = s.exec(
+	res, err = s.Exec(
 		s.db,
 		tx,
 		update,
@@ -2087,7 +2077,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 		return
 	}
 	if identityData.LastModified == nil {
-		identityData.LastModified = s.now()
+		identityData.LastModified = s.Now()
 	}
 	columns := []string{"id", "uuid", "source"}
 	values := []interface{}{identityData.ID, identityData.UUID, identityData.Source}
@@ -2112,7 +2102,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	values = append(values, DateTimeFormat)
 	values = append(values, identityData.ID)
 	var res sql.Result
-	res, err = s.exec(s.db, tx, update, values...)
+	res, err = s.Exec(s.db, tx, update, values...)
 	if err != nil {
 		identityData = nil
 		return
@@ -2215,7 +2205,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		update += " where uuid = ?"
 		values = append(values, profileData.UUID)
 		var res sql.Result
-		res, err = s.exec(s.db, tx, update, values...)
+		res, err = s.Exec(s.db, tx, update, values...)
 		if err != nil {
 			profileData = nil
 			return
@@ -2476,7 +2466,7 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	defer func() {
 		log.Info(fmt.Sprintf("Unarchive(exit): ID:%s UUID:%s unarchived:%v err:%v", id, uuid, unarchived, err))
 	}()
-	rows, err := s.query(s.db, nil, "select max(archived_at) from identities_archive where id = ?", id)
+	rows, err := s.Query(s.db, nil, "select max(archived_at) from identities_archive where id = ?", id)
 	if err != nil {
 		return
 	}
@@ -2502,7 +2492,7 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	if !fetched {
 		return
 	}
-	rows, err = s.query(s.db, nil, "select max(archived_at) from uidentities_archive where uuid = ?", uuid)
+	rows, err = s.Query(s.db, nil, "select max(archived_at) from uidentities_archive where uuid = ?", uuid)
 	if err != nil {
 		return
 	}
@@ -2532,7 +2522,7 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 		return
 	}
 	tm := *archivedAt[0]
-	rows, err = s.query(s.db, nil, "select distinct uuid from uidentities_archive where archived_at = ?", tm)
+	rows, err = s.Query(s.db, nil, "select distinct uuid from uidentities_archive where archived_at = ?", tm)
 	if err != nil {
 		return
 	}
@@ -2691,9 +2681,9 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 	}
 	var qrows *sql.Rows
 	if q == "" {
-		qrows, err = s.query(s.db, tx, sel)
+		qrows, err = s.Query(s.db, tx, sel)
 	} else {
-		qrows, err = s.query(s.db, tx, sel, qLike)
+		qrows, err = s.Query(s.db, tx, sel, qLike)
 	}
 	if err != nil {
 		return
@@ -2729,7 +2719,7 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 		isTopDomain *bool
 		oName       string
 	)
-	qrows, err = s.query(s.db, tx, sel, oids...)
+	qrows, err = s.Query(s.db, tx, sel, oids...)
 	if err != nil {
 		return
 	}
@@ -2770,9 +2760,9 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 		sel += " where name like ?"
 	}
 	if q == "" {
-		qrows, err = s.query(s.db, tx, sel)
+		qrows, err = s.Query(s.db, tx, sel)
 	} else {
-		qrows, err = s.query(s.db, tx, sel, qLike)
+		qrows, err = s.Query(s.db, tx, sel, qLike)
 	}
 	if err != nil {
 		return
@@ -2829,9 +2819,9 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 	}
 	var qrows *sql.Rows
 	if q == "" {
-		qrows, err = s.query(s.db, tx, sel)
+		qrows, err = s.Query(s.db, tx, sel)
 	} else {
-		qrows, err = s.query(s.db, tx, sel, qLike)
+		qrows, err = s.Query(s.db, tx, sel, qLike)
 	}
 	if err != nil {
 		return
@@ -2857,9 +2847,9 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 		sel += " where excluded like ?"
 	}
 	if q == "" {
-		qrows, err = s.query(s.db, tx, sel)
+		qrows, err = s.Query(s.db, tx, sel)
 	} else {
-		qrows, err = s.query(s.db, tx, sel, qLike)
+		qrows, err = s.Query(s.db, tx, sel, qLike)
 	}
 	if err != nil {
 		return
@@ -3017,7 +3007,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 	defer func() {
 		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, putOrgDomain, err))
 	}()
-	rows, err := s.query(s.db, nil, "select id from organizations where name = ? limit 1", org)
+	rows, err := s.Query(s.db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {
 		return
 	}
@@ -3042,7 +3032,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 		err = fmt.Errorf("cannot find organization '%s'", org)
 		return
 	}
-	rows, err = s.query(s.db, nil, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
+	rows, err = s.Query(s.db, nil, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
 	if err != nil {
 		return
 	}
@@ -3075,7 +3065,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 			tx.Rollback()
 		}
 	}()
-	_, err = s.exec(
+	_, err = s.Exec(
 		s.db,
 		tx,
 		"insert into domains_organizations(organization_id, domain, is_top_domain) select ?, ?, ?",
@@ -3089,7 +3079,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 	var res sql.Result
 	affected := int64(0)
 	if overwrite {
-		res, err = s.exec(
+		res, err = s.Exec(
 			s.db,
 			tx,
 			"delete from enrollments where uuid in (select distinct sub.uuid from ("+
@@ -3109,7 +3099,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 			putOrgDomain.Deleted = fmt.Sprintf("%d", affected)
 			putOrgDomain.Info = "deleted: " + putOrgDomain.Deleted
 		}
-		res, err = s.exec(
+		res, err = s.Exec(
 			s.db,
 			tx,
 			"insert into enrollments(start, end, uuid, organization_id) "+
@@ -3137,7 +3127,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 			}
 		}
 	} else {
-		res, err = s.exec(
+		res, err = s.Exec(
 			s.db,
 			tx,
 			"insert into enrollments(start, end, uuid, organization_id) "+
@@ -3179,79 +3169,4 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 		putOrgDomain.Info += ", " + info
 	}
 	return
-}
-
-func (s *service) now() *strfmt.DateTime {
-	n := strfmt.DateTime(time.Now())
-	return &n
-}
-
-func (s *service) queryOut(query string, args ...interface{}) {
-	log.Info(query)
-	if len(args) > 0 {
-		s := ""
-		for vi, vv := range args {
-			switch v := vv.(type) {
-			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128, string, bool, time.Time:
-				s += fmt.Sprintf("%d:%+v ", vi+1, v)
-			case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64, *float32, *float64, *complex64, *complex128, *string, *bool, *time.Time:
-				s += fmt.Sprintf("%d:%+v ", vi+1, v)
-			case nil:
-				s += fmt.Sprintf("%d:(null) ", vi+1)
-			default:
-				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
-			}
-		}
-		log.Info("[" + s + "]")
-	}
-}
-
-func (s *service) queryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
-	rows, err = db.Query(query, args...)
-	if err != nil {
-		log.Info("queryDB failed")
-		s.queryOut(query, args...)
-	}
-	return
-}
-
-func (s *service) queryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
-	rows, err = db.Query(query, args...)
-	if err != nil {
-		log.Info("queryTX failed")
-		s.queryOut(query, args...)
-	}
-	return
-}
-
-func (s *service) query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
-	if tx == nil {
-		return s.queryDB(db, query, args...)
-	}
-	return s.queryTX(tx, query, args...)
-}
-
-func (s *service) execDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
-	res, err = db.Exec(query, args...)
-	if err != nil {
-		log.Info("execDB failed")
-		s.queryOut(query, args...)
-	}
-	return
-}
-
-func (s *service) execTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
-	res, err = db.Exec(query, args...)
-	if err != nil {
-		log.Info("execTX failed")
-		s.queryOut(query, args...)
-	}
-	return
-}
-
-func (s *service) exec(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
-	if tx == nil {
-		return s.execDB(db, query, args...)
-	}
-	return s.execTX(tx, query, args...)
 }

@@ -16,7 +16,10 @@ var logger = logrus.New()
 
 // init initializes the logger
 func init() {
-	logger.SetFormatter(&logrus.JSONFormatter{})
+	//logger.SetFormatter(&logrus.JSONFormatter{})
+	logger.SetFormatter(UTCFormatter{&logrus.JSONFormatter{}})
+	//logger.SetFormatter(UTCFormatter{&logrus.TextFormatter{}})
+	//logger.SetReportCaller(true)
 
 	// Only log the warning severity or above.
 	// Default log level

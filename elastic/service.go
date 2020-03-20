@@ -22,8 +22,8 @@ type Service interface {
 	shared.SharedServiceInterface
 	// External methods
 	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
+	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
 	// Internal methods
-	aggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -80,12 +80,12 @@ func (s *service) GetUnaffiliated(projectSlug string, topN int64) (getUnaffiliat
 	}
 	pattern = "sds-" + strings.Replace(pattern, "/", "-", -1)
 	pattern = pattern + "-*,-" + pattern + "-*-raw"
-	getUnaffiliated.Unaffiliated, err = s.aggsUnaffiliated(pattern, topN)
+	getUnaffiliated.Unaffiliated, err = s.AggsUnaffiliated(pattern, topN)
 	return
 }
 
-func (s *service) aggsUnaffiliated(indexPattern string, topN int64) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
-	log.Info(fmt.Sprintf("aggsUnaffiliated: index:%s topN:%d", indexPattern, topN))
+func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
+	log.Info(fmt.Sprintf("AggsUnaffiliated: index:%s topN:%d", indexPattern, topN))
 	if topN <= 0 {
 		topN = 2147483647
 	}
@@ -102,7 +102,7 @@ func (s *service) aggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 		}
 		log.Info(
 			fmt.Sprintf(
-				"aggsUnaffiliated(exit): index:%s topN:%d data:%s unaffiliated:%+v err:%v",
+				"AggsUnaffiliated(exit): index:%s topN:%d data:%s unaffiliated:%+v err:%v",
 				indexPattern,
 				topN,
 				data,

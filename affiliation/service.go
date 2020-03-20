@@ -215,7 +215,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		return
 	}
 	// Check if that user can manage identities for given project/scope
-	allowed, err := s.apiDB.CheckIdentityManagePermission(username, project)
+	allowed, err := s.apiDB.CheckIdentityManagePermission(username, project, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

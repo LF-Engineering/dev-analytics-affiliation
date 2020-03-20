@@ -46,8 +46,8 @@ func initAPIDB() *sqlx.DB {
 	if err != nil {
 		log.Panicf("unable to connect to API database: %v", err)
 	}
-	d.SetMaxOpenConns(20)
-	d.SetMaxIdleConns(5)
+	//d.SetMaxOpenConns(20)
+	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
 	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "API DB", host)
@@ -67,8 +67,8 @@ func initSHDB() *sqlx.DB {
 	if err != nil {
 		log.Panicf("unable to connect to affiliation database: %v", err)
 	}
-	d.SetMaxOpenConns(20)
-	d.SetMaxIdleConns(5)
+	//d.SetMaxOpenConns(20)
+	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
 	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "Affiliation DB", host)
