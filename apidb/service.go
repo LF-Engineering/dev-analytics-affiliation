@@ -17,12 +17,12 @@ import (
 
 // Service - accessing API db
 type Service interface {
-	shared.SharedServiceInterface
+	shared.ServiceInterface
 	CheckIdentityManagePermission(string, string, *sql.Tx) (bool, error)
 }
 
 type service struct {
-	shared.SharedServiceStruct
+	shared.ServiceStruct
 	db *sqlx.DB
 }
 

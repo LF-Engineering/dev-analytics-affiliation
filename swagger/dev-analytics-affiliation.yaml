@@ -29,6 +29,62 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - health
+  /affiliation/{projectSlug}/top_contributors:
+    get:
+      summary: Get top contributors with their stats
+      operationId: getTopContributors
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/get-top-contributors-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - contributors
+        - top
+        - get
+      parameters:
+        - name: projectSlug
+          in: path
+          type: integer
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: from
+          in: query
+          type: integer
+          required: true
+          description: the datetime from which to search, e.g 1552790984700
+        - name: to
+          in: query
+          type: string
+          required: true
+          description: the datetime from which to search, e.g 1552790984700
+        - name: limit
+          in: query
+          type: integer
+          default: 10
+          description: The numbers of contributors to return, default 10
+        - name: offset
+          in: query
+          type: integer
+          default: 0
+          description: the page offset to get something like top 10-20 contributors with offset 1, default 0
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/unaffiliated:
     get:
       summary: Get top unaffiliated users
@@ -698,6 +754,89 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/unaffiliated-data-output"
+  contributor-stats:
+    title: Contributor stats
+    description: contributor stats
+    type: object
+    properties:
+      name:
+        type: string
+        example: Lukasz Gryglicki
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      email:
+        type: string
+        example: lgryglicki@cncf.io
+      organization:
+        type: string
+        example: CNCF
+      git:
+        type: object
+        properties:
+          commits:
+            type: integer
+            example: 123
+          lines_of_code_added:
+            type: integer
+            example: 123
+          lines_of_code_removed:
+            type: integer
+            example: 123
+      gerrit:
+        type: object
+        properties:
+          merged_changesets:
+            type: integer
+            example: 123
+          reviews_approved:
+            type: integer
+            example: 123
+      jira:
+        type: object
+        properties:
+          issues_created:
+            type: integer
+            example: 123
+          issues_assigned:
+            type: integer
+            example: 123
+          average_issues_open_days:
+            type: integer
+            example: 123
+      confluence:
+        type: object
+        properties:
+          pages_created:
+            type: integer
+            example: 123
+          pages_edited:
+            type: integer
+            example: 123
+          comments:
+            type: integer
+            example: 123
+          blog_posts:
+            type: integer
+            example: 123
+          date_since_last_documentation:
+            type: integer
+            example: 123
+  get-top-contributors-output:
+    title: Top contributors output
+    description: Top contributors output
+    type: object
+    properties:
+      user:
+        type: string
+        example: lukaszgryglicki
+      scope:
+        type: string
+        example: academy-software-foundation/opencue
+      contributors:
+        type: array
+        items:
+          $ref: "#/definitions/contributor-stats"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call

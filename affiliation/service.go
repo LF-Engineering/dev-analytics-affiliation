@@ -29,7 +29,7 @@ const (
 
 // Service - API interface
 type Service interface {
-	shared.SharedServiceInterface
+	shared.ServiceInterface
 	// External methods
 	GetMatchingBlacklist(ctx context.Context, in *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
 	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
@@ -57,7 +57,7 @@ func (s *service) GetServiceRequestID() string {
 }
 
 type service struct {
-	shared.SharedServiceStruct
+	shared.ServiceStruct
 	requestID string
 	apiDB     apidb.Service
 	shDB      shdb.Service

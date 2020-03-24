@@ -19,7 +19,7 @@ import (
 
 // Service - interface to access ES data
 type Service interface {
-	shared.SharedServiceInterface
+	shared.ServiceInterface
 	// External methods
 	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
@@ -28,7 +28,7 @@ type Service interface {
 }
 
 type service struct {
-	shared.SharedServiceStruct
+	shared.ServiceStruct
 	client *elasticsearch.Client
 }
 

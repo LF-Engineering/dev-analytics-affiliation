@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	LogListMax = 10
+	// LogListMax - do not log lists longer than 30 elements, display list counts instead
+	LogListMax = 30
 )
 
-// SharedServiceInterface - Shared API interface
-type SharedServiceInterface interface {
+// ServiceInterface - Shared API interface
+type ServiceInterface interface {
 	// Formatting data for logs
 	ToLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
 	ToLocalNestedOrganizations([]*models.OrganizationNestedDataOutput) []interface{}
@@ -44,18 +45,21 @@ type SharedServiceInterface interface {
 	Now() *strfmt.DateTime
 }
 
-// SharedServiceStruct - Shared API Struct
-type SharedServiceStruct struct {
+// ServiceStruct - Shared API Struct
+type ServiceStruct struct {
 }
 
+// LocalProfile - to display data inside pointers
 type LocalProfile struct {
 	*models.ProfileDataOutput
 }
 
+// LocalIdentity - to display data inside pointers
 type LocalIdentity struct {
 	*models.IdentityDataOutput
 }
 
+// LocalUniqueIdentity - to display data inside pointers
 type LocalUniqueIdentity struct {
 	*models.UniqueIdentityDataOutput
 }
@@ -130,7 +134,8 @@ func (p *LocalUniqueIdentity) String() (s string) {
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalOrganizations(ia []*models.OrganizationDataOutput) (oa []interface{}) {
+// ToLocalOrganizations - to display values inside pointers
+func (s *ServiceStruct) ToLocalOrganizations(ia []*models.OrganizationDataOutput) (oa []interface{}) {
 	for _, i := range ia {
 		if i == nil {
 			oa = append(oa, nil)
@@ -141,7 +146,8 @@ func (s *SharedServiceStruct) ToLocalOrganizations(ia []*models.OrganizationData
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalNestedOrganizations(ia []*models.OrganizationNestedDataOutput) (oa []interface{}) {
+// ToLocalNestedOrganizations - to display values inside pointers
+func (s *ServiceStruct) ToLocalNestedOrganizations(ia []*models.OrganizationNestedDataOutput) (oa []interface{}) {
 	for _, i := range ia {
 		if i == nil {
 			oa = append(oa, nil)
@@ -162,7 +168,8 @@ func (s *SharedServiceStruct) ToLocalNestedOrganizations(ia []*models.Organizati
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalMatchingBlacklist(ia []*models.MatchingBlacklistOutput) (oa []interface{}) {
+// ToLocalMatchingBlacklist - to display values inside pointers
+func (s *ServiceStruct) ToLocalMatchingBlacklist(ia []*models.MatchingBlacklistOutput) (oa []interface{}) {
 	for _, i := range ia {
 		if i == nil {
 			oa = append(oa, nil)
@@ -173,7 +180,8 @@ func (s *SharedServiceStruct) ToLocalMatchingBlacklist(ia []*models.MatchingBlac
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalUnaffiliatedObj(ia *models.GetUnaffiliatedOutput) (oa []interface{}) {
+// ToLocalUnaffiliatedObj - to display values inside pointers
+func (s *ServiceStruct) ToLocalUnaffiliatedObj(ia *models.GetUnaffiliatedOutput) (oa []interface{}) {
 	for _, i := range ia.Unaffiliated {
 		if i == nil {
 			oa = append(oa, nil)
@@ -184,7 +192,8 @@ func (s *SharedServiceStruct) ToLocalUnaffiliatedObj(ia *models.GetUnaffiliatedO
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalUnaffiliated(ia []*models.UnaffiliatedDataOutput) (oa []interface{}) {
+// ToLocalUnaffiliated - to display values inside pointers
+func (s *ServiceStruct) ToLocalUnaffiliated(ia []*models.UnaffiliatedDataOutput) (oa []interface{}) {
 	for _, i := range ia {
 		if i == nil {
 			oa = append(oa, nil)
@@ -195,7 +204,8 @@ func (s *SharedServiceStruct) ToLocalUnaffiliated(ia []*models.UnaffiliatedDataO
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalEnrollments(ia []*models.EnrollmentDataOutput) (oa []interface{}) {
+// ToLocalEnrollments - to display values inside pointers
+func (s *ServiceStruct) ToLocalEnrollments(ia []*models.EnrollmentDataOutput) (oa []interface{}) {
 	for _, i := range ia {
 		if i == nil {
 			oa = append(oa, nil)
@@ -206,7 +216,8 @@ func (s *SharedServiceStruct) ToLocalEnrollments(ia []*models.EnrollmentDataOutp
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalProfile(i *models.ProfileDataOutput) (o *LocalProfile) {
+// ToLocalProfile - to display values inside pointers
+func (s *ServiceStruct) ToLocalProfile(i *models.ProfileDataOutput) (o *LocalProfile) {
 	if i == nil {
 		return
 	}
@@ -214,7 +225,8 @@ func (s *SharedServiceStruct) ToLocalProfile(i *models.ProfileDataOutput) (o *Lo
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalIdentity(i *models.IdentityDataOutput) (o *LocalIdentity) {
+// ToLocalIdentity - to display values inside pointers
+func (s *ServiceStruct) ToLocalIdentity(i *models.IdentityDataOutput) (o *LocalIdentity) {
 	if i == nil {
 		return
 	}
@@ -222,7 +234,8 @@ func (s *SharedServiceStruct) ToLocalIdentity(i *models.IdentityDataOutput) (o *
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalIdentities(ia []*models.IdentityDataOutput) (oa []*LocalIdentity) {
+// ToLocalIdentities - to display values inside pointers
+func (s *ServiceStruct) ToLocalIdentities(ia []*models.IdentityDataOutput) (oa []*LocalIdentity) {
 	for _, i := range ia {
 		if i == nil {
 			oa = append(oa, nil)
@@ -233,7 +246,8 @@ func (s *SharedServiceStruct) ToLocalIdentities(ia []*models.IdentityDataOutput)
 	return
 }
 
-func (s *SharedServiceStruct) ToLocalUniqueIdentity(i *models.UniqueIdentityDataOutput) (o *LocalUniqueIdentity) {
+// ToLocalUniqueIdentity - to display values inside pointers
+func (s *ServiceStruct) ToLocalUniqueIdentity(i *models.UniqueIdentityDataOutput) (o *LocalUniqueIdentity) {
 	if i == nil {
 		return
 	}
@@ -241,12 +255,14 @@ func (s *SharedServiceStruct) ToLocalUniqueIdentity(i *models.UniqueIdentityData
 	return
 }
 
-func (s *SharedServiceStruct) Now() *strfmt.DateTime {
+// Now - return date  now
+func (s *ServiceStruct) Now() *strfmt.DateTime {
 	n := strfmt.DateTime(time.Now())
 	return &n
 }
 
-func (s *SharedServiceStruct) QueryOut(query string, args ...interface{}) {
+// QueryOut - display DB query
+func (s *ServiceStruct) QueryOut(query string, args ...interface{}) {
 	log.Info(query)
 	if len(args) > 0 {
 		s := ""
@@ -266,7 +282,8 @@ func (s *SharedServiceStruct) QueryOut(query string, args ...interface{}) {
 	}
 }
 
-func (s *SharedServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
+// QueryDB - query database without transaction
+func (s *ServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.Query(query, args...)
 	if err != nil {
 		log.Info("QueryDB failed")
@@ -275,7 +292,8 @@ func (s *SharedServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interfa
 	return
 }
 
-func (s *SharedServiceStruct) QueryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
+// QueryTX - query database with transaction
+func (s *ServiceStruct) QueryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.Query(query, args...)
 	if err != nil {
 		log.Info("QueryTX failed")
@@ -284,14 +302,16 @@ func (s *SharedServiceStruct) QueryTX(db *sql.Tx, query string, args ...interfac
 	return
 }
 
-func (s *SharedServiceStruct) Query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
+// Query - query DB using transaction if provided
+func (s *ServiceStruct) Query(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
 	if tx == nil {
 		return s.QueryDB(db, query, args...)
 	}
 	return s.QueryTX(tx, query, args...)
 }
 
-func (s *SharedServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
+// ExecDB - execute DB query without transaction
+func (s *ServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = db.Exec(query, args...)
 	if err != nil {
 		log.Info("ExecDB failed")
@@ -300,7 +320,8 @@ func (s *SharedServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interfac
 	return
 }
 
-func (s *SharedServiceStruct) ExecTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
+// ExecTX - execute DB query with transaction
+func (s *ServiceStruct) ExecTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = db.Exec(query, args...)
 	if err != nil {
 		log.Info("ExecTX failed")
@@ -309,7 +330,8 @@ func (s *SharedServiceStruct) ExecTX(db *sql.Tx, query string, args ...interface
 	return
 }
 
-func (s *SharedServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
+// Exec - execute db query with transaction if provided
+func (s *ServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (sql.Result, error) {
 	if tx == nil {
 		return s.ExecDB(db, query, args...)
 	}

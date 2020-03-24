@@ -21,7 +21,7 @@ import (
 
 // Service - access affiliations MariaDB interface
 type Service interface {
-	shared.SharedServiceInterface
+	shared.ServiceInterface
 	// External CRUD methods
 	// Country
 	GetCountry(string, *sql.Tx) (*models.CountryDataOutput, error)
@@ -94,7 +94,7 @@ type Service interface {
 }
 
 type service struct {
-	shared.SharedServiceStruct
+	shared.ServiceStruct
 	db *sqlx.DB
 }
 
