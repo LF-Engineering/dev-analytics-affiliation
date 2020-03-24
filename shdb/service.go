@@ -82,6 +82,7 @@ type Service interface {
 	UnarchiveUUID(string, time.Time, *sql.Tx) error
 	Unarchive(string, string) (bool, error)
 	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
+	EnrichContributors([]*models.ContributorStats, int64, *sql.Tx) error
 
 	// API endpoints
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
@@ -412,6 +413,87 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 		if err != nil {
 			matchingBlacklist = nil
 			return
+		}
+	}
+	return
+}
+
+func (s *service) EnrichContributors(contributors []*models.ContributorStats, millisSinceEpoch int64, tx *sql.Tx) (err error) {
+	inf := ""
+	n := len(contributors)
+	if n > shared.LogListMax {
+		inf = fmt.Sprintf("%d", n)
+	} else {
+		inf = fmt.Sprintf("%+v", s.ToLocalTopContributors(contributors))
+	}
+	found := 0
+	orgFound := 0
+	log.Info(fmt.Sprintf("EnrichContributors: contributors:%s millisSinceEpoch:%d tx:%v", inf, millisSinceEpoch, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"EnrichContributors(exit): contributors:%s millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
+				inf,
+				millisSinceEpoch,
+				tx != nil,
+				orgFound,
+				found,
+				n,
+				err,
+			),
+		)
+	}()
+	secsSinceEpoch := float64(millisSinceEpoch) / 1000.0
+	sel := "select p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles p left join enrollments e"
+	sel += fmt.Sprintf(
+		" on p.uuid = e.uuid and e.start <= coalesce(from_unixtime(%f), now()) and e.end >= coalesce(from_unixtime(%f), now())",
+		secsSinceEpoch,
+		secsSinceEpoch,
+	)
+	sel += " left join organizations o on e.organization_id = o.id where p.uuid in ("
+	uuids := []interface{}{}
+	data := make(map[string][3]string)
+	for _, contributor := range contributors {
+		uuid := contributor.UUID
+		uuids = append(uuids, uuid)
+		sel += "?,"
+	}
+	sel = sel[0:len(sel)-1] + ")"
+	var rows *sql.Rows
+	rows, err = s.Query(s.db, tx, sel, uuids...)
+	if err != nil {
+		return
+	}
+	uuid := ""
+	name := ""
+	email := ""
+	org := ""
+	for rows.Next() {
+		err = rows.Scan(&uuid, &name, &email, &org)
+		if err != nil {
+			return
+		}
+		data[uuid] = [3]string{name, email, org}
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	for idx, contributor := range contributors {
+		uuid := contributor.UUID
+		ary, ok := data[uuid]
+		if ok {
+			contributors[idx].Name = ary[0]
+			contributors[idx].Email = ary[1]
+			contributors[idx].Organization = ary[2]
+			found++
+			if ary[2] != "" {
+				orgFound++
+			}
 		}
 	}
 	return

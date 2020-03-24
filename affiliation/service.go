@@ -709,13 +709,11 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	/*
-		err = s.shDB.EnrichContributors(getTopContributors.Contributors, params.To, nil)
-		if err != nil {
-			err = errors.Wrap(err, apiName)
-			return
-		}
-	*/
+	err = s.shDB.EnrichContributors(getTopContributors.Contributors, params.To, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
 	getTopContributors.User = username
 	getTopContributors.Scope = project
 	return
