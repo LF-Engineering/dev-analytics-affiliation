@@ -58,7 +58,7 @@ paths:
       parameters:
         - name: projectSlug
           in: path
-          type: integer
+          type: string
           required: true
           description: Project slug URL encoded like 'academy-software-foundation/opencue'
         - name: from
@@ -68,7 +68,7 @@ paths:
           description: the datetime from which to search, e.g 1552790984700
         - name: to
           in: query
-          type: string
+          type: integer
           required: true
           description: the datetime from which to search, e.g 1552790984700
         - name: limit
@@ -781,6 +781,9 @@ definitions:
             type: integer
             example: 123
           lines_of_code_removed:
+            type: integer
+            example: 123
+          lines_of_code_changed:
             type: integer
             example: 123
       gerrit:

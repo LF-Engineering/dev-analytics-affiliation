@@ -41,6 +41,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 		}
 		return payload
 	}
+	api.AffiliationGetTopContributorsHandler = affiliation.GetTopContributorsHandlerFunc(
+		func(params affiliation.GetTopContributorsParams) middleware.Responder {
+			log.Info("GetTopContributorsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetTopContributorsHandlerFunc: " + info)
+
+			result, err := service.GetTopContributors(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetTopContributorsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetTopContributorsHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetTopContributorsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetUnaffiliatedHandler = affiliation.GetUnaffiliatedHandlerFunc(
 		func(params affiliation.GetUnaffiliatedParams) middleware.Responder {
 			log.Info("GetUnaffiliatedHandlerFunc")

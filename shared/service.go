@@ -33,6 +33,7 @@ type ServiceInterface interface {
 	ToLocalIdentity(*models.IdentityDataOutput) *LocalIdentity
 	ToLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *LocalUniqueIdentity
 	ToLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
+	ToLocalTopContributorsObj(*models.GetTopContributorsOutput) []interface{}
 	// shared DB functions
 	QueryOut(string, ...interface{})
 	QueryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
@@ -176,6 +177,36 @@ func (s *ServiceStruct) ToLocalMatchingBlacklist(ia []*models.MatchingBlacklistO
 			continue
 		}
 		oa = append(oa, *i)
+	}
+	return
+}
+
+// ToLocalTopContributorsObj - to display values inside pointers
+func (s *ServiceStruct) ToLocalTopContributorsObj(ia *models.GetTopContributorsOutput) (oa []interface{}) {
+	for _, i := range ia.Contributors {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		m := map[string]interface{}{
+			"UUID":  i.UUID,
+			"Name":  i.Name,
+			"Email": i.Email,
+			"Org":   i.Organization,
+		}
+		if i.Git != nil {
+			m["Git"] = *(i.Git)
+		}
+		if i.Gerrit != nil {
+			m["Gerrit"] = *(i.Gerrit)
+		}
+		if i.Jira != nil {
+			m["Jira"] = *(i.Jira)
+		}
+		if i.Confluence != nil {
+			m["Confluence"] = *(i.Confluence)
+		}
+		oa = append(oa, m)
 	}
 	return
 }

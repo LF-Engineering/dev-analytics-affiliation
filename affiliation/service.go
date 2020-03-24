@@ -39,6 +39,7 @@ type Service interface {
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
+	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.GetTopContributorsOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -204,6 +205,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetUnaffiliated"
+	case *affiliation.GetTopContributorsParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetTopContributors"
 	default:
 		err = errors.Wrap(fmt.Errorf("unknown params type"), "checkTokenAndPermission")
 		return
@@ -650,5 +655,68 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	}
 	getUnaffiliated.User = username
 	getUnaffiliated.Scope = project
+	return
+}
+
+// GetTopContributors: API params:
+// /v1/affiliation/{projectSlug}/top_contributors?from=1552790984700&to=1552790984700][&limit=50][&offset=2]
+// {projectSlug} - required path parameter: project to get top contributors stats (project slug URL encoded, can be prefixed with "/projects/")
+// from - required query parameter - milliseconds since 1970, for example 1552790984700, filter data from
+// to - required query parameter - milliseconds since 1970, for example 1552790984700, filter data to
+// limit - optional query parameter: page size, default 10
+// offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
+func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (getTopContributors *models.GetTopContributorsOutput, err error) {
+	limit := int64(10)
+	if params.Limit != nil {
+		limit = *params.Limit
+		if limit < 1 {
+			limit = 1
+		}
+	}
+	offset := int64(0)
+	if params.Offset != nil {
+		offset = *params.Offset
+		if offset < 0 {
+			offset = 1
+		}
+	}
+	getTopContributors = &models.GetTopContributorsOutput{}
+	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d", params.From, params.To, limit, offset))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d apiName:%s project:%s username:%s getTopContributors:%d err:%v",
+				params.From,
+				params.To,
+				limit,
+				offset,
+				apiName,
+				project,
+				username,
+				len(getTopContributors.Contributors),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	getTopContributors, err = s.es.GetTopContributors(project, params.From, params.To, limit, offset)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	/*
+		err = s.shDB.EnrichContributors(getTopContributors.Contributors, params.To, nil)
+		if err != nil {
+			err = errors.Wrap(err, apiName)
+			return
+		}
+	*/
+	getTopContributors.User = username
+	getTopContributors.Scope = project
 	return
 }
