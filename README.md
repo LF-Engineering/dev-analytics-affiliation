@@ -49,7 +49,7 @@ Start API server using dockerized MariaDB and Postgres databases:
 - Some special utils:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.
-  - `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_get_top_contributors_query.sh lfn ``.
+  - `` ES_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/curl_get_top_contributors_query.sh lfn ``.
 
 
 # Docker
@@ -77,6 +77,10 @@ API is deployed on teh LF both test and prod LF Kubernetes clusters.
 
 - You can get test API endpoint URL from `helm/da-affiliation/secrets/API_URL.test.secret` file or by running: `testk.sh -n da-affiliation get svc` - take EXTERNAL-IP column and add `:8080` port.
 - You can get prod API endpoint URL from `helm/da-affiliation/secrets/API_URL.prod.secret` file or by running: `prodk.sh -n da-affiliation get svc` - take EXTERNAL-IP column and add `:8080` port.
+
+
+# JWT token
+
 - To actually execute any API call from commandline you will need JWT token (it expires after 24 hours), to get that token value you need to:
   - Go to lfanalytics.io or test.lfanalytics.io (depending which environment token is needed), sign out if your are signed in.
   - Sign in again.
@@ -86,6 +90,7 @@ API is deployed on teh LF both test and prod LF Kubernetes clusters.
   - Try any API via: `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`"  JWT_TOKEN=`cat token.secret` ./sh/curl_get_list_organizations.sh odpi/egeria google 2>/dev/null | jq ``.
   - You need to have permission to manage identities in the API database, if you don't have it you can login to test API database using `helm/da-affiliation/secrets/API_DB_ENDPOINT.test.secret` file to get database connect string.
   - Then: `PGPASSWORD=... psql -h db.host.com -U dbuser dbname` and add permissions for your user by running `sql/add_permissions.sql` query replacing `lgryglicki` username with you own username.
+- In real deployment, you will always have that token available on the client side after signing in to the system.
 
 
 # SortingHat
