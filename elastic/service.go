@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"encoding/json"
 
@@ -187,7 +188,7 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64) string {
         "git": {
           "filter": {
             "wildcard": {
-              "_index": "*git"
+              "_index": "*-git"
             }
           },
           "aggs": {
@@ -216,7 +217,7 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64) string {
         "gerrit": {
           "filter": {
             "wildcard": {
-              "_index": "*gerrit"
+              "_index": "*-gerrit"
             }
           },
           "aggs": {
@@ -311,36 +312,70 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64) string {
   }`, from, to, (offset+1)*limit)
 }
 
+// Investigate via: `jq .aggregations.contributions.buckets[].gerrit` etc.
 type topContributorsResult struct {
 	Aggregations struct {
 		Contributions struct {
 			Buckets []struct {
-				Key        string `json:"key"`
-				DocCount   int64  `json:"doc_count"`
-				LinesAdded struct {
-					Value float64 `json:"value"`
-				} `json:"lines_added"`
-				LinesChanged struct {
-					Value float64 `json:"value"`
-				} `json:"lines_changed"`
-				LinesRemoved struct {
-					Value float64 `json:"value"`
-				} `json:"lines_removed"`
-				Commits struct {
-					Value float64 `json:"value"`
-				} `json:"commits"`
-				GerritApprovals struct {
-					Value float64 `json:"value"`
-				} `json:"gerrit_approvals"`
-				GerritMergedChangesets struct {
-					Buckets struct {
-						Merged struct {
-							Changesets struct {
-								Value float64 `json:"value"`
-							} `json:"changesets"`
-						} `json:"merged"`
-					} `json:"buckets"`
-				} `json:"gerrit-merged-changesets"`
+				Key      string `json:"key"`
+				DocCount int64  `json:"doc_count"`
+				Git      struct {
+					LinesAdded struct {
+						Value float64 `json:"value"`
+					} `json:"lines_added"`
+					LinesChanged struct {
+						Value float64 `json:"value"`
+					} `json:"lines_changed"`
+					LinesRemoved struct {
+						Value float64 `json:"value"`
+					} `json:"lines_removed"`
+					Commits struct {
+						Value float64 `json:"value"`
+					} `json:"commits"`
+				} `json:"git"`
+				Gerrit struct {
+					GerritApprovals struct {
+						Value float64 `json:"value"`
+					} `json:"gerrit_approvals"`
+					GerritMergedChangesets struct {
+						Buckets struct {
+							Merged struct {
+								Changesets struct {
+									Value float64 `json:"value"`
+								} `json:"changesets"`
+							} `json:"merged"`
+						} `json:"buckets"`
+					} `json:"gerrit-merged-changesets"`
+				} `json:"gerrit"`
+				Jira struct {
+					IssuesCreated struct {
+						Value float64 `json:"value"`
+					} `json:"jira_issues_created"`
+					IssuesAssigned struct {
+						Value float64 `json:"value"`
+					} `json:"jira_issues_assigned"`
+					AverageIssueOpenDays struct {
+						Value float64 `json:"value"`
+					} `json:"jira_average_issue_open_days"`
+				} `json:"jira"`
+				Confluence struct {
+					PagesCreated struct {
+						Value float64 `json:"value"`
+					} `json:"confluence_pages_created"`
+					PagesEdited struct {
+						Value float64 `json:"value"`
+					} `json:"confluence_pages_edited"`
+					BlogPosts struct {
+						Value float64 `json:"value"`
+					} `json:"confluence_blog_posts"`
+					Comments struct {
+						Value float64 `json:"value"`
+					} `json:"confluence_comments"`
+					LastActionDate struct {
+						Value         float64 `json:"value"`
+						ValueAsString string  `json:"value_as_string"`
+					} `json:"confluence_last_action_date"`
+				} `json:"confluence"`
 			} `json:"buckets"`
 		} `json:"contributions"`
 	} `json:"aggregations"`
@@ -390,13 +425,11 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 		err = fmt.Errorf("[%s] %s: %s", res.Status(), e["error"].(map[string]interface{})["type"], e["error"].(map[string]interface{})["reason"])
 		return
 	}
-	/*
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return
-		}
-		log.Info(string(body))
-	*/
+	//body, err := ioutil.ReadAll(res.Body)
+	//if err != nil {
+	//	return
+	//}
+	//fmt.Printf("====================>\n%s\n", string(body))
 	var result topContributorsResult
 	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
 		return
@@ -407,14 +440,35 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 		if int64(idx) >= idxFrom && int64(idx) < idxTo {
 			contributor := &models.ContributorStats{UUID: bucket.Key}
 			contributor.Git = &models.ContributorStatsGit{
-				LinesOfCodeAdded:   int64(bucket.LinesAdded.Value),
-				LinesOfCodeChanged: int64(bucket.LinesChanged.Value),
-				LinesOfCodeRemoved: int64(bucket.LinesRemoved.Value),
-				Commits:            int64(bucket.Commits.Value),
+				LinesOfCodeAdded:   int64(bucket.Git.LinesAdded.Value),
+				LinesOfCodeChanged: int64(bucket.Git.LinesChanged.Value),
+				LinesOfCodeRemoved: int64(bucket.Git.LinesRemoved.Value),
+				Commits:            int64(bucket.Git.Commits.Value),
 			}
 			contributor.Gerrit = &models.ContributorStatsGerrit{
-				ReviewsApproved:  int64(bucket.GerritApprovals.Value),
-				MergedChangesets: int64(bucket.GerritMergedChangesets.Buckets.Merged.Changesets.Value),
+				ReviewsApproved:  int64(bucket.Gerrit.GerritApprovals.Value),
+				MergedChangesets: int64(bucket.Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value),
+			}
+			contributor.Jira = &models.ContributorStatsJira{
+				AverageIssuesOpenDays: bucket.Jira.AverageIssueOpenDays.Value,
+				IssuesAssigned:        int64(bucket.Jira.IssuesAssigned.Value),
+				IssuesCreated:         int64(bucket.Jira.IssuesCreated.Value),
+			}
+			lastActionDateMillis := bucket.Confluence.LastActionDate.Value
+			daysAgo := 0.0
+			if lastActionDateMillis > 0 {
+				nowMillis := float64(time.Now().Unix()) * 1000.0
+				daysAgo = (nowMillis - lastActionDateMillis) / 86400000.0
+			}
+			contributor.Confluence = &models.ContributorStatsConfluence{
+				PagesCreated: int64(bucket.Confluence.PagesCreated.Value),
+				PagesEdited:  int64(bucket.Confluence.PagesEdited.Value),
+				BlogPosts:    int64(bucket.Confluence.BlogPosts.Value),
+				Comments:     int64(bucket.Confluence.Comments.Value),
+			}
+			if lastActionDateMillis > 0 {
+				contributor.Confluence.DateSinceLastDocumentation = daysAgo
+				contributor.Confluence.LastDocumentation = bucket.Confluence.LastActionDate.ValueAsString
 			}
 			top.Contributors = append(top.Contributors, contributor)
 		}

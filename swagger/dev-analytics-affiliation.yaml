@@ -805,8 +805,8 @@ definitions:
             type: integer
             example: 123
           average_issues_open_days:
-            type: integer
-            example: 123
+            type: number
+            example: 123.5
       confluence:
         type: object
         properties:
@@ -823,8 +823,11 @@ definitions:
             type: integer
             example: 123
           date_since_last_documentation:
-            type: integer
-            example: 123
+            type: number
+            example: 123.5
+          last_documentation:
+            type: string
+            example: 2020-03-23T14:09:04.000Z
   get-top-contributors-output:
     title: Top contributors output
     description: Top contributors output
