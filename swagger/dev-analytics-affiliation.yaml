@@ -424,6 +424,46 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/delete_organization_by_id/{orgID}:
+    delete:
+      summary: Delete organization by ID
+      operationId: deleteOrganization
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - organization
+        - delete
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: orgID
+          in: path
+          type: integer
+          required: true
+          description: Organization ID to be deleted
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/add_domain/{orgName}/{domain}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization

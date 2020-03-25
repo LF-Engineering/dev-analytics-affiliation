@@ -66,6 +66,7 @@ type Service interface {
 	AddOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganization(int64, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganizationByName(string, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
+	DropOrganization(int64, bool, *sql.Tx) error
 	// MatchingBlacklist
 	QueryMatchingBlacklist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	AddMatchingBlacklist(*models.MatchingBlacklistOutput, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
@@ -91,6 +92,7 @@ type Service interface {
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
 	PostMatchingBlacklist(string) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(string) (*models.TextStatusOutput, error)
+	DeleteOrganization(int64) (*models.TextStatusOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
@@ -1550,6 +1552,27 @@ func (s *service) ArchiveUniqueIdentity(uuid string, tm *time.Time, tx *sql.Tx) 
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving unique identity uuid '%s' created no data", uuid)
+		return
+	}
+	return
+}
+
+func (s *service) DropOrganization(id int64, missingFatal bool, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("DropOrganization: id:%d missingFatal:%v tx:%v", id, missingFatal, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DropOrganization(exit): id:%d missingFatal:%v tx:%v err:%v", id, missingFatal, tx != nil, err))
+	}()
+	del := "delete from organizations where id = ?"
+	res, err := s.Exec(s.db, tx, del, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting organization id %d had no effect", id)
 		return
 	}
 	return
@@ -3129,6 +3152,26 @@ func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStat
 	err = s.DropMatchingBlacklist(email, true, nil)
 	if err == nil {
 		status.Text = "Deleted blacklist email: " + email
+	}
+	return
+}
+
+func (s *service) DeleteOrganization(id int64) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info(fmt.Sprintf("DeleteOrganization: id:%d", id))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteOrganization(exit): id:%d status:%+v err:%v",
+				id,
+				status,
+				err,
+			),
+		)
+	}()
+	err = s.DropOrganization(id, true, nil)
+	if err == nil {
+		status.Text = fmt.Sprintf("Deleted organization id: %d", id)
 	}
 	return
 }

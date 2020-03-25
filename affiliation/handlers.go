@@ -176,6 +176,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetFindOrganizationByNameOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationDeleteOrganizationHandler = affiliation.DeleteOrganizationHandlerFunc(
+		func(params affiliation.DeleteOrganizationParams) middleware.Responder {
+			log.Info("DeleteOrganizationHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("DeleteOrganizationHandlerFunc: " + info)
+
+			result, err := service.DeleteOrganization(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("DeleteOrganizationHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("DeleteOrganizationHandlerFunc(ok): " + info)
+
+			return affiliation.NewDeleteOrganizationOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPostAddOrganizationHandler = affiliation.PostAddOrganizationHandlerFunc(
 		func(params affiliation.PostAddOrganizationParams) middleware.Responder {
 			log.Info("PostAddOrganizationHandlerFunc")

@@ -38,6 +38,7 @@ type Service interface {
 	GetFindOrganizationByID(ctx context.Context, in *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
 	GetFindOrganizationByName(ctx context.Context, in *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
 	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
+	DeleteOrganization(ctx context.Context, in *affiliation.DeleteOrganizationParams) (*models.TextStatusOutput, error)
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
@@ -200,6 +201,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetFindOrganizationByName"
+	case *affiliation.DeleteOrganizationParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteOrganization"
 	case *affiliation.PostAddOrganizationParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -416,6 +421,40 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 	}
 	// Do the actual API call
 	organization, err = s.shDB.GetOrganizationByName(orgName, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// DeleteOrganization: API params:
+// /v1/affiliation/{projectSlug}/delete_organization_by_id/{orgID}
+// {projectSlug} - required path parameter: project to modify affiliations organizations (project slug URL encoded, can be prefixed with "/projects/")
+// {orgID} - required path parameter: organization ID to be deleted
+func (s *service) DeleteOrganization(ctx context.Context, params *affiliation.DeleteOrganizationParams) (status *models.TextStatusOutput, err error) {
+	orgID := params.OrgID
+	log.Info(fmt.Sprintf("DeleteOrganization: orgID:%d", orgID))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteOrganization(exit): orgID:%d apiName:%s project:%s username:%s status:%+v err:%v",
+				orgID,
+				apiName,
+				project,
+				username,
+				status,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	status, err = s.shDB.DeleteOrganization(orgID)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
