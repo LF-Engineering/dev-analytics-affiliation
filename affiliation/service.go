@@ -35,6 +35,8 @@ type Service interface {
 	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(ctx context.Context, in *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
 	GetListOrganizations(ctx context.Context, in *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsOutput, error)
+	GetFindOrganizationByID(ctx context.Context, in *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
+	GetFindOrganizationByName(ctx context.Context, in *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
 	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
@@ -190,6 +192,14 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetListOrganizations"
+	case *affiliation.GetFindOrganizationByIDParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetFindOrganizationByID"
+	case *affiliation.GetFindOrganizationByNameParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetFindOrganizationByName"
 	case *affiliation.PostAddOrganizationParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -336,6 +346,76 @@ func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.P
 		true,
 		nil,
 	)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// GetFindOrganizationByID: API params:
+// /v1/affiliation/{projectSlug}/find_organization_by_id/{orgID}
+// {projectSlug} - required path parameter: project to get organization (project slug URL encoded, can be prefixed with "/projects/")
+// {orgID} - required path parameter: organization ID to lookup for
+func (s *service) GetFindOrganizationByID(ctx context.Context, params *affiliation.GetFindOrganizationByIDParams) (organization *models.OrganizationDataOutput, err error) {
+	orgID := params.OrgID
+	organization = &models.OrganizationDataOutput{}
+	log.Info(fmt.Sprintf("GetFindOrganizationByID: orgID:%d", orgID))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetFindOrganizationByID(exit): orgID:%d apiName:%s project:%s username:%s getFindOrganizationByID:%s err:%v",
+				orgID,
+				apiName,
+				project,
+				username,
+				s.ToLocalOrganization(organization),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	organization, err = s.shDB.GetOrganization(orgID, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// GetFindOrganizationByName: API params:
+// /v1/affiliation/{projectSlug}/find_organization_by_name/{orgName}
+// {projectSlug} - required path parameter: project to get organization (project slug URL encoded, can be prefixed with "/projects/")
+// {orgname} - required path parameter: organization name to lookup for
+func (s *service) GetFindOrganizationByName(ctx context.Context, params *affiliation.GetFindOrganizationByNameParams) (organization *models.OrganizationDataOutput, err error) {
+	orgName := params.OrgName
+	organization = &models.OrganizationDataOutput{}
+	log.Info(fmt.Sprintf("GetFindOrganizationByName: orgName:%s", orgName))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetFindOrganizationByName(exit): orgName:%s apiName:%s project:%s username:%s getFindOrganizationByName:%s err:%v",
+				orgName,
+				apiName,
+				project,
+				username,
+				s.ToLocalOrganization(organization),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	organization, err = s.shDB.GetOrganizationByName(orgName, true, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

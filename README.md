@@ -43,6 +43,8 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations.sh odpi/egeria 'CNCF' 5 1 ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_post_add_organization.sh odpi/egeria ABC ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_id.sh odpi/egeria 28143 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_name.sh odpi/egeria CNCF ``.
   - `` DEBUG='' JWT_TOKEN=`cat secret/lgryglicki.token` API_URL='http://127.0.0.1:18080' ./sh/curl_get_list_organizations.sh odpi/egeria 'google' 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh /projects/odpi/egeria 100 ``.
   - `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh lfn/opnfv 100 2>/dev/null | jq ``.
