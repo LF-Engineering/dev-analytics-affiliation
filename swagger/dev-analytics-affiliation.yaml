@@ -491,6 +491,7 @@ paths:
         - affiliation
         - organization
         - domain
+        - add
       parameters:
         - name: orgName
           in: path
@@ -522,6 +523,54 @@ paths:
           type: boolean
           default: false
           description: If set, it will not change/add/remove/touch any enrollments
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/remove_domain/{orgName}/{domain}:
+    delete:
+      summary: Remove domain from organization
+      operationId: deleteOrgDomain
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully added domain to organization"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - organization
+        - domain
+        - delete
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Organization name to remove domain from (URL encoded)
+        - name: domain
+          in: path
+          type: string
+          required: true
+          description: Domain to be removed
         - name: Authorization
           in: header
           type: string

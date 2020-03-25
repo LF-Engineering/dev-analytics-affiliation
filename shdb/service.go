@@ -67,6 +67,8 @@ type Service interface {
 	GetOrganization(int64, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganizationByName(string, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	DropOrganization(int64, bool, *sql.Tx) error
+	// Organization Domain
+	DropOrgDomain(string, string, bool, *sql.Tx) error
 	// MatchingBlacklist
 	QueryMatchingBlacklist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	AddMatchingBlacklist(*models.MatchingBlacklistOutput, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
@@ -93,6 +95,7 @@ type Service interface {
 	PostMatchingBlacklist(string) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(string) (*models.TextStatusOutput, error)
 	DeleteOrganization(int64) (*models.TextStatusOutput, error)
+	DeleteOrgDomain(string, string) (*models.TextStatusOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
@@ -1573,6 +1576,28 @@ func (s *service) DropOrganization(id int64, missingFatal bool, tx *sql.Tx) (err
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting organization id %d had no effect", id)
+		return
+	}
+	return
+}
+
+func (s *service) DropOrgDomain(organization, domain string, missingFatal bool, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("DropOrgDomain: organization:%s domain:%s missingFatal:%v tx:%v", organization, domain, missingFatal, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DropOrgDomain(exit): organization:%s domain:%s missingFatal:%v tx:%v err:%v", organization, domain, missingFatal, tx != nil, err))
+	}()
+	del := "delete from domains_organizations where organization_id in ("
+	del += "select id from organizations where name = ?) and domain = ?"
+	res, err := s.Exec(s.db, tx, del, organization, domain)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting organization '%s' domain '%s' had no effect", organization, domain)
 		return
 	}
 	return
@@ -3133,6 +3158,27 @@ func (s *service) PostMatchingBlacklist(email string) (matchingBlacklistOutput *
 		)
 	}()
 	matchingBlacklistOutput, err = s.AddMatchingBlacklist(&models.MatchingBlacklistOutput{Excluded: email}, false, nil)
+	return
+}
+
+func (s *service) DeleteOrgDomain(organization, domain string) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info(fmt.Sprintf("DeleteOrgDomain: organization:%s domain:%s", organization, domain))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteOrgDomain(exit): organization:%s domain:%s status:%+v err:%v",
+				organization,
+				domain,
+				status,
+				err,
+			),
+		)
+	}()
+	err = s.DropOrgDomain(organization, domain, true, nil)
+	if err == nil {
+		status.Text = fmt.Sprintf("Deleted organization '%s' domain '%s': ", organization, domain)
+	}
 	return
 }
 

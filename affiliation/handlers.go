@@ -338,6 +338,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationDeleteOrgDomainHandler = affiliation.DeleteOrgDomainHandlerFunc(
+		func(params affiliation.DeleteOrgDomainParams) middleware.Responder {
+			log.Info("DeleteOrgDomainHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("DeleteOrgDomainHandlerFunc: " + info)
+
+			result, err := service.DeleteOrgDomain(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("DeleteOrgDomainHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("DeleteOrgDomainHandlerFunc(ok): " + info)
+
+			return affiliation.NewDeleteOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPutMergeUniqueIdentitiesHandler = affiliation.PutMergeUniqueIdentitiesHandlerFunc(
 		func(params affiliation.PutMergeUniqueIdentitiesParams) middleware.Responder {
 			log.Info("PutMergeUniqueIdentitiesHandlerFunc")

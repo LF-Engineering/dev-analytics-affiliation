@@ -40,6 +40,7 @@ type Service interface {
 	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
 	DeleteOrganization(ctx context.Context, in *affiliation.DeleteOrganizationParams) (*models.TextStatusOutput, error)
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
+	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -213,6 +214,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PutOrgDomain"
+	case *affiliation.DeleteOrgDomainParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteOrgDomain"
 	case *affiliation.PutMergeUniqueIdentitiesParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -615,7 +620,10 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	if params.IsTopDomain != nil {
 		isTopDomain = *params.IsTopDomain
 	}
-	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments", org, dom, overwrite, isTopDomain, skipEnrollments))
+	if params.SkipEnrollments != nil {
+		skipEnrollments = *params.SkipEnrollments
+	}
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
@@ -646,6 +654,42 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	}
 	putOrgDomain.User = username
 	putOrgDomain.Scope = project
+	return
+}
+
+// DeleteOrgDomain: API params:
+// /v1/affiliation/{projectSlug}/remove_domain/{orgName}/{domain}
+// {orgName} - required path parameter:      organization to remove domain from, must be URL encoded, for example 'The%20Microsoft%20company'
+// {domain} - required path parameter:       domain to be deleted, for example 'microsoft.com'
+func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.DeleteOrgDomainParams) (status *models.TextStatusOutput, err error) {
+	org := params.OrgName
+	dom := params.Domain
+	log.Info(fmt.Sprintf("DeleteOrgDomain: org:%s dom:%s", org, dom))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteOrgDomain(exit): org:%s dom:%s apiName:%s project:%s username:%s status:%+v err:%v",
+				org,
+				dom,
+				apiName,
+				project,
+				username,
+				status,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	status, err = s.shDB.DeleteOrgDomain(org, dom)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
 	return
 }
 

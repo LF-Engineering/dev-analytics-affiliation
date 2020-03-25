@@ -49,6 +49,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh /projects/odpi/egeria 100 ``.
   - `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh lfn/opnfv 100 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn 0 2552790984700 30 2>/dev/null | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_org_domain.sh cncf cloudnative.io odpi/egeria ``.
 - Some special utils:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.
