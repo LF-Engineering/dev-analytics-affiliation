@@ -152,11 +152,20 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64) string {
   "size": 0,
   "query": {
     "bool": {
-      "must": {
-        "exists": {
-          "field": "author_uuid"
+      "must": [
+        {
+          "exists": {
+            "field": "author_uuid"
+          }
         }
-      },
+      ],
+      "must_not": [
+        {
+          "match_phrase": {
+            "author_bot": true
+          }
+        }
+      ],
       "filter": {
         "range": {
           "grimoire_creation_date": {
@@ -175,47 +184,123 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64) string {
         "size": %d
       },
       "aggs": {
-        "lines_added": {
-          "sum": {
-            "field": "lines_added"
-          }
-        },
-        "lines_changed": {
-          "sum": {
-            "field": "lines_changed"
-          }
-        },
-        "lines_removed": {
-          "sum": {
-            "field": "lines_removed"
-          }
-        },
-        "commits": {
-          "cardinality": {
-            "field": "hash"
-          }
-        },
-        "gerrit_approvals": {
-          "sum": {
-            "field": "is_gerrit_approval"
-          }
-        },
-        "gerrit-merged-changesets": {
-          "filters": {
-            "filters": {
-              "merged": {
-                "query_string": {
-                  "query": "status:\"MERGED\"",
-                  "analyze_wildcard": true,
-                  "default_field": "*"
-                }
-              }
+        "git": {
+          "filter": {
+            "wildcard": {
+              "_index": "*git"
             }
           },
           "aggs": {
-            "changesets": {
+            "lines_added": {
               "sum": {
-                "field": "is_gerrit_changeset"
+                "field": "lines_added"
+              }
+            },
+            "lines_changed": {
+              "sum": {
+                "field": "lines_changed"
+              }
+            },
+            "lines_removed": {
+              "sum": {
+                "field": "lines_removed"
+              }
+            },
+            "commits": {
+              "cardinality": {
+                "field": "hash"
+              }
+            }
+          }
+        },
+        "gerrit": {
+          "filter": {
+            "wildcard": {
+              "_index": "*gerrit"
+            }
+          },
+          "aggs": {
+            "gerrit_approvals": {
+              "sum": {
+                "field": "is_gerrit_approval"
+              }
+            },
+            "gerrit-merged-changesets": {
+              "filters": {
+                "filters": {
+                  "merged": {
+                    "query_string": {
+                      "query": "status:\"MERGED\"",
+                      "analyze_wildcard": true,
+                      "default_field": "*"
+                    }
+                  }
+                }
+              },
+              "aggs": {
+                "changesets": {
+                  "sum": {
+                    "field": "is_gerrit_changeset"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "jira": {
+          "filter": {
+            "wildcard": {
+              "_index": "*jira"
+            }
+          },
+          "aggs": {
+            "jira_issues_created": {
+              "cardinality": {
+                "field": "issue_key"
+              }
+            },
+            "jira_issues_assigned": {
+              "cardinality": {
+                "field": "assignee_uuid"
+              }
+            },
+            "jira_average_issue_open_days": {
+              "avg": {
+                "field": "time_to_close_days"
+              }
+            }
+          }
+        },
+        "confluence": {
+          "filter": {
+            "wildcard": {
+              "_index": "*confluence"
+            }
+          },
+          "aggs": {
+            "confluence_pages_created": {
+              "sum": {
+                "field": "is_new_page"
+              }
+            },
+            "confluence_pages_edited": {
+              "sum": {
+                "field": "is_page"
+              }
+            },
+            "confluence_comments": {
+              "sum": {
+                "field": "is_comment"
+              }
+            },
+            "confluence_blog_posts": {
+              "sum": {
+                "field": "is_blogpost"
+              }
+            },
+            "confluence_last_action_date": {
+              "max": {
+                "field": "grimoire_creation_date"
               }
             }
           }
