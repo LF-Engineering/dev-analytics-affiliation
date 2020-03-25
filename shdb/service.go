@@ -62,13 +62,14 @@ type Service interface {
 	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
-	QueryOrganizationsNested(*sql.Tx, string, int64, int64) ([]*models.OrganizationNestedDataOutput, int64, error)
+	QueryOrganizationsNested(string, int64, int64, *sql.Tx) ([]*models.OrganizationNestedDataOutput, int64, error)
 	AddOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganization(int64, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganizationByName(string, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	DropOrganization(int64, bool, *sql.Tx) error
 	// Organization Domain
 	DropOrgDomain(string, string, bool, *sql.Tx) error
+	QueryOrganizationsDomains(int64, string, int64, int64, *sql.Tx) ([]*models.DomainDataOutput, int64, error)
 	// MatchingBlacklist
 	QueryMatchingBlacklist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	AddMatchingBlacklist(*models.MatchingBlacklistOutput, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
@@ -97,6 +98,7 @@ type Service interface {
 	DeleteOrganization(int64) (*models.TextStatusOutput, error)
 	DeleteOrgDomain(string, string) (*models.TextStatusOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
+	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
@@ -2920,7 +2922,93 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	return
 }
 
-func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int64) (orgs []*models.OrganizationNestedDataOutput, nRows int64, err error) {
+func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page int64, tx *sql.Tx) (domains []*models.DomainDataOutput, nRows int64, err error) {
+	log.Info(fmt.Sprintf("QueryOrganizationsDomains: orgID:%d q:%s rows:%d page:%d tx:%v", orgID, q, rows, page, tx != nil))
+	defer func() {
+		list := ""
+		nDoms := len(domains)
+		if nDoms > shared.LogListMax {
+			list = fmt.Sprintf("%d", nDoms)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalDomains(domains))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"QueryOrganizationsDomains(exit): orgID:%d q:%s rows:%d page:%d tx:%v orgs:%s n_rows:%d err:%v",
+				orgID,
+				q,
+				rows,
+				page,
+				tx != nil,
+				list,
+				nRows,
+				err,
+			),
+		)
+	}()
+	args := []interface{}{}
+	selRoot := "select o.id, o.name, do.id, do.domain, do.is_top_domain"
+	sel := " from domains_organizations do, organizations o where do.organization_id = o.id"
+	if q != "" {
+		args = append(args, "%"+q+"%")
+		sel += " and do.domain like ?"
+	}
+	if orgID > 0 {
+		args = append(args, orgID)
+		sel += " and o.id = ?"
+	}
+	sel += " order by o.name, do.domain"
+	if rows > 0 {
+		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
+	}
+	var qrows *sql.Rows
+	//fmt.Printf("=========>\n%s\n%+v\n<==========\n", selRoot+sel, args)
+	qrows, err = s.Query(s.db, tx, selRoot+sel, args...)
+	if err != nil {
+		return
+	}
+	var isTopDomain *bool
+	for qrows.Next() {
+		domain := &models.DomainDataOutput{}
+		err = qrows.Scan(&domain.OrganizationID, &domain.OrganizationName, &domain.ID, &domain.Name, &isTopDomain)
+		if err != nil {
+			return
+		}
+		if isTopDomain != nil {
+			domain.IsTopDomain = *isTopDomain
+		}
+		domains = append(domains, domain)
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
+	qrows, err = s.Query(s.db, tx, "select count(*)"+sel, args...)
+	if err != nil {
+		return
+	}
+	for qrows.Next() {
+		err = qrows.Scan(&nRows)
+		if err != nil {
+			return
+		}
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.Tx) (orgs []*models.OrganizationNestedDataOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("QueryOrganizationsNested: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
 	defer func() {
 		list := ""
@@ -3009,7 +3097,7 @@ func (s *service) QueryOrganizationsNested(tx *sql.Tx, q string, rows, page int6
 		}
 		if doid != nil {
 			org = orgsMap[oName]
-			org.Domains = append(org.Domains, &models.DomainDataOutput{ID: *doid, Name: *domainName, IsTopDomain: *isTopDomain, OrganizationID: oid})
+			org.Domains = append(org.Domains, &models.DomainDataOutput{ID: *doid, Name: *domainName, IsTopDomain: *isTopDomain, OrganizationID: oid, OrganizationName: oName})
 			orgsMap[oName] = org
 		}
 	}
@@ -3222,6 +3310,54 @@ func (s *service) DeleteOrganization(id int64) (status *models.TextStatusOutput,
 	return
 }
 
+func (s *service) GetListOrganizationsDomains(orgID int64, q string, rows, page int64) (getListOrganizationsDomains *models.GetListOrganizationsDomainsOutput, err error) {
+	log.Info(fmt.Sprintf("GetListOrganizationsDomains: orgID:%d q:%s rows:%d page:%d", orgID, q, rows, page))
+	getListOrganizationsDomains = &models.GetListOrganizationsDomainsOutput{}
+	defer func() {
+		list := ""
+		nDoms := len(getListOrganizationsDomains.Domains)
+		if nDoms > shared.LogListMax {
+			list = fmt.Sprintf("%d", nDoms)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalDomains(getListOrganizationsDomains.Domains))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"GetListOrganizationsDomains(exit): orgID:%d q:%s rows:%d page:%d getListOrganizations:%s err:%v",
+				orgID,
+				q,
+				rows,
+				page,
+				list,
+				err,
+			),
+		)
+	}()
+	nRows := int64(0)
+	var ary []*models.DomainDataOutput
+	ary, nRows, err = s.QueryOrganizationsDomains(orgID, q, rows, page, nil)
+	if err != nil {
+		return
+	}
+	getListOrganizationsDomains.Domains = ary
+	getListOrganizationsDomains.NRecords = nRows
+	getListOrganizationsDomains.Rows = int64(len(ary))
+	if rows == 0 {
+		getListOrganizationsDomains.NPages = 1
+	} else {
+		pages := nRows / rows
+		if nRows%rows != 0 {
+			pages++
+		}
+		getListOrganizationsDomains.NPages = pages
+	}
+	getListOrganizationsDomains.Page = page
+	if q != "" {
+		getListOrganizationsDomains.Search = "q=" + q
+	}
+	return
+}
+
 func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrganizations *models.GetListOrganizationsOutput, err error) {
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
 	getListOrganizations = &models.GetListOrganizationsOutput{}
@@ -3246,7 +3382,7 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 	}()
 	nRows := int64(0)
 	var ary []*models.OrganizationNestedDataOutput
-	ary, nRows, err = s.QueryOrganizationsNested(nil, q, rows, page)
+	ary, nRows, err = s.QueryOrganizationsNested(q, rows, page, nil)
 	if err != nil {
 		return
 	}

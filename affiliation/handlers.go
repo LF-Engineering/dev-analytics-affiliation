@@ -122,6 +122,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetListOrganizationsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetListOrganizationsDomainsHandler = affiliation.GetListOrganizationsDomainsHandlerFunc(
+		func(params affiliation.GetListOrganizationsDomainsParams) middleware.Responder {
+			log.Info("GetListOrganizationsDomainsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetListOrganizationsDomainsHandlerFunc: " + info)
+
+			result, err := service.GetListOrganizationsDomains(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetListOrganizationsDomainsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetListOrganizationsDomainsHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetListOrganizationsDomainsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetFindOrganizationByIDHandler = affiliation.GetFindOrganizationByIDHandlerFunc(
 		func(params affiliation.GetFindOrganizationByIDParams) middleware.Responder {
 			log.Info("GetFindOrganizationByIDHandlerFunc")

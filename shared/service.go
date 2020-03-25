@@ -25,6 +25,7 @@ const (
 type ServiceInterface interface {
 	// Formatting data for logs
 	ToLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
+	ToLocalDomains([]*models.DomainDataOutput) []interface{}
 	ToLocalNestedOrganizations([]*models.OrganizationNestedDataOutput) []interface{}
 	ToLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
 	ToLocalUnaffiliatedObj(*models.GetUnaffiliatedOutput) []interface{}
@@ -144,6 +145,18 @@ func (p *LocalUniqueIdentity) String() (s string) {
 
 func (p *LocalOrganization) String() (s string) {
 	s = fmt.Sprintf("{ID:%d,Name:%s}", p.ID, p.Name)
+	return
+}
+
+// ToLocalDomains - to display values inside pointers
+func (s *ServiceStruct) ToLocalDomains(ia []*models.DomainDataOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, *i)
+	}
 	return
 }
 

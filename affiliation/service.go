@@ -35,6 +35,7 @@ type Service interface {
 	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(ctx context.Context, in *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
 	GetListOrganizations(ctx context.Context, in *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsOutput, error)
+	GetListOrganizationsDomains(ctx context.Context, in *affiliation.GetListOrganizationsDomainsParams) (*models.GetListOrganizationsDomainsOutput, error)
 	GetFindOrganizationByID(ctx context.Context, in *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
 	GetFindOrganizationByName(ctx context.Context, in *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
 	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
@@ -194,6 +195,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetListOrganizations"
+	case *affiliation.GetListOrganizationsDomainsParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetListOrganizationsDomains"
 	case *affiliation.GetFindOrganizationByIDParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -690,6 +695,77 @@ func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.Delet
 		err = errors.Wrap(err, apiName)
 		return
 	}
+	return
+}
+
+// GetListOrganizationsDomains: API params:
+// /v1/affiliation/{projectSlug}/list_domains[?orgID=23456][&q=xyz][&rows=100][&page=2]
+// {projectSlug} - required path parameter: project to get organizations (project slug URL encoded, can be prefixed with "/projects/")
+// orgID - optional query parameter: organization ID to get domains, default is 0 it return data for all organizations then
+// q - optional query parameter: if you specify that parameter only domains like '%q%' will be returned
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// page - optional query parameter: if set, it will return rows from a given page, default 1
+func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affiliation.GetListOrganizationsDomainsParams) (getListOrganizationsDomains *models.GetListOrganizationsDomainsOutput, err error) {
+	orgID := int64(0)
+	if params.OrgID != nil {
+		orgID = *params.OrgID
+	}
+	q := ""
+	if params.Q != nil {
+		q = *params.Q
+	}
+	rows := int64(10)
+	if params.Rows != nil {
+		rows = *params.Rows
+		if rows < 0 {
+			rows = 0
+		}
+	}
+	page := int64(1)
+	if params.Page != nil {
+		page = *params.Page
+		if page < 1 {
+			page = 1
+		}
+	}
+	getListOrganizationsDomains = &models.GetListOrganizationsDomainsOutput{}
+	log.Info(fmt.Sprintf("GetListOrganizationsDomains: orgID:%d q:%s rows:%d page:%d", orgID, q, rows, page))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		list := ""
+		nDoms := len(getListOrganizationsDomains.Domains)
+		if nDoms > shared.LogListMax {
+			list = fmt.Sprintf("%d", nDoms)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalDomains(getListOrganizationsDomains.Domains))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"GetListOrganizationsDomains(exit): orgID:%d q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizationsDomains:%s err:%v",
+				orgID,
+				q,
+				rows,
+				page,
+				apiName,
+				project,
+				username,
+				list,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	getListOrganizationsDomains, err = s.shDB.GetListOrganizationsDomains(orgID, q, rows, page)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	getListOrganizationsDomains.User = username
+	getListOrganizationsDomains.Scope = project
 	return
 }
 
