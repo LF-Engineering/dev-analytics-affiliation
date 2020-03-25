@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/jmoiron/sqlx"
@@ -70,6 +71,7 @@ func initSHDB() *sqlx.DB {
 	//d.SetMaxOpenConns(20)
 	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
+	d.SetConnMaxLifetime(time.Second)
 	log.Println(fmt.Sprintf("%+v", d))
 	log.Println("Initialized", "Affiliation DB", host)
 	return d
