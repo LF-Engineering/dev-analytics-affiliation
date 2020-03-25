@@ -278,6 +278,7 @@ paths:
       tags:
         - affiliation
         - list_organizations
+        - get
       parameters:
         - name: projectSlug
           in: path
@@ -299,6 +300,46 @@ paths:
           type: integer
           default: 1
           description: If set, it will return rows from a given page
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/add_organization/{orgName}:
+    post:
+      summary: Add organization
+      operationId: postAddOrganization
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/organization-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - add_organization
+        - post
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Organization name to be added
         - name: Authorization
           in: header
           type: string

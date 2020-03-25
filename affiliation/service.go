@@ -35,6 +35,7 @@ type Service interface {
 	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(ctx context.Context, in *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
 	GetListOrganizations(ctx context.Context, in *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsOutput, error)
+	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
@@ -189,6 +190,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetListOrganizations"
+	case *affiliation.PostAddOrganizationParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PostAddOrganization"
 	case *affiliation.PutOrgDomainParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -234,7 +239,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 
 // GetListOrganizations: API params:
 // /v1/affiliation/{projectSlug}/list_organizations[?q=xyz][&rows=100][&page=2]
-// {projectSlug} - required path parameter: project to get affiliations organizations/domains (project slug URL encoded, can be prefixed with "/projects/")
+// {projectSlug} - required path parameter: project to get organizations (project slug URL encoded, can be prefixed with "/projects/")
 // q - optional query parameter: if you specify that parameter only organizations where name like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
 // page - optional query parameter: if set, it will return rows from a given page, default 1
@@ -294,6 +299,47 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	}
 	getListOrganizations.User = username
 	getListOrganizations.Scope = project
+	return
+}
+
+// PostAddOrganization: API params:
+// /v1/affiliation/{projectSlug}/add_organization/{orgName}
+// {projectSlug} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
+// {orgName} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
+func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.PostAddOrganizationParams) (organization *models.OrganizationDataOutput, err error) {
+	organization = &models.OrganizationDataOutput{}
+	orgName := params.OrgName
+	log.Info(fmt.Sprintf("PostAddOrganization: orgName:%s", orgName))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostAddOrganization(exit): orgName:%s apiName:%s project:%s username:%s organization:%+v err:%v",
+				orgName,
+				apiName,
+				project,
+				username,
+				s.ToLocalOrganization(organization),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	organization, err = s.shDB.AddOrganization(
+		&models.OrganizationDataOutput{
+			Name: orgName,
+		},
+		true,
+		nil,
+	)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
 	return
 }
 

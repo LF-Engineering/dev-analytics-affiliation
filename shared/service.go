@@ -32,6 +32,7 @@ type ServiceInterface interface {
 	ToLocalProfile(*models.ProfileDataOutput) *LocalProfile
 	ToLocalIdentity(*models.IdentityDataOutput) *LocalIdentity
 	ToLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *LocalUniqueIdentity
+	ToLocalOrganization(*models.OrganizationDataOutput) *LocalOrganization
 	ToLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
 	ToLocalTopContributorsObj(*models.GetTopContributorsOutput) []interface{}
 	ToLocalTopContributors([]*models.ContributorStats) []interface{}
@@ -64,6 +65,11 @@ type LocalIdentity struct {
 // LocalUniqueIdentity - to display data inside pointers
 type LocalUniqueIdentity struct {
 	*models.UniqueIdentityDataOutput
+}
+
+// LocalOrganization - to display data inside pointers
+type LocalOrganization struct {
+	*models.OrganizationDataOutput
 }
 
 func (p *LocalProfile) String() (s string) {
@@ -133,6 +139,11 @@ func (p *LocalUniqueIdentity) String() (s string) {
 	} else {
 		s += fmt.Sprintf("LastModified:%+v}", *p.LastModified)
 	}
+	return
+}
+
+func (p *LocalOrganization) String() (s string) {
+	s = fmt.Sprintf("{ID:%d,Name:%s}", p.ID, p.Name)
 	return
 }
 
@@ -314,6 +325,15 @@ func (s *ServiceStruct) ToLocalUniqueIdentity(i *models.UniqueIdentityDataOutput
 		return
 	}
 	o = &LocalUniqueIdentity{i}
+	return
+}
+
+// ToLocalOrganization - to display values inside pointers
+func (s *ServiceStruct) ToLocalOrganization(i *models.OrganizationDataOutput) (o *LocalOrganization) {
+	if i == nil {
+		return
+	}
+	o = &LocalOrganization{i}
 	return
 }
 

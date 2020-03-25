@@ -63,6 +63,9 @@ type Service interface {
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	QueryOrganizationsNested(*sql.Tx, string, int64, int64) ([]*models.OrganizationNestedDataOutput, int64, error)
+	AddOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
+	GetOrganization(int64, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
+	GetOrganizationByName(string, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	// MatchingBlacklist
 	QueryMatchingBlacklist(*sql.Tx, string, int64, int64) ([]*models.MatchingBlacklistOutput, int64, error)
 	AddMatchingBlacklist(*models.MatchingBlacklistOutput, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
@@ -571,6 +574,41 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 	sort.Slice(unaffiliated, func(i, j int) bool {
 		return unaffiliated[i].Contributions > unaffiliated[j].Contributions
 	})
+	return
+}
+
+func (s *service) AddOrganization(inOrganization *models.OrganizationDataOutput, refresh bool, tx *sql.Tx) (organization *models.OrganizationDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddOrganization: inOrganization:%+v refresh:%v tx:%v", s.ToLocalOrganization(inOrganization), refresh, tx != nil))
+	organization = inOrganization
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddOrganization(exit): inOrganization:%+v refresh:%v tx:%v organization:%+v err:%v",
+				s.ToLocalOrganization(inOrganization),
+				refresh,
+				tx != nil,
+				s.ToLocalOrganization(organization),
+				err,
+			),
+		)
+	}()
+	_, err = s.Exec(
+		s.db,
+		tx,
+		"insert into organizations(name) select ?",
+		organization.Name,
+	)
+	if err != nil {
+		organization = nil
+		return
+	}
+	if refresh {
+		organization, err = s.GetOrganizationByName(organization.Name, true, tx)
+		if err != nil {
+			organization = nil
+			return
+		}
+	}
 	return
 }
 
@@ -1112,6 +1150,112 @@ func (s *service) FetchMatchingBlacklist(email string, missingFatal bool, tx *sq
 	}
 	if !fetched {
 		matchingBlacklistData = nil
+	}
+	return
+}
+
+func (s *service) GetOrganization(id int64, missingFatal bool, tx *sql.Tx) (organizationData *models.OrganizationDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetOrganization: id:%d missingFatal:%v tx:%v", id, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetOrganization(exit): id:%d missingFatal:%v tx:%v organizationData:%+v err:%v",
+				id,
+				missingFatal,
+				tx != nil,
+				s.ToLocalOrganization(organizationData),
+				err,
+			),
+		)
+	}()
+	organizationData = &models.OrganizationDataOutput{}
+	rows, err := s.Query(
+		s.db,
+		tx,
+		"select id, name from organizations where id = ? limit 1",
+		id,
+	)
+	if err != nil {
+		return
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&organizationData.ID,
+			&organizationData.Name,
+		)
+		if err != nil {
+			return
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && !fetched {
+		err = fmt.Errorf("cannot find organization id %d", id)
+		return
+	}
+	if !fetched {
+		organizationData = nil
+	}
+	return
+}
+
+func (s *service) GetOrganizationByName(orgName string, missingFatal bool, tx *sql.Tx) (organizationData *models.OrganizationDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetOrganizationByName: orgName:%s missingFatal:%v tx:%v", orgName, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetOrganizationByName(exit): orgName:%s missingFatal:%v tx:%v organizationData:%+v err:%v",
+				orgName,
+				missingFatal,
+				tx != nil,
+				s.ToLocalOrganization(organizationData),
+				err,
+			),
+		)
+	}()
+	organizationData = &models.OrganizationDataOutput{}
+	rows, err := s.Query(
+		s.db,
+		tx,
+		"select id, name from organizations where name = ? limit 1",
+		orgName,
+	)
+	if err != nil {
+		return
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&organizationData.ID,
+			&organizationData.Name,
+		)
+		if err != nil {
+			return
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && !fetched {
+		err = fmt.Errorf("cannot find organization name '%s'", orgName)
+		return
+	}
+	if !fetched {
+		organizationData = nil
 	}
 	return
 }
