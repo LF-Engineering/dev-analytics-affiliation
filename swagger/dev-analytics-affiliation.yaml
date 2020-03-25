@@ -477,6 +477,11 @@ paths:
           type: boolean
           default: false
           description: If set, it will set top domain flag to true
+        - name: skip_enrollments
+          in: query
+          type: boolean
+          default: false
+          description: If set, it will not change/add/remove/touch any enrollments
         - name: Authorization
           in: header
           type: string

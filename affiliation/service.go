@@ -556,35 +556,38 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 }
 
 // PutOrgDomain: API params:
-// /v1/affiliation/{projectSlug}/add_domain/{orgName}/{domain}[?overwrite=true][&is_top_domain=true]
+// /v1/affiliation/{projectSlug}/add_domain/{orgName}/{domain}[?overwrite=true][&is_top_domain=true][&skip_enrollments=true]
 // {orgName} - required path parameter:      organization to add domain to, must be URL encoded, for example 'The%20Microsoft%20company'
 // {domain} - required path parameter:       domain to be added, for example 'microsoft.com'
 // {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
 // overwrite - optional query parameter:     if overwrite=true is set, all profiles found are force-updated/affiliated to the given organization
 //                                           if overwite is not set, API will not change any profiles which already have any affiliation(s)
 // is_top_domain - optional query parameter: if you specify is_top_domain=true it will set 'is_top_domain' DB column to true, else it will set false
+// skip_enrollments - optional query parameter: if skip_enrollments=true is set, no enrollments will be modified/added/removed/touched
 func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDomainParams) (putOrgDomain *models.PutOrgDomainOutput, err error) {
 	org := params.OrgName
 	dom := params.Domain
 	overwrite := false
 	isTopDomain := false
+	skipEnrollments := false
 	if params.Overwrite != nil {
 		overwrite = *params.Overwrite
 	}
 	if params.IsTopDomain != nil {
 		isTopDomain = *params.IsTopDomain
 	}
-	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments", org, dom, overwrite, isTopDomain, skipEnrollments))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v apiName:%s project:%s username:%s putOrgDomain:%+v err:%v",
+				"PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v apiName:%s project:%s username:%s putOrgDomain:%+v err:%v",
 				org,
 				dom,
 				overwrite,
 				isTopDomain,
+				skipEnrollments,
 				apiName,
 				project,
 				username,
@@ -597,7 +600,7 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 		return
 	}
 	// Do the actual API call
-	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain)
+	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

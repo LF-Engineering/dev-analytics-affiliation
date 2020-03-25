@@ -92,7 +92,7 @@ type Service interface {
 	PostMatchingBlacklist(string) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(string) (*models.TextStatusOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
-	PutOrgDomain(string, string, bool, bool) (*models.PutOrgDomainOutput, error)
+	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
 }
@@ -3227,11 +3227,11 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 }
 
 // PutOrgDomain - add domain to organization
-func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
-	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v", org, dom, overwrite, isTopDomain))
+func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
 	putOrgDomain = &models.PutOrgDomainOutput{}
 	defer func() {
-		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, putOrgDomain, err))
+		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, putOrgDomain, err))
 	}()
 	rows, err := s.Query(s.db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {
@@ -3302,80 +3302,82 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain bool) (pu
 	if err != nil {
 		return
 	}
-	var res sql.Result
-	affected := int64(0)
-	if overwrite {
-		res, err = s.Exec(
-			s.db,
-			tx,
-			"delete from enrollments where uuid in (select distinct sub.uuid from ("+
-				"select distinct uuid from profiles where email like ? "+
-				"union select distinct uuid from identities where email like ?) sub)",
-			"%"+dom,
-			"%"+dom,
-		)
-		if err != nil {
-			return
-		}
-		affected, err = res.RowsAffected()
-		if err != nil {
-			return
-		}
-		if affected > 0 {
-			putOrgDomain.Deleted = fmt.Sprintf("%d", affected)
-			putOrgDomain.Info = "deleted: " + putOrgDomain.Deleted
-		}
-		res, err = s.Exec(
-			s.db,
-			tx,
-			"insert into enrollments(start, end, uuid, organization_id) "+
-				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
-				"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
-				"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
-			orgID,
-			"%"+dom,
-			orgID,
-			"%"+dom,
-		)
-		if err != nil {
-			return
-		}
-		affected, err = res.RowsAffected()
-		if err != nil {
-			return
-		}
-		if affected > 0 {
-			putOrgDomain.Added = fmt.Sprintf("%d", affected)
-			if putOrgDomain.Info == "" {
-				putOrgDomain.Info = "added: " + putOrgDomain.Added
-			} else {
-				putOrgDomain.Info += ", added: " + putOrgDomain.Added
+	if !skipEnrollments {
+		var res sql.Result
+		affected := int64(0)
+		if overwrite {
+			res, err = s.Exec(
+				s.db,
+				tx,
+				"delete from enrollments where uuid in (select distinct sub.uuid from ("+
+					"select distinct uuid from profiles where email like ? "+
+					"union select distinct uuid from identities where email like ?) sub)",
+				"%"+dom,
+				"%"+dom,
+			)
+			if err != nil {
+				return
 			}
-		}
-	} else {
-		res, err = s.Exec(
-			s.db,
-			tx,
-			"insert into enrollments(start, end, uuid, organization_id) "+
-				"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
-				"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
-				"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
-				"where sub.uuid not in (select distinct uuid from enrollments)",
-			orgID,
-			"%"+dom,
-			orgID,
-			"%"+dom,
-		)
-		if err != nil {
-			return
-		}
-		affected, err = res.RowsAffected()
-		if err != nil {
-			return
-		}
-		if affected > 0 {
-			putOrgDomain.Added = fmt.Sprintf("%d", affected)
-			putOrgDomain.Info = "added: " + putOrgDomain.Added
+			affected, err = res.RowsAffected()
+			if err != nil {
+				return
+			}
+			if affected > 0 {
+				putOrgDomain.Deleted = fmt.Sprintf("%d", affected)
+				putOrgDomain.Info = "deleted: " + putOrgDomain.Deleted
+			}
+			res, err = s.Exec(
+				s.db,
+				tx,
+				"insert into enrollments(start, end, uuid, organization_id) "+
+					"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+					"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+					"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
+				orgID,
+				"%"+dom,
+				orgID,
+				"%"+dom,
+			)
+			if err != nil {
+				return
+			}
+			affected, err = res.RowsAffected()
+			if err != nil {
+				return
+			}
+			if affected > 0 {
+				putOrgDomain.Added = fmt.Sprintf("%d", affected)
+				if putOrgDomain.Info == "" {
+					putOrgDomain.Info = "added: " + putOrgDomain.Added
+				} else {
+					putOrgDomain.Info += ", added: " + putOrgDomain.Added
+				}
+			}
+		} else {
+			res, err = s.Exec(
+				s.db,
+				tx,
+				"insert into enrollments(start, end, uuid, organization_id) "+
+					"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+					"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
+					"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
+					"where sub.uuid not in (select distinct uuid from enrollments)",
+				orgID,
+				"%"+dom,
+				orgID,
+				"%"+dom,
+			)
+			if err != nil {
+				return
+			}
+			affected, err = res.RowsAffected()
+			if err != nil {
+				return
+			}
+			if affected > 0 {
+				putOrgDomain.Added = fmt.Sprintf("%d", affected)
+				putOrgDomain.Info = "added: " + putOrgDomain.Added
+			}
 		}
 	}
 	err = tx.Commit()
