@@ -230,6 +230,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewDeleteOrganizationOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPostAddUniqueIdentityHandler = affiliation.PostAddUniqueIdentityHandlerFunc(
+		func(params affiliation.PostAddUniqueIdentityParams) middleware.Responder {
+			log.Info("PostAddUniqueIdentityHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PostAddUniqueIdentityHandlerFunc: " + info)
+
+			result, err := service.PostAddUniqueIdentity(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PostAddUniqueIdentityHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PostAddUniqueIdentityHandlerFunc(ok): " + info)
+
+			return affiliation.NewPostAddUniqueIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPostAddOrganizationHandler = affiliation.PostAddOrganizationHandlerFunc(
 		func(params affiliation.PostAddOrganizationParams) middleware.Responder {
 			log.Info("PostAddOrganizationHandlerFunc")

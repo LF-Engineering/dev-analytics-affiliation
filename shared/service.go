@@ -28,6 +28,7 @@ type ServiceInterface interface {
 	ToLocalDomains([]*models.DomainDataOutput) []interface{}
 	ToLocalNestedOrganizations([]*models.OrganizationNestedDataOutput) []interface{}
 	ToLocalNestedUniqueIdentities([]*models.UniqueIdentityNestedDataOutput) []interface{}
+	ToLocalNestedUniqueIdentity(*models.UniqueIdentityNestedDataOutput) interface{}
 	ToLocalNestedEnrollments([]*models.EnrollmentNestedDataOutput) []interface{}
 	ToLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
 	ToLocalUnaffiliatedObj(*models.GetUnaffiliatedOutput) []interface{}
@@ -197,6 +198,25 @@ func (s *ServiceStruct) ToLocalNestedOrganizations(ia []*models.OrganizationNest
 }
 
 // ToLocalNestedUniqueIdentities - to display values inside pointers
+func (s *ServiceStruct) ToLocalNestedUniqueIdentity(i *models.UniqueIdentityNestedDataOutput) (o interface{}) {
+	if i == nil {
+		return i
+	}
+	m := map[string]interface{}{
+		"UUID": i.UUID,
+	}
+	if i.LastModified == nil {
+		m["LastModified"] = nil
+	} else {
+		m["LastModified"] = *(i.LastModified)
+	}
+	m["Profile"] = s.ToLocalProfile(i.Profile)
+	m["Identities"] = s.ToLocalIdentities(i.Identities)
+	m["Enrollments"] = s.ToLocalNestedEnrollments(i.Enrollments)
+	return m
+}
+
+// ToLocalNestedUniqueIdentities - to display values inside pointers
 func (s *ServiceStruct) ToLocalNestedUniqueIdentities(ia []*models.UniqueIdentityNestedDataOutput) (oa []interface{}) {
 	for _, i := range ia {
 		if i == nil {
@@ -206,7 +226,7 @@ func (s *ServiceStruct) ToLocalNestedUniqueIdentities(ia []*models.UniqueIdentit
 		m := map[string]interface{}{
 			"UUID": i.UUID,
 		}
-		if i.LastModified != nil {
+		if i.LastModified == nil {
 			m["LastModified"] = nil
 		} else {
 			m["LastModified"] = *(i.LastModified)

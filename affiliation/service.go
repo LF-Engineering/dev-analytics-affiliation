@@ -43,6 +43,7 @@ type Service interface {
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
+	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -216,6 +217,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddOrganization"
+	case *affiliation.PostAddUniqueIdentityParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PostAddUniqueIdentity"
 	case *affiliation.GetListProfilesParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -335,7 +340,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 // PostAddOrganization: API params:
 // /v1/affiliation/{projectSlug}/add_organization/{orgName}
 // {projectSlug} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
-// {orgName} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
+// {orgName} - required path parameter: organization name to be added
 func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.PostAddOrganizationParams) (organization *models.OrganizationDataOutput, err error) {
 	organization = &models.OrganizationDataOutput{}
 	orgName := params.OrgName
@@ -366,6 +371,41 @@ func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.P
 		true,
 		nil,
 	)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// PostAddUniqueIdentity: API params:
+// /v1/affiliation/{projectSlug}/add_unique_identity/{uuid}
+// {projectSlug} - required path parameter: project to add unique identity to (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: UUID to be added
+func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation.PostAddUniqueIdentityParams) (uniqueIdentity *models.UniqueIdentityNestedDataOutput, err error) {
+	uniqueIdentity = &models.UniqueIdentityNestedDataOutput{}
+	uuid := params.UUID
+	log.Info(fmt.Sprintf("PostAddUniqueIdentity: uuid:%s", uuid))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostAddUniqueIdentity(exit): uuid:%s apiName:%s project:%s username:%s uniqueIdentity:%+v err:%v",
+				uuid,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uniqueIdentity),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	uniqueIdentity, err = s.shDB.AddNestedUniqueIdentity(uuid)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

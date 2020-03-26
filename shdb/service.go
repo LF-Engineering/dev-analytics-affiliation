@@ -101,6 +101,7 @@ type Service interface {
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
 	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
+	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
@@ -2101,8 +2102,62 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 	return
 }
 
+func (s *service) AddNestedUniqueIdentity(uuid string) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddNestedUniqueIdentity: uuid:%s", uuid))
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddNestedUniqueIdentity(exit): uuid:%s uid:%+v err:%v",
+				uuid,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	_, err = s.AddUniqueIdentity(
+		&models.UniqueIdentityDataOutput{
+			UUID: uuid,
+		},
+		false,
+		tx,
+	)
+	if err != nil {
+		return
+	}
+	profile := &models.ProfileDataOutput{}
+	profile, err = s.AddProfile(
+		&models.ProfileDataOutput{
+			UUID: uuid,
+		},
+		false,
+		tx,
+	)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
+	uid.UUID = uuid
+	uid.LastModified = s.Now()
+	uid.Profile = profile
+	return
+}
+
 func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bool, tx *sql.Tx) (profileData *models.ProfileDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddProfile: inprofileData:%+v refresh:%v tx:%v", s.ToLocalProfile(inProfileData), refresh, tx != nil))
+	log.Info(fmt.Sprintf("AddProfile: inProfileData:%+v refresh:%v tx:%v", s.ToLocalProfile(inProfileData), refresh, tx != nil))
 	profileData = inProfileData
 	defer func() {
 		log.Info(
