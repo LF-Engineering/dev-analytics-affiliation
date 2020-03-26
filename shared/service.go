@@ -27,6 +27,8 @@ type ServiceInterface interface {
 	ToLocalOrganizations([]*models.OrganizationDataOutput) []interface{}
 	ToLocalDomains([]*models.DomainDataOutput) []interface{}
 	ToLocalNestedOrganizations([]*models.OrganizationNestedDataOutput) []interface{}
+	ToLocalNestedUniqueIdentities([]*models.UniqueIdentityNestedDataOutput) []interface{}
+	ToLocalNestedEnrollments([]*models.EnrollmentNestedDataOutput) []interface{}
 	ToLocalMatchingBlacklist([]*models.MatchingBlacklistOutput) []interface{}
 	ToLocalUnaffiliatedObj(*models.GetUnaffiliatedOutput) []interface{}
 	ToLocalUnaffiliated([]*models.UnaffiliatedDataOutput) []interface{}
@@ -194,6 +196,29 @@ func (s *ServiceStruct) ToLocalNestedOrganizations(ia []*models.OrganizationNest
 	return
 }
 
+// ToLocalNestedUniqueIdentities - to display values inside pointers
+func (s *ServiceStruct) ToLocalNestedUniqueIdentities(ia []*models.UniqueIdentityNestedDataOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		m := map[string]interface{}{
+			"UUID": i.UUID,
+		}
+		if i.LastModified != nil {
+			m["LastModified"] = nil
+		} else {
+			m["LastModified"] = *(i.LastModified)
+		}
+		m["Profile"] = s.ToLocalProfile(i.Profile)
+		m["Identities"] = s.ToLocalIdentities(i.Identities)
+		m["Enrollments"] = s.ToLocalNestedEnrollments(i.Enrollments)
+		oa = append(oa, m)
+	}
+	return
+}
+
 // ToLocalMatchingBlacklist - to display values inside pointers
 func (s *ServiceStruct) ToLocalMatchingBlacklist(ia []*models.MatchingBlacklistOutput) (oa []interface{}) {
 	for _, i := range ia {
@@ -286,6 +311,28 @@ func (s *ServiceStruct) ToLocalUnaffiliated(ia []*models.UnaffiliatedDataOutput)
 			continue
 		}
 		oa = append(oa, *i)
+	}
+	return
+}
+
+// ToLocalNestedEnrollments - to display values inside pointers
+func (s *ServiceStruct) ToLocalNestedEnrollments(ia []*models.EnrollmentNestedDataOutput) (oa []interface{}) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		m := map[string]interface{}{
+			"ID":             i.ID,
+			"UUID":           i.UUID,
+			"Start":          i.Start,
+			"End":            i.End,
+			"OrganizationID": i.OrganizationID,
+		}
+		if i.Organization != nil {
+			m["Organization"] = *(i.Organization)
+		}
+		oa = append(oa, m)
 	}
 	return
 }

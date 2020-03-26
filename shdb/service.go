@@ -50,6 +50,7 @@ type Service interface {
 	ArchiveUniqueIdentity(string, *time.Time, *sql.Tx) error
 	UnarchiveUniqueIdentity(string, bool, *time.Time, *sql.Tx) error
 	DeleteUniqueIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
+	QueryUniqueIdentitiesNested(string, int64, int64, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
 	// Enrollment
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -99,6 +100,7 @@ type Service interface {
 	DeleteOrgDomain(string, string) (*models.TextStatusOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
+	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
@@ -3008,6 +3010,185 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	return
 }
 
+func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
+	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
+	defer func() {
+		list := ""
+		nProfs := len(uids)
+		if nProfs > shared.LogListMax {
+			list = fmt.Sprintf("%d", nProfs)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalNestedUniqueIdentities(uids))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d tx:%v uids:%s n_rows:%d err:%v",
+				q,
+				rows,
+				page,
+				tx != nil,
+				list,
+				nRows,
+				err,
+			),
+		)
+	}()
+	qLike := ""
+	sel := "select distinct u.uuid from uidentities u, identities i, profiles p"
+	sel += " where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid"
+	if q != "" {
+		qLike = "%" + q + "%"
+		sel += " and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
+	}
+	sel += " order by 1"
+	if rows > 0 {
+		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
+	}
+	var qrows *sql.Rows
+	if q == "" {
+		qrows, err = s.Query(s.db, tx, sel)
+	} else {
+		qrows, err = s.Query(s.db, tx, sel, qLike, qLike, qLike, qLike)
+	}
+	if err != nil {
+		return
+	}
+	uuids := []interface{}{}
+	uuid := ""
+	sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+	sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, o.name "
+	sel += "from uidentities u, identities i, profiles p where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid "
+	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
+	sel += "where u.uuid in ("
+	for qrows.Next() {
+		err = qrows.Scan(&uuid)
+		if err != nil {
+			return
+		}
+		uuids = append(uuids, uuid)
+		sel += "?,"
+	}
+	if len(uuids) < 1 {
+		return
+	}
+	sel = sel[0:len(sel)-1] + ") order by u.uuid, i.source, e.start"
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
+	qrows, err = s.Query(s.db, tx, sel, uuids...)
+	if err != nil {
+		return
+	}
+	var (
+		rolID             *int64
+		rolStart          *strfmt.DateTime
+		rolEnd            *strfmt.DateTime
+		rolOrganizationID *int64
+		rolOrganization   *string
+	)
+	uidsMap := make(map[string]*models.UniqueIdentityNestedDataOutput)
+	idsMap := make(map[string]*models.IdentityDataOutput)
+	rolsMap := make(map[int64]*models.EnrollmentNestedDataOutput)
+	for qrows.Next() {
+		uid := &models.UniqueIdentityNestedDataOutput{}
+		prof := &models.ProfileDataOutput{}
+		id := &models.IdentityDataOutput{}
+		rol := &models.EnrollmentNestedDataOutput{}
+		err = qrows.Scan(
+			&uid.UUID, &uid.LastModified,
+			&prof.Name, &prof.Email, &prof.Gender, &prof.GenderAcc, &prof.IsBot, &prof.CountryCode,
+			&id.ID, &id.Name, &id.Email, &id.Username, &id.Source, &id.LastModified,
+			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolOrganization,
+		)
+		if err != nil {
+			return
+		}
+		uuid := uid.UUID
+		prof.UUID = uuid
+		id.UUID = uuid
+		if rolID != nil && rolOrganization != nil {
+			rol = &models.EnrollmentNestedDataOutput{
+				ID:             *rolID,
+				UUID:           uuid,
+				Start:          *rolStart,
+				End:            *rolEnd,
+				OrganizationID: *rolOrganizationID,
+				Organization: &models.OrganizationDataOutput{
+					ID:   *rolOrganizationID,
+					Name: *rolOrganization,
+				},
+			}
+		}
+		uidentity, ok := uidsMap[uuid]
+		if !ok {
+			uid.Profile = prof
+			uidsMap[uuid] = uid
+		}
+		uidentity = uidsMap[uuid]
+		_, ok = idsMap[id.ID]
+		if !ok {
+			uidentity.Identities = append(uidentity.Identities, id)
+		}
+		if rolID != nil {
+			_, ok = rolsMap[rol.ID]
+			if !ok {
+				uidentity.Enrollments = append(uidentity.Enrollments, rol)
+			}
+		}
+		uidsMap[uuid] = uidentity
+	}
+	suuids := []string{}
+	for uuid := range uidsMap {
+		suuids = append(suuids, uuid)
+	}
+	sort.Strings(suuids)
+	for _, uuid := range suuids {
+		uids = append(uids, uidsMap[uuid])
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
+	sel = "select count(distinct u.uuid) from uidentities u, identities i, profiles p"
+	sel += " where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid"
+	if q != "" {
+		qLike = "%" + q + "%"
+		sel += " and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
+	}
+	if q == "" {
+		qrows, err = s.Query(s.db, tx, sel)
+	} else {
+		qrows, err = s.Query(s.db, tx, sel, qLike, qLike, qLike, qLike)
+	}
+	if err != nil {
+		return
+	}
+	for qrows.Next() {
+		err = qrows.Scan(&nRows)
+		if err != nil {
+			return
+		}
+	}
+	err = qrows.Err()
+	if err != nil {
+		return
+	}
+	err = qrows.Close()
+	if err != nil {
+		return
+	}
+	return
+}
+
 func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.Tx) (orgs []*models.OrganizationNestedDataOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("QueryOrganizationsNested: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
 	defer func() {
@@ -3401,6 +3582,52 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 	getListOrganizations.Page = page
 	if q != "" {
 		getListOrganizations.Search = "q=" + q
+	}
+	return
+}
+
+func (s *service) GetListProfiles(q string, rows, page int64) (getListProfiles *models.GetListProfilesOutput, err error) {
+	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d", q, rows, page))
+	getListProfiles = &models.GetListProfilesOutput{}
+	defer func() {
+		list := ""
+		nprofs := len(getListProfiles.Uids)
+		if nprofs > shared.LogListMax {
+			list = fmt.Sprintf("%d", nprofs)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalNestedUniqueIdentities(getListProfiles.Uids))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"GetListProfiles(exit): q:%s rows:%d page:%d getListProfiles:%s err:%v",
+				q,
+				rows,
+				page,
+				list,
+				err,
+			),
+		)
+	}()
+	nRows := int64(0)
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, nil)
+	if err != nil {
+		return
+	}
+	getListProfiles.Uids = ary
+	getListProfiles.Rows = nRows
+	if rows == 0 {
+		getListProfiles.NPages = 1
+	} else {
+		pages := nRows / rows
+		if nRows%rows != 0 {
+			pages++
+		}
+		getListProfiles.NPages = pages
+	}
+	getListProfiles.Page = page
+	if q != "" {
+		getListProfiles.Search = "q=" + q
 	}
 	return
 }

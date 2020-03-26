@@ -914,6 +914,31 @@ definitions:
         format: date-time
         x-nullable: true
         example: '2019-09-02 03:00:33.000000'
+  enrollment-nested-data-output:
+    title: Enrollment data output
+    description: Enrollment data
+    type: object
+    properties:
+      id:
+        type: integer
+        example: 35067
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      organization_id:
+        type: integer
+        example: 33073
+      start:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
+      end:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
+      organization:
+        type: object
+        $ref: "#/definitions/organization-data-output"
   enrollment-data-output:
     title: Enrollment data output
     description: Enrollment data
@@ -1196,7 +1221,7 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/contributor-stats"
-  uidentity-nested-data-output:
+  unique-identity-nested-data-output:
     title: Unique identity nested data output
     description: Unique indentity nested data
     type: object
@@ -1219,7 +1244,7 @@ definitions:
       enrollments:
         type: array
         items:
-          $ref: "#/definitions/enrollment-data-output"
+          $ref: "#/definitions/enrollment-nested-data-output"
   get-list-profiles-output:
     title: List profiles data output
     description: List profiles data
@@ -1246,7 +1271,7 @@ definitions:
       uids:
         type: array
         items:
-          $ref: "#/definitions/uidentity-nested-data-output"
+          $ref: "#/definitions/unique-identity-nested-data-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call

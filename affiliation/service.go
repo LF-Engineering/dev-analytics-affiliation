@@ -42,6 +42,7 @@ type Service interface {
 	DeleteOrganization(ctx context.Context, in *affiliation.DeleteOrganizationParams) (*models.TextStatusOutput, error)
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
+	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -215,6 +216,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddOrganization"
+	case *affiliation.GetListProfilesParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetListProfiles"
 	case *affiliation.PutOrgDomainParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -601,6 +606,71 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 		err = errors.Wrap(err, apiName)
 		return
 	}
+	return
+}
+
+// GetListProfiles: API params:
+// /v1/affiliation/{projectSlug}/list_profiles[?q=xyz][&rows=100][&page=2]
+// {projectSlug} - required path parameter: project to get profiles (project slug URL encoded, can be prefixed with "/projects/")
+// q - optional query parameter: if you specify that parameter only profiles where name, email, username or source like '%q%' will be returned
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// page - optional query parameter: if set, it will return rows from a given page, default 1
+func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetListProfilesParams) (getListProfiles *models.GetListProfilesOutput, err error) {
+	q := ""
+	if params.Q != nil {
+		q = *params.Q
+	}
+	rows := int64(10)
+	if params.Rows != nil {
+		rows = *params.Rows
+		if rows < 0 {
+			rows = 0
+		}
+	}
+	page := int64(1)
+	if params.Page != nil {
+		page = *params.Page
+		if page < 1 {
+			page = 1
+		}
+	}
+	getListProfiles = &models.GetListProfilesOutput{}
+	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d", q, rows, page))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		list := ""
+		nProfs := len(getListProfiles.Uids)
+		if nProfs > shared.LogListMax {
+			list = fmt.Sprintf("%d", nProfs)
+		} else {
+			list = fmt.Sprintf("%+v", s.ToLocalNestedUniqueIdentities(getListProfiles.Uids))
+		}
+		log.Info(
+			fmt.Sprintf(
+				"GetListProfiles(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListProfiles:%s err:%v",
+				q,
+				rows,
+				page,
+				apiName,
+				project,
+				username,
+				list,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	getListProfiles.User = username
+	getListProfiles.Scope = project
 	return
 }
 

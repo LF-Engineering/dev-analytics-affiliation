@@ -392,6 +392,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewDeleteOrgDomainOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetListProfilesHandler = affiliation.GetListProfilesHandlerFunc(
+		func(params affiliation.GetListProfilesParams) middleware.Responder {
+			log.Info("GetListProfilesHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetListProfilesHandlerFunc: " + info)
+
+			result, err := service.GetListProfiles(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetListProfilesHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetListProfilesHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetListProfilesOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPutMergeUniqueIdentitiesHandler = affiliation.PutMergeUniqueIdentitiesHandlerFunc(
 		func(params affiliation.PutMergeUniqueIdentitiesParams) middleware.Responder {
 			log.Info("PutMergeUniqueIdentitiesHandlerFunc")
