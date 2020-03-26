@@ -165,7 +165,7 @@ paths:
           in: query
           type: integer
           default: 10
-          description: rows per page, if 0 no paging is used and page parameter is ignored
+          description: rows per page, if 0 maximum page size 65535 is set
         - name: page
           in: query
           type: integer
@@ -294,7 +294,7 @@ paths:
           in: query
           type: integer
           default: 10
-          description: rows per page, if 0 no paging is used and page parameter is ignored
+          description: rows per page, if 0 maximum page size 65535 is set
         - name: page
           in: query
           type: integer
@@ -509,7 +509,7 @@ paths:
           in: query
           type: integer
           default: 10
-          description: rows per page, if 0 no paging is used and page parameter is ignored
+          description: rows per page, if 0 maximum page size 65535 is set
         - name: page
           in: query
           type: integer
@@ -670,7 +670,7 @@ paths:
           in: query
           type: integer
           default: 10
-          description: rows per page, if 0 no paging is used and page parameter is ignored
+          description: rows per page, if 0 maximum page size 65535 is set
         - name: page
           in: query
           type: integer

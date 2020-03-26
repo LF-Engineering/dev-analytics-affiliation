@@ -271,7 +271,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 // /v1/affiliation/{projectSlug}/list_organizations[?q=xyz][&rows=100][&page=2]
 // {projectSlug} - required path parameter: project to get organizations (project slug URL encoded, can be prefixed with "/projects/")
 // q - optional query parameter: if you specify that parameter only organizations where name like '%q%' will be returned
-// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.GetListOrganizationsParams) (getListOrganizations *models.GetListOrganizationsOutput, err error) {
 	q := ""
@@ -281,8 +281,8 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
-		if rows < 0 {
-			rows = 0
+		if rows <= 0 {
+			rows = 0xffff
 		}
 	}
 	page := int64(1)
@@ -481,7 +481,7 @@ func (s *service) DeleteOrganization(ctx context.Context, params *affiliation.De
 // /v1/affiliation/{projectSlug}/matching_blacklist[?q=xyz][&rows=100][&page=2]
 // {projectSlug} - required path parameter: project to get affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
 // q - optional query parameter: if you specify that parameter only emails like '%q%' will be returned
-// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.GetMatchingBlacklistParams) (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
 	q := ""
@@ -491,8 +491,8 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
-		if rows < 0 {
-			rows = 0
+		if rows <= 0 {
+			rows = 0xfff
 		}
 	}
 	page := int64(1)
@@ -613,7 +613,7 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 // /v1/affiliation/{projectSlug}/list_profiles[?q=xyz][&rows=100][&page=2]
 // {projectSlug} - required path parameter: project to get profiles (project slug URL encoded, can be prefixed with "/projects/")
 // q - optional query parameter: if you specify that parameter only profiles where name, email, username or source like '%q%' will be returned
-// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetListProfilesParams) (getListProfiles *models.GetListProfilesOutput, err error) {
 	q := ""
@@ -623,8 +623,8 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
-		if rows < 0 {
-			rows = 0
+		if rows <= 0 {
+			rows = 0xffff
 		}
 	}
 	page := int64(1)
@@ -773,7 +773,7 @@ func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.Delet
 // {projectSlug} - required path parameter: project to get organizations (project slug URL encoded, can be prefixed with "/projects/")
 // orgID - optional query parameter: organization ID to get domains, default is 0 it return data for all organizations then
 // q - optional query parameter: if you specify that parameter only domains like '%q%' will be returned
-// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10  (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affiliation.GetListOrganizationsDomainsParams) (getListOrganizationsDomains *models.GetListOrganizationsDomainsOutput, err error) {
 	orgID := int64(0)
@@ -787,8 +787,8 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 	rows := int64(10)
 	if params.Rows != nil {
 		rows = *params.Rows
-		if rows < 0 {
-			rows = 0
+		if rows <= 0 {
+			rows = 0xffff
 		}
 	}
 	page := int64(1)

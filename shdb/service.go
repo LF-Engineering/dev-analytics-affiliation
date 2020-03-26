@@ -2960,9 +2960,7 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 		sel += " and o.id = ?"
 	}
 	sel += " order by o.name, do.domain"
-	if rows > 0 {
-		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
-	}
+	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	//fmt.Printf("=========>\n%s\n%+v\n<==========\n", selRoot+sel, args)
 	qrows, err = s.Query(s.db, tx, selRoot+sel, args...)
@@ -3041,9 +3039,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		sel += " and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
 	}
 	sel += " order by 1"
-	if rows > 0 {
-		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
-	}
+	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	if q == "" {
 		qrows, err = s.Query(s.db, tx, sel)
@@ -3057,9 +3053,9 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 	uuid := ""
 	sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
 	sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, o.name "
-	sel += "from uidentities u, identities i, profiles p where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid "
+	sel += "from uidentities u, identities i, profiles p "
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
-	sel += "where u.uuid in ("
+	sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
 	for qrows.Next() {
 		err = qrows.Scan(&uuid)
 		if err != nil {
@@ -3133,11 +3129,13 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		_, ok = idsMap[id.ID]
 		if !ok {
 			uidentity.Identities = append(uidentity.Identities, id)
+			idsMap[id.ID] = id
 		}
 		if rolID != nil {
 			_, ok = rolsMap[rol.ID]
 			if !ok {
 				uidentity.Enrollments = append(uidentity.Enrollments, rol)
+				rolsMap[rol.ID] = rol
 			}
 		}
 		uidsMap[uuid] = uidentity
@@ -3219,9 +3217,7 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
 		sel += " where name like ?"
 	}
 	sel += " order by name"
-	if rows > 0 {
-		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
-	}
+	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	if q == "" {
 		qrows, err = s.Query(s.db, tx, sel)
@@ -3357,9 +3353,7 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 		sel += " where excluded like ?"
 	}
 	sel += " order by 1"
-	if rows > 0 {
-		sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
-	}
+	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	if q == "" {
 		qrows, err = s.Query(s.db, tx, sel)
