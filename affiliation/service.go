@@ -993,7 +993,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 		return
 	}
 	// Do the actual API call
-	more := (topN + 10) * 10
+	more := (topN + 20) * 5
 	if topN == 0 {
 		more = 0
 	}
