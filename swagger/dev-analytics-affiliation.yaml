@@ -772,7 +772,7 @@ paths:
           required: true
   /affiliation/{projectSlug}/delete_profile/{uuid}:
     delete:
-      summary: Delete profile with given UUID
+      summary: Delete profile with given UUID (it will cascade delete all objects referring to that uuid)
       operationId: deleteProfile
       produces:
         - application/json
@@ -806,6 +806,51 @@ paths:
           type: string
           required: true
           description: Profile UUID to be deleted
+        - name: archive
+          in: query
+          type: boolean
+          default: false
+          description: If set, it will archive profile (and all dependend objects, so full restore will be possible)
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/unarchive_profile/{uuid}:
+    post:
+      summary: Unarchive profile with given UUID
+      operationId: unarchiveProfile
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - delete_profile
+        - delete
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: string
+          required: true
+          description: Profile UUID to be unarchived
         - name: Authorization
           in: header
           type: string

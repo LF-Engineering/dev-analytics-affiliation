@@ -101,6 +101,7 @@ type Service interface {
 	DeleteMatchingBlacklist(string) (*models.TextStatusOutput, error)
 	DeleteOrganization(int64) (*models.TextStatusOutput, error)
 	DeleteOrgDomain(string, string) (*models.TextStatusOutput, error)
+	DeleteProfileNested(string, bool) (*models.TextStatusOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
 	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
@@ -3624,6 +3625,51 @@ func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStat
 	err = s.DropMatchingBlacklist(email, true, nil)
 	if err == nil {
 		status.Text = "Deleted blacklist email: " + email
+	}
+	return
+}
+
+func (s *service) DeleteProfileNested(uuid string, archive bool) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info(fmt.Sprintf("DeleteProfileNested: uuid:%s archive:%v", uuid, archive))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteProfileNested(exit): uuid:%s archive:%v status:%+v err:%v",
+				uuid,
+				archive,
+				status,
+				err,
+			),
+		)
+	}()
+	var tx *sql.Tx
+	if archive {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		archivedDate := time.Now()
+		_, err = s.ArchiveUUID(uuid, &archivedDate, tx)
+		if err != nil {
+			return
+		}
+	}
+	err = s.DeleteUniqueIdentity(uuid, false, true, nil, tx)
+	if err == nil {
+		status.Text = fmt.Sprintf("Deleted profile uuid: '%s' (and all dependent objects), archive: %v", uuid, archive)
+	}
+	if tx != nil {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
 	}
 	return
 }

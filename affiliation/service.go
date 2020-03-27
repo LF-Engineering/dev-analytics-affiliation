@@ -45,6 +45,7 @@ type Service interface {
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
@@ -227,6 +228,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetProfile"
+	case *affiliation.DeleteProfileParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteProfile"
 	case *affiliation.PostAddUniqueIdentityParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -531,6 +536,46 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 	}
 	// Do the actual API call
 	organization, err = s.shDB.GetOrganizationByName(orgName, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// DeleteProfile: API params:
+// /v1/affiliation/{projectSlug}/delete_profile/{uuid}[?archive=true]
+// {projectSlug} - required path parameter: project to delete profile from (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: profile uuid to be deleted (it will cascade delete all objects referring to that uuid)
+// archive - optional query parameter: if set, it will archive given profile data (and all dependend objects, so full restore will be possible)
+func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteProfileParams) (status *models.TextStatusOutput, err error) {
+	uuid := params.UUID
+	archive := false
+	if params.Archive != nil {
+		archive = *params.Archive
+	}
+	log.Info(fmt.Sprintf("DeleteProfile: uuid:%s archive:%v", uuid, archive))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteProfile(exit): uuid:%s archive:%v apiName:%s project:%s username:%s status:%+v err:%v",
+				uuid,
+				archive,
+				apiName,
+				project,
+				username,
+				status,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	status, err = s.shDB.DeleteProfileNested(uuid, archive)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

@@ -230,6 +230,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewDeleteOrganizationOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationDeleteProfileHandler = affiliation.DeleteProfileHandlerFunc(
+		func(params affiliation.DeleteProfileParams) middleware.Responder {
+			log.Info("DeleteProfileHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("DeleteProfileHandlerFunc: " + info)
+
+			result, err := service.DeleteProfile(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("DeleteProfileHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("DeleteProfileHandlerFunc(ok): " + info)
+
+			return affiliation.NewDeleteProfileOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPostAddUniqueIdentityHandler = affiliation.PostAddUniqueIdentityHandlerFunc(
 		func(params affiliation.PostAddUniqueIdentityParams) middleware.Responder {
 			log.Info("PostAddUniqueIdentityHandlerFunc")
