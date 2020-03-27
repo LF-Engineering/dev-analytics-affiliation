@@ -3,6 +3,7 @@ package shdb
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"database/sql"
@@ -50,7 +51,7 @@ type Service interface {
 	ArchiveUniqueIdentity(string, *time.Time, *sql.Tx) error
 	UnarchiveUniqueIdentity(string, bool, *time.Time, *sql.Tx) error
 	DeleteUniqueIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
-	QueryUniqueIdentitiesNested(string, int64, int64, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
+	QueryUniqueIdentitiesNested(string, int64, int64, bool, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
 	// Enrollment
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -3134,8 +3135,8 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	return
 }
 
-func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
-	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d tx:%v", q, rows, page, tx != nil))
+func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identityRequired bool, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
+	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d identityRequired:%v tx:%v", q, rows, page, identityRequired, tx != nil))
 	defer func() {
 		list := ""
 		nProfs := len(uids)
@@ -3146,10 +3147,11 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		}
 		log.Info(
 			fmt.Sprintf(
-				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d tx:%v uids:%s n_rows:%d err:%v",
+				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d identityRequired:%v tx:%v uids:%s n_rows:%d err:%v",
 				q,
 				rows,
 				page,
+				identityRequired,
 				tx != nil,
 				list,
 				nRows,
@@ -3157,31 +3159,52 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 			),
 		)
 	}()
-	qLike := ""
-	sel := "select distinct u.uuid from uidentities u, identities i, profiles p"
-	sel += " where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid"
+	args := []interface{}{}
+	sel := ""
+	where := ""
+	qWhere := ""
 	if q != "" {
-		qLike = "%" + q + "%"
-		sel += " and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
+		if strings.HasPrefix(q, "uuid=") {
+			qLike := "%" + q[5:] + "%"
+			qWhere += "and u.uuid like ?"
+			args = []interface{}{qLike}
+		} else {
+			qLike := "%" + q + "%"
+			qWhere += "and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
+			args = []interface{}{qLike, qLike, qLike, qLike}
+		}
 	}
-	sel += " order by 1"
-	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
-	var qrows *sql.Rows
-	if q == "" {
-		qrows, err = s.Query(s.db, tx, sel)
+	if identityRequired {
+		sel = "select distinct u.uuid from uidentities u, identities i, profiles p"
+		where = "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid"
 	} else {
-		qrows, err = s.Query(s.db, tx, sel, qLike, qLike, qLike, qLike)
+		sel = "select distinct u.uuid from uidentities u, profiles p"
+		where = "where u.uuid = p.uuid"
 	}
+	where += " " + qWhere + " order by 1"
+	paging := fmt.Sprintf("limit %d offset %d", rows, (page-1)*rows)
+	var qrows *sql.Rows
+	query := sel + " " + where + " " + paging
+	qrows, err = s.Query(s.db, tx, query, args...)
 	if err != nil {
 		return
 	}
 	uuids := []interface{}{}
 	uuid := ""
-	sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
-	sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, o.name "
-	sel += "from uidentities u, identities i, profiles p "
-	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
-	sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
+	if identityRequired {
+		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, o.name "
+		sel += "from uidentities u, identities i, profiles p "
+		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
+		sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
+	} else {
+		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
+		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.oname "
+		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		sel += "e.id, e.start, e.end, e.organization_id, o.name as oname from uidentities u, profiles p "
+		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
+		sel += "where u.uuid = p.uuid and u.uuid in ("
+	}
 	for qrows.Next() {
 		err = qrows.Scan(&uuid)
 		if err != nil {
@@ -3193,7 +3216,11 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 	if len(uuids) < 1 {
 		return
 	}
-	sel = sel[0:len(sel)-1] + ") order by u.uuid, i.source, e.start"
+	if identityRequired {
+		sel = sel[0:len(sel)-1] + ") order by u.uuid, i.source, e.start"
+	} else {
+		sel = sel[0:len(sel)-1] + ")) s left join identities i on s.uuid = i.uuid order by s.uuid, i.source, s.start"
+	}
 	err = qrows.Err()
 	if err != nil {
 		return
@@ -3212,6 +3239,12 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		rolEnd            *strfmt.DateTime
 		rolOrganizationID *int64
 		rolOrganization   *string
+		iID               *string
+		iName             *string
+		iEmail            *string
+		iUsername         *string
+		iSource           *string
+		iLastModified     *strfmt.DateTime
 	)
 	uidsMap := make(map[string]*models.UniqueIdentityNestedDataOutput)
 	idsMap := make(map[string]*models.IdentityDataOutput)
@@ -3224,7 +3257,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		err = qrows.Scan(
 			&uid.UUID, &uid.LastModified,
 			&prof.Name, &prof.Email, &prof.Gender, &prof.GenderAcc, &prof.IsBot, &prof.CountryCode,
-			&id.ID, &id.Name, &id.Email, &id.Username, &id.Source, &id.LastModified,
+			&iID, &iName, &iEmail, &iUsername, &iSource, &iLastModified,
 			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolOrganization,
 		)
 		if err != nil {
@@ -3246,6 +3279,16 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 				},
 			}
 		}
+		if iID != nil && iSource != nil {
+			id = &models.IdentityDataOutput{
+				ID:           *iID,
+				Name:         iName,
+				Email:        iEmail,
+				Username:     iUsername,
+				Source:       *iSource,
+				LastModified: iLastModified,
+			}
+		}
 		uidentity, ok := uidsMap[uuid]
 		if !ok {
 			uid.Profile = prof
@@ -3253,9 +3296,11 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		}
 		uidentity = uidsMap[uuid]
 		_, ok = idsMap[id.ID]
-		if !ok {
-			uidentity.Identities = append(uidentity.Identities, id)
-			idsMap[id.ID] = id
+		if identityRequired || (!identityRequired && iID != nil && iSource != nil) {
+			if !ok {
+				uidentity.Identities = append(uidentity.Identities, id)
+				idsMap[id.ID] = id
+			}
 		}
 		if rolID != nil {
 			_, ok = rolsMap[rol.ID]
@@ -3283,16 +3328,8 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, tx *sq
 		return
 	}
 	sel = "select count(distinct u.uuid) from uidentities u, identities i, profiles p"
-	sel += " where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid"
-	if q != "" {
-		qLike = "%" + q + "%"
-		sel += " and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
-	}
-	if q == "" {
-		qrows, err = s.Query(s.db, tx, sel)
-	} else {
-		qrows, err = s.Query(s.db, tx, sel, qLike, qLike, qLike, qLike)
-	}
+	query = sel + " " + where
+	qrows, err = s.Query(s.db, tx, query, args...)
 	if err != nil {
 		return
 	}
@@ -3730,7 +3767,7 @@ func (s *service) GetListProfiles(q string, rows, page int64) (getListProfiles *
 	}()
 	nRows := int64(0)
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, nil)
+	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, true, nil)
 	if err != nil {
 		return
 	}

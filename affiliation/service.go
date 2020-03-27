@@ -44,6 +44,7 @@ type Service interface {
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
+	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
@@ -222,6 +223,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PutEditOrganization"
+	case *affiliation.GetProfileParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetProfile"
 	case *affiliation.PostAddUniqueIdentityParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -476,7 +481,7 @@ func (s *service) GetFindOrganizationByID(ctx context.Context, params *affiliati
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetFindOrganizationByID(exit): orgID:%d apiName:%s project:%s username:%s getFindOrganizationByID:%s err:%v",
+				"GetFindOrganizationByID(exit): orgID:%d apiName:%s project:%s username:%s getFindOrganizationByID:%+v err:%v",
 				orgID,
 				apiName,
 				project,
@@ -511,7 +516,7 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetFindOrganizationByName(exit): orgName:%s apiName:%s project:%s username:%s getFindOrganizationByName:%s err:%v",
+				"GetFindOrganizationByName(exit): orgName:%s apiName:%s project:%s username:%s getFindOrganizationByName:%+v err:%v",
 				orgName,
 				apiName,
 				project,
@@ -761,6 +766,47 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	}
 	getListProfiles.User = username
 	getListProfiles.Scope = project
+	return
+}
+
+// GetProfile: API params:
+// /v1/affiliation/{projectSlug}/get_profile/{uuid}
+// {projectSlug} - required path parameter: project to get profile from (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: UUID of the profile to get
+func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	uuid := params.UUID
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("GetProfile: uuid:%s", uuid))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetProfile(exit): uuid:%s apiName:%s project:%s username:%s uid:%v err:%v",
+				uuid,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
+		return
+	}
+	uid = ary[0]
 	return
 }
 
