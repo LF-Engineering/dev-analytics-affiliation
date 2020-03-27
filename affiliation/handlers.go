@@ -392,6 +392,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutEditOrganizationOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutEditProfileHandler = affiliation.PutEditProfileHandlerFunc(
+		func(params affiliation.PutEditProfileParams) middleware.Responder {
+			log.Info("PutEditProfileHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutEditProfileHandlerFunc: " + info)
+
+			result, err := service.PutEditProfile(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutEditProfileHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutEditProfileHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutEditProfileOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetMatchingBlacklistHandler = affiliation.GetMatchingBlacklistHandlerFunc(
 		func(params affiliation.GetMatchingBlacklistParams) middleware.Responder {
 			log.Info("GetMatchingBlacklistHandlerFunc")

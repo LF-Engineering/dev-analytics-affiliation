@@ -888,7 +888,7 @@ paths:
           description: Project slug URL encoded like 'academy-software-foundation/opencue'
         - name: uuid
           in: path
-          type: integer
+          type: string
           required: true
           description: Profile UUID to be edited
         - name: name
@@ -906,7 +906,7 @@ paths:
         - name: gender_acc
           in: query
           type: integer
-          description: Profile gender probablity 0-100
+          description: Profile gender probablity 1-100
         - name: is_bot
           in: query
           type: integer

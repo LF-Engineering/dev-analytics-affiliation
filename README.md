@@ -57,6 +57,8 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile.sh lfn 16fe424acecf8d614d102fc0ece919a22200481d 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_unarchive_profile.sh odpi/egeria xyz 2>/dev/null | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name=lukaszgryglicki email=lgryglicki@cncf.io gender=male gender_acc=99 is_bot=0 country_code=pl ./sh/curl_put_edit_profile.sh odpi/egeria xyz ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name='a' email=lgryglicki@cncf.io gender=male gender_acc=100 is_bot=0 country_code=BAD ./sh/curl_put_edit_profile.sh odpi/egeria xyz 2>/dev/null | jq ``.
 - Some special utils:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.

@@ -45,6 +45,7 @@ type Service interface {
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.ProfileDataOutput, error)
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
 	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -233,6 +234,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "DeleteProfile"
+	case *affiliation.PutEditProfileParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutEditProfile"
 	case *affiliation.PostUnarchiveProfileParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -541,6 +546,55 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 	}
 	// Do the actual API call
 	organization, err = s.shDB.GetOrganizationByName(orgName, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// PutEditProfile: API params:
+// /v1/affiliation/{projectSlug}/edit_profile/{uuid}[?name=somename][&email=xyz@o2.pl][&gender=female][&gender-acc=95][&is_bot=0][&country_code=PL]
+// {projectSlug} - required path parameter: project to edit profile in (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: profile uuid to be edited
+// name - optional query parameter: if set, it will update profile name to this value
+// email - optional query parameter: if set, it will update profile email to this value
+// gender - optional query parameter: if set, it will update profile gender to this value: allowed: male, female
+// gender_acc - optional query parameter: if set, it will update profile gender probablity to this value: integer 1-100
+// is_bot - optional query parameter: if set, it will update profile bot flag to this value, integer, allowed: 0, 1
+// country_code - optional query parameter: if set, it will update profile country code to this value, 2 letter contry code, validated agains countries table (foreign key), for example: PL
+func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEditProfileParams) (profile *models.ProfileDataOutput, err error) {
+	uuid := params.UUID
+	profile = &models.ProfileDataOutput{
+		UUID:        uuid,
+		Name:        params.Name,
+		Email:       params.Email,
+		Gender:      params.Gender,
+		GenderAcc:   params.GenderAcc,
+		IsBot:       params.IsBot,
+		CountryCode: params.CountryCode,
+	}
+	log.Info(fmt.Sprintf("PutEditProfile: uuid:%s uid:%+v", uuid, s.ToLocalProfile(profile)))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutEditProfile(exit): uuid:%s apiName:%s project:%s username:%s profile:%+v err:%v",
+				uuid,
+				apiName,
+				project,
+				username,
+				s.ToLocalProfile(profile),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	profile, err = s.shDB.EditProfile(profile, true, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
