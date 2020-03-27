@@ -732,7 +732,7 @@ paths:
           required: true
   /affiliation/{projectSlug}/get_profile/{uuid}:
     get:
-      summary: get profile with given UUID
+      summary: Get profile with given UUID
       operationId: getProfile
       produces:
         - application/json
@@ -766,6 +766,46 @@ paths:
           type: string
           required: true
           description: Profile UUID
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/delete_profile/{uuid}:
+    delete:
+      summary: Delete profile with given UUID
+      operationId: deleteProfile
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - delete_profile
+        - delete
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: string
+          required: true
+          description: Profile UUID to be deleted
         - name: Authorization
           in: header
           type: string
