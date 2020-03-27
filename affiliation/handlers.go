@@ -284,6 +284,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPostAddOrganizationOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutEditOrganizationHandler = affiliation.PutEditOrganizationHandlerFunc(
+		func(params affiliation.PutEditOrganizationParams) middleware.Responder {
+			log.Info("PutEditOrganizationHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutEditOrganizationHandlerFunc: " + info)
+
+			result, err := service.PutEditOrganization(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutEditOrganizationHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutEditOrganizationHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutEditOrganizationOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetMatchingBlacklistHandler = affiliation.GetMatchingBlacklistHandlerFunc(
 		func(params affiliation.GetMatchingBlacklistParams) middleware.Responder {
 			log.Info("GetMatchingBlacklistHandlerFunc")

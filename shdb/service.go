@@ -65,9 +65,11 @@ type Service interface {
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	QueryOrganizationsNested(string, int64, int64, *sql.Tx) ([]*models.OrganizationNestedDataOutput, int64, error)
 	AddOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
+	EditOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganization(int64, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganizationByName(string, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	DropOrganization(int64, bool, *sql.Tx) error
+	ValidateOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) error
 	// Organization Domain
 	DropOrgDomain(string, string, bool, *sql.Tx) error
 	QueryOrganizationsDomains(int64, string, int64, int64, *sql.Tx) ([]*models.DomainDataOutput, int64, error)
@@ -2074,6 +2076,22 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 	return
 }
 
+func (s *service) ValidateOrganization(organizationData *models.OrganizationDataOutput, forUpdate bool, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("ValidateOrganization: organizationData:%+v forUpdate:%v tx:%v", organizationData, forUpdate, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("ValidateOrganization(exit): organizationData:%+v forUpdate:%v tx:%v err:%v", organizationData, forUpdate, tx != nil, err))
+	}()
+	if forUpdate && organizationData.ID < 1 {
+		err = fmt.Errorf("organization '%+v' missing id", organizationData)
+		return
+	}
+	if organizationData.Name == "" {
+		err = fmt.Errorf("organization '%+v' missing name", organizationData)
+		return
+	}
+	return
+}
+
 func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput, forUpdate bool, tx *sql.Tx) (err error) {
 	log.Info(fmt.Sprintf("ValidateEnrollment: enrollmentData:%+v forUpdate:%v tx:%v", enrollmentData, forUpdate, tx != nil))
 	defer func() {
@@ -2308,6 +2326,59 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, r
 		enrollmentData, err = s.GetEnrollment(enrollmentData.ID, true, tx)
 		if err != nil {
 			enrollmentData = nil
+			return
+		}
+	}
+	return
+}
+
+func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOutput, refresh bool, tx *sql.Tx) (organizationData *models.OrganizationDataOutput, err error) {
+	log.Info(fmt.Sprintf("EditOrganization: inOrganizationData:%+v refresh:%v tx:%v", inOrganizationData, refresh, tx != nil))
+	organizationData = inOrganizationData
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"EditOrganization(exit): inOrganizationData:%+v refresh:%v tx:%v organizationData:%+v err:%v",
+				inOrganizationData,
+				refresh,
+				tx != nil,
+				organizationData,
+				err,
+			),
+		)
+	}()
+	err = s.ValidateOrganization(organizationData, true, tx)
+	if err != nil {
+		err = fmt.Errorf("organization '%+v' didn't pass update validation", organizationData)
+		organizationData = nil
+		return
+	}
+	update := "update organizations set name = ? where id = ?"
+	var res sql.Result
+	res, err = s.Exec(
+		s.db,
+		tx,
+		update,
+		organizationData.Name,
+		organizationData.ID,
+	)
+	if err != nil {
+		organizationData = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		organizationData = nil
+		return
+	}
+	if affected == 0 {
+		log.Info(fmt.Sprintf("EditOrganization: organization '%+v' update didn't affected any rows", organizationData))
+	}
+	if refresh {
+		organizationData, err = s.GetOrganization(organizationData.ID, true, tx)
+		if err != nil {
+			organizationData = nil
 			return
 		}
 	}

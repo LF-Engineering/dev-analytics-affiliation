@@ -39,6 +39,7 @@ type Service interface {
 	GetFindOrganizationByID(ctx context.Context, in *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
 	GetFindOrganizationByName(ctx context.Context, in *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
 	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
+	PutEditOrganization(ctx context.Context, in *affiliation.PutEditOrganizationParams) (*models.OrganizationDataOutput, error)
 	DeleteOrganization(ctx context.Context, in *affiliation.DeleteOrganizationParams) (*models.TextStatusOutput, error)
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
@@ -217,6 +218,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddOrganization"
+	case *affiliation.PutEditOrganizationParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutEditOrganization"
 	case *affiliation.PostAddUniqueIdentityParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -366,6 +371,51 @@ func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.P
 	// Do the actual API call
 	organization, err = s.shDB.AddOrganization(
 		&models.OrganizationDataOutput{
+			Name: orgName,
+		},
+		true,
+		nil,
+	)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// PutEditOrganization: API params:
+// /v1/affiliation/{projectSlug}/edit_organization/{orgID}/{orgName}
+// {projectSlug} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
+// {orgID} - required path parameter: organization ID to be edited
+// {orgName} - required path parameter: organization name - this is the new name that will be saved for this organization
+func (s *service) PutEditOrganization(ctx context.Context, params *affiliation.PutEditOrganizationParams) (organization *models.OrganizationDataOutput, err error) {
+	organization = &models.OrganizationDataOutput{}
+	orgID := params.OrgID
+	orgName := params.OrgName
+	log.Info(fmt.Sprintf("PutEditOrganization: orgID:%d orgName:%s", orgID, orgName))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutEditOrganization(exit): orgID:%d orgName:%s apiName:%s project:%s username:%s organization:%+v err:%v",
+				orgID,
+				orgName,
+				apiName,
+				project,
+				username,
+				s.ToLocalOrganization(organization),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	organization, err = s.shDB.EditOrganization(
+		&models.OrganizationDataOutput{
+			ID:   orgID,
 			Name: orgName,
 		},
 		true,
