@@ -1051,6 +1051,12 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 			err = errors.Wrap(err, apiName)
 			return
 		}
+		getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, nil)
+		if err != nil {
+			getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
+			err = errors.Wrap(err, apiName)
+			return
+		}
 		n := int64(len(getUnaffiliated.Unaffiliated))
 		if prevN == n {
 			break
@@ -1075,12 +1081,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 		getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
 		return
 	}
-	getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated[from:to], nil)
-	if err != nil {
-		getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
-		err = errors.Wrap(err, apiName)
-		return
-	}
+	getUnaffiliated.Unaffiliated = getUnaffiliated.Unaffiliated[from:to]
 	getUnaffiliated.Page = page
 	getUnaffiliated.Rows = rows
 	getUnaffiliated.User = username

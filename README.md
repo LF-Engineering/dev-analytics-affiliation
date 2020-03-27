@@ -48,7 +48,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` DEBUG='' JWT_TOKEN=`cat secret/lgryglicki.token` API_URL='http://127.0.0.1:18080' ./sh/curl_get_list_organizations.sh odpi/egeria 'google' 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 28230 '.' 2 2 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 0 'org' 0 2>/dev/null | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh /projects/odpi/egeria 100 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh /projects/odpi/egeria 30 2 ``.
   - `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh lfn/opnfv 100 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn 0 2552790984700 30 2>/dev/null | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_org_domain.sh cncf cloudnative.io odpi/egeria ``.
