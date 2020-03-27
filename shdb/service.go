@@ -3636,7 +3636,7 @@ func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentit
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"UnarchiveProfileNested(exit): uuid:%s status:%+v uid:%+v err:%v",
+				"UnarchiveProfileNested(exit): uuid:%s uid:%+v err:%v",
 				uuid,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,

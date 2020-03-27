@@ -855,6 +855,70 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/edit_profile/{uuid}:
+    put:
+      summary: Edit profile
+      operationId: putEditProfile
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/profile-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - edit_profile
+        - put
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: integer
+          required: true
+          description: Profile UUID to be edited
+        - name: name
+          in: query
+          type: string
+          description: Profile name (can be empty, if not set then no update of that parameter is made, applies to all remaining params)
+        - name: email
+          in: query
+          type: string
+          description: Profile email
+        - name: gender
+          in: query
+          type: string
+          description: Profile gender (male or female)
+        - name: gender_acc
+          in: query
+          type: integer
+          description: Profile gender probablity 0-100
+        - name: is_bot
+          in: query
+          type: integer
+          description: Profile bot flag 0 or 1
+        - name: country_code
+          in: query
+          type: string
+          description: "Profile country code - 2 letters: PL, US, checked against FK constraint 'countries' table"
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/add_unique_identity/{uuid}:
     post:
       summary: create unique identity and empty profile connected with it
