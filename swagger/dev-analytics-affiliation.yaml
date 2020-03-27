@@ -818,7 +818,7 @@ paths:
   /affiliation/{projectSlug}/unarchive_profile/{uuid}:
     post:
       summary: Unarchive profile with given UUID
-      operationId: unarchiveProfile
+      operationId: postUnarchiveProfile
       produces:
         - application/json
       responses:

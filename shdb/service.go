@@ -102,6 +102,7 @@ type Service interface {
 	DeleteOrganization(int64) (*models.TextStatusOutput, error)
 	DeleteOrgDomain(string, string) (*models.TextStatusOutput, error)
 	DeleteProfileNested(string, bool) (*models.TextStatusOutput, error)
+	UnarchiveProfileNested(string) (*models.UniqueIdentityNestedDataOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
 	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
@@ -3626,6 +3627,78 @@ func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStat
 	if err == nil {
 		status.Text = "Deleted blacklist email: " + email
 	}
+	return
+}
+
+func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("UnarchiveProfileNested: uuid:%s", uuid))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"UnarchiveProfileNested(exit): uuid:%s status:%+v uid:%+v err:%v",
+				uuid,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	var rows *sql.Rows
+	rows, err = s.Query(s.db, nil, "select max(archived_at) from uidentities_archive where uuid = ?", uuid)
+	if err != nil {
+		return
+	}
+	var archivedAt *time.Time
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(&archivedAt)
+		if err != nil {
+			return
+		}
+		if archivedAt != nil {
+			fetched = true
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if !fetched {
+		err = fmt.Errorf("uuid '%s' no archive(s) found", uuid)
+		return
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	err = s.UnarchiveUUID(uuid, *archivedAt, tx)
+	if err != nil {
+		return
+	}
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, tx)
+	if err != nil {
+		return
+	}
+	if len(ary) == 0 {
+		err = fmt.Errorf("Unarchived profile with UUID '%s' not found", uuid)
+		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
+	uid = ary[0]
 	return
 }
 

@@ -46,6 +46,7 @@ type Service interface {
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
+	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
@@ -232,6 +233,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "DeleteProfile"
+	case *affiliation.PostUnarchiveProfileParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PostUnarchiveProfile"
 	case *affiliation.PostAddUniqueIdentityParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -576,6 +581,41 @@ func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteP
 	}
 	// Do the actual API call
 	status, err = s.shDB.DeleteProfileNested(uuid, archive)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// PostUnarchiveProfile: API params:
+// /v1/affiliation/{projectSlug}/delete_profile/{uuid}[?archive=true]
+// {projectSlug} - required path parameter: project where we need to unarchive profile (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: profile uuid to be unarchived (it will cascade delete all objects referring to that uuid)
+func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.PostUnarchiveProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	uuid := params.UUID
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("PostUnarchiveProfile: uuid:%s", uuid))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostUnarchiveProfile(exit): uuid:%s apiName:%s project:%s username:%s uid:%+v err:%v",
+				uuid,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	uid, err = s.shDB.UnarchiveProfileNested(uuid)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
