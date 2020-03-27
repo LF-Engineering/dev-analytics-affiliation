@@ -197,7 +197,7 @@ func (s *ServiceStruct) ToLocalNestedOrganizations(ia []*models.OrganizationNest
 	return
 }
 
-// ToLocalNestedUniqueIdentities - to display values inside pointers
+// ToLocalNestedUniqueIdentity - to display values inside pointers
 func (s *ServiceStruct) ToLocalNestedUniqueIdentity(i *models.UniqueIdentityNestedDataOutput) (o interface{}) {
 	if i == nil {
 		return i

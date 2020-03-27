@@ -349,6 +349,51 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/edit_organization/{orgID}/{orgName}:
+    put:
+      summary: Edit organization
+      operationId: putEditOrganization
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/organization-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - edit_organization
+        - put
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: orgID
+          in: path
+          type: integer
+          required: true
+          description: Organization ID to be edited
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Update current organization name to this new name
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/find_organization_by_id/{orgID}:
     get:
       summary: Find organization by ID
