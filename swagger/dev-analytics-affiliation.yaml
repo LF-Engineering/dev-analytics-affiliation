@@ -116,11 +116,16 @@ paths:
           type: string
           required: true
           description: Project slug URL encoded like 'academy-software-foundation/opencue'
-        - name: top_n
+        - name: rows
           in: query
           type: integer
           default: 10
-          description: top N unaffiliated users, if 0 then return all, default top 10
+          description: rows per page, if 0 maximum page size 65535 is set
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: If set, it will return rows from a given page
         - name: Authorization
           in: header
           type: string
@@ -1158,8 +1163,8 @@ definitions:
         type: integer
         example: 100
   get-unaffiliated-output:
-    title: Top unaffiliated users output
-    description: Top unaffiliated users output
+    title: Unaffiliated users output
+    description: Unaffiliated users output
     type: object
     properties:
       user:
@@ -1168,6 +1173,12 @@ definitions:
       scope:
         type: string
         example: academy-software-foundation/opencue
+      page:
+        type: integer
+        example: 2
+      rows:
+        type: integer
+        example: 10
       unaffiliated:
         type: array
         items:

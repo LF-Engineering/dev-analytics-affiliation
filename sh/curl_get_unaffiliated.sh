@@ -32,11 +32,12 @@ rawurlencode() {
 }
 
 project=$(rawurlencode "${1}")
-top_n=$(rawurlencode "${2}")
+rows=$(rawurlencode "${2}")
+page=$(rawurlencode "${3}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?top_n=${top_n}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?rows=${rows}&page=${page}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?top_n=${top_n}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?rows=${rows}&page=${page}"

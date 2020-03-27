@@ -1001,26 +1001,35 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 }
 
 // GetUnaffiliated: API params:
-// /v1/affiliation/{projectSlug}/unaffiliated[?q=xyz][&top_n=100]
+// /v1/affiliation/{projectSlug}/unaffiliated[?page=2][&[rows=50]
 // {projectSlug} - required path parameter: project to get top unaffiliated users (project slug URL encoded, can be prefixed with "/projects/")
-// top_n - optional query parameter: return Top N unaffiliated users, 0 - means return all
+// rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10  (setting to zero still limits results to 65535)
+// page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUnaffiliatedParams) (getUnaffiliated *models.GetUnaffiliatedOutput, err error) {
-	topN := int64(10)
-	if params.Topn != nil {
-		topN = *params.Topn
-		if topN < 0 {
-			topN = 0
+	rows := int64(10)
+	if params.Rows != nil {
+		rows = *params.Rows
+		if rows <= 0 {
+			rows = 0xffff
+		}
+	}
+	page := int64(1)
+	if params.Page != nil {
+		page = *params.Page
+		if page < 1 {
+			page = 1
 		}
 	}
 	getUnaffiliated = &models.GetUnaffiliatedOutput{}
-	log.Info(fmt.Sprintf("GetUnaffiliated: top_n:%d", topN))
+	log.Info(fmt.Sprintf("GetUnaffiliated: rows:%d page:%d", rows, page))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetUnaffiliated(exit): top_n:%d apiName:%s project:%s username:%s getUnaffiliated:%d err:%v",
-				topN,
+				"GetUnaffiliated(exit): rows:%d page:%d apiName:%s project:%s username:%s getUnaffiliated:%d err:%v",
+				rows,
+				page,
 				apiName,
 				project,
 				username,
@@ -1033,24 +1042,47 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 		return
 	}
 	// Do the actual API call
-	more := (topN + 20) * 5
-	if topN == 0 {
-		more = 0
+	last := page * rows
+	more := (last + 5) * 3
+	prevN := int64(-1)
+	for {
+		getUnaffiliated, err = s.es.GetUnaffiliated(project, more)
+		if err != nil {
+			err = errors.Wrap(err, apiName)
+			return
+		}
+		n := int64(len(getUnaffiliated.Unaffiliated))
+		if prevN == n {
+			break
+		}
+		if n < last {
+			prevN = n
+			more *= 2
+			continue
+		}
+		break
 	}
-	getUnaffiliated, err = s.es.GetUnaffiliated(project, more)
-	if err != nil {
-		err = errors.Wrap(err, apiName)
+	n := int64(len(getUnaffiliated.Unaffiliated))
+	from := (page - 1) * rows
+	to := from + rows
+	if from > n {
+		from = n
+	}
+	if to > n {
+		to = n
+	}
+	if from == to {
+		getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
 		return
 	}
-	getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, nil)
+	getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated[from:to], nil)
 	if err != nil {
 		getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	if topN > 0 && int64(len(getUnaffiliated.Unaffiliated)) > topN {
-		getUnaffiliated.Unaffiliated = getUnaffiliated.Unaffiliated[0:topN]
-	}
+	getUnaffiliated.Page = page
+	getUnaffiliated.Rows = rows
 	getUnaffiliated.User = username
 	getUnaffiliated.Scope = project
 	return
