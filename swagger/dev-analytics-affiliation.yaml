@@ -730,6 +730,46 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/get_profile/{uuid}:
+    get:
+      summary: get profile with given UUID
+      operationId: getProfile
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - get_profile
+        - get
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: string
+          required: true
+          description: Profile UUID
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/add_unique_identity/{uuid}:
     post:
       summary: create unique identity and empty profile connected with it
