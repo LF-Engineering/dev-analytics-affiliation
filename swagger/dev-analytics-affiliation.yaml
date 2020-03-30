@@ -959,6 +959,67 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/add_identity/{source}/{id}:
+    post:
+      summary: create idenity (unique by source, email, name, username), if uuid is set either connect it to that uuid or create new unique identity with that uuid
+      operationId: postAddIdentity
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - add_unique_identity
+        - post
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: source
+          in: path
+          type: string
+          required: true
+          description: Identity source
+        - name: id
+          in: path
+          type: string
+          required: true
+          description: Identity ID to be added
+        - name: name
+          in: query
+          type: string
+          description: Identity name (can be empty, if not set then no update of that parameter is made, applies to all remaining params)
+        - name: email
+          in: query
+          type: string
+          description: Identity email
+        - name: username
+          in: query
+          type: string
+          description: Identity username
+        - name: uuid
+          in: query
+          type: string
+          description: Identity UUID (uuid it belongs to)
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID
