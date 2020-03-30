@@ -1220,8 +1220,8 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - affiliation
-        - get_profile_enrollments
-        - get
+        - add_enrollment
+        - post
       parameters:
         - name: projectSlug
           in: path
@@ -1252,7 +1252,7 @@ paths:
           in: header
           type: string
           required: true
-  /affiliation/{projectSlug}/delete_enrollment/{uuid}/{orgName}:
+  /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
       operationId: deleteEnrollment
@@ -1275,8 +1275,8 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - affiliation
-        - get_profile_enrollments
-        - get
+        - delete_enrollments
+        - delete
       parameters:
         - name: projectSlug
           in: path
@@ -1303,6 +1303,51 @@ paths:
           type: string
           format: date-time
           description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
+    delete:
+      summary: Merge overlapping enrollments for UUID/orgName
+      operationId: putMergeEnrollments
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - merge_enrollments
+        - put
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: string
+          required: true
+          description: Profile UUID
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Organization name (must exists)
         - name: Authorization
           in: header
           type: string

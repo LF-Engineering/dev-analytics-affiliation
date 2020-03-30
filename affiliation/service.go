@@ -670,7 +670,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 }
 
 // DeleteEnrollment: API params:
-// /v1/affiliation/{projectSlug}/delete_enrollment/{uuid}/{orgName}
+// /v1/affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}
 // {projectSlug} - required path parameter: project to delete enrollment from (project slug URL encoded, can be prefixed with "/projects/")
 // {uuid} - required path parameter: Profile UUID to add enrollment from
 // {orgName} - required path parameter: enrollment organization to delete (must exist)
