@@ -116,6 +116,7 @@ type Service interface {
 	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
+	FindEnrollmentsNested([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
@@ -781,6 +782,81 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 	}
 	if missingFatal && len(organizations) == 0 {
 		err = fmt.Errorf("cannot find organizations for %+v/%+v", columns, values)
+		return
+	}
+	return
+}
+func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v", columns, values, isDate, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindEnrollmentsNested(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v enrollments:%+v err:%v",
+				columns,
+				values,
+				isDate,
+				missingFatal,
+				tx != nil,
+				s.ToLocalNestedEnrollments(enrollments),
+				err,
+			),
+		)
+	}()
+	sel := "select e.id, e.uuid, e.start, e.end, o.id, o.name from enrollments e, organizations o where e.organization_id = o.id"
+	vals := []interface{}{}
+	nColumns := len(columns)
+	lastIndex := nColumns - 1
+	if nColumns > 0 {
+		sel += " and"
+	}
+	for index := range columns {
+		column := columns[index]
+		value := values[index]
+		date := isDate[index]
+		if date {
+			sel += " " + column + " = str_to_date(?, ?)"
+			vals = append(vals, value)
+			vals = append(vals, DateTimeFormat)
+		} else {
+			sel += " " + column + " = ?"
+			vals = append(vals, value)
+		}
+		if index < lastIndex {
+			sel += " and"
+		}
+	}
+	sel += " order by e.uuid asc, e.start asc, e.end asc"
+	rows, err := s.Query(s.db, tx, sel, vals...)
+	if err != nil {
+		return
+	}
+	oName := ""
+	for rows.Next() {
+		enrollmentData := &models.EnrollmentNestedDataOutput{}
+		err = rows.Scan(
+			&enrollmentData.ID,
+			&enrollmentData.UUID,
+			&enrollmentData.Start,
+			&enrollmentData.End,
+			&enrollmentData.OrganizationID,
+			&oName,
+		)
+		if err != nil {
+			return
+		}
+		enrollmentData.Organization = &models.OrganizationDataOutput{ID: enrollmentData.OrganizationID, Name: oName}
+		enrollments = append(enrollments, enrollmentData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(enrollments) == 0 {
+		err = fmt.Errorf("cannot find enrollments for %+v/%+v (nested)", columns, values)
 		return
 	}
 	return

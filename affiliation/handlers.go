@@ -689,4 +689,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutMoveIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetProfileEnrollmentsHandler = affiliation.GetProfileEnrollmentsHandlerFunc(
+		func(params affiliation.GetProfileEnrollmentsParams) middleware.Responder {
+			log.Info("GetProfileEnrollmentsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetProfileEnrollmentsHandlerFunc: " + info)
+
+			result, err := service.GetProfileEnrollments(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetProfileEnrollmentsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetProfileEnrollmentsHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetProfileEnrollmentsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

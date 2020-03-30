@@ -51,6 +51,7 @@ type Service interface {
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddIdentity(ctx context.Context, in *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteIdentity(ctx context.Context, in *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
+	GetProfileEnrollments(ctx context.Context, in *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -232,6 +233,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetProfile"
+	case *affiliation.GetProfileEnrollmentsParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetProfileEnrollments"
 	case *affiliation.DeleteProfileParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -1038,6 +1043,51 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 		return
 	}
 	uid = ary[0]
+	return
+}
+
+// GetProfileEnrollments: API params:
+// /v1/affiliation/{projectSlug}/enrollments/{uuid}
+// {projectSlug} - required path parameter: project to get profile from (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: UUID of the profile to get enrollments
+func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation.GetProfileEnrollmentsParams) (output *models.GetProfileEnrollmentsDataOutput, err error) {
+	uuid := params.UUID
+	output = &models.GetProfileEnrollmentsDataOutput{}
+	log.Info(fmt.Sprintf("GetProfileEnrollments: uuid:%s", uuid))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetProfileEnrollments(exit): uuid:%s apiName:%s project:%s username:%s output:%v err:%v",
+				uuid,
+				apiName,
+				project,
+				username,
+				output,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	var enrollments []*models.EnrollmentNestedDataOutput
+	enrollments, err = s.shDB.FindEnrollmentsNested([]string{"e.uuid"}, []interface{}{uuid}, []bool{false}, false, nil)
+	if err != nil {
+		return
+	}
+	if len(enrollments) == 0 {
+		_, err = s.shDB.GetUniqueIdentity(uuid, true, nil)
+		if err != nil {
+			return
+		}
+	}
+	output.UUID = uuid
+	output.User = username
+	output.Scope = project
+	output.Enrollments = enrollments
 	return
 }
 

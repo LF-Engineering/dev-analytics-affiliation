@@ -1171,7 +1171,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/unique-identity-nested-data-output"
+            $ref: "#/definitions/get-profile-enrollments-data-output"
         "400":
           $ref: "#/responses/invalid-request"
         "401":
@@ -1694,6 +1694,24 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/unique-identity-nested-data-output"
+  get-profile-enrollments-data-output:
+    title: Profile enrollments data output
+    description: Profile enrollments data output
+    type: object
+    properties:
+      user:
+        type: string
+        example: lukaszgryglicki
+      scope:
+        type: string
+        example: academy-software-foundation/opencue
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      enrollments:
+        type: array
+        items:
+          $ref: "#/definitions/enrollment-nested-data-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call
