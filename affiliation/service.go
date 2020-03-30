@@ -50,6 +50,7 @@ type Service interface {
 	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddIdentity(ctx context.Context, in *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteIdentity(ctx context.Context, in *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -251,6 +252,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddIdentity"
+	case *affiliation.DeleteIdentityParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteIdentity"
 	case *affiliation.GetListProfilesParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -485,6 +490,42 @@ func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation
 		err = errors.Wrap(err, apiName)
 		return
 	}
+	return
+}
+
+// DeleteIdentity: API params:
+// /v1/affiliation/{projectSlug}/delete_identity/{id}
+// {projectSlug} - required path parameter: project to add unique identity to (project slug URL encoded, can be prefixed with "/projects/")
+// {id} - required path parameter: Identity ID to be added
+func (s *service) DeleteIdentity(ctx context.Context, params *affiliation.DeleteIdentityParams) (status *models.TextStatusOutput, err error) {
+	id := params.ID
+	status = &models.TextStatusOutput{}
+	log.Info(fmt.Sprintf("DeleteIdentity: id:%s", id))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteIdentity(exit): id:%s apiName:%s project:%s username:%s status:%+v err:%v",
+				id,
+				apiName,
+				project,
+				username,
+				status,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	err = s.shDB.DeleteIdentity(id, false, true, nil, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	status.Text = "Deleted identity id '" + id + "'"
 	return
 }
 
