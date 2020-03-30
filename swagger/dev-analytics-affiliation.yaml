@@ -959,9 +959,9 @@ paths:
           in: header
           type: string
           required: true
-  /affiliation/{projectSlug}/add_identity/{source}/{id}:
+  /affiliation/{projectSlug}/add_identity/{source}:
     post:
-      summary: create idenity (unique by source, email, name, username), if uuid is set either connect it to that uuid or create new unique identity with that uuid
+      summary: create idenity (unique by source, email, name, username), if uuid is set connect it to that uuid or create new unique identity with that uuid otherwise
       operationId: postAddIdentity
       produces:
         - application/json
@@ -995,11 +995,6 @@ paths:
           type: string
           required: true
           description: Identity source
-        - name: id
-          in: path
-          type: string
-          required: true
-          description: Identity ID to be added
         - name: name
           in: query
           type: string
@@ -1015,7 +1010,7 @@ paths:
         - name: uuid
           in: query
           type: string
-          description: Identity UUID (uuid it belongs to)
+          description: Identity UUID (uuid it belongs to), can be empty, new unique identity will be added then
         - name: Authorization
           in: header
           type: string
@@ -1218,12 +1213,13 @@ definitions:
       id:
         type: string
         example: 16fe424acecf8d614d102fc0ece919a22200481d
-      uuid:
-        type: string
-        example: 00024380e0d8d854b42bf505333f245de77bd71d
       source:
         type: string
         example: github
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+        x-nullable: true
       name:
         type: string
         x-nullable: true

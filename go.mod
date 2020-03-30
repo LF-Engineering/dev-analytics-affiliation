@@ -32,5 +32,6 @@ require (
 	go.mongodb.org/mongo-driver v1.3.1 // indirect
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
+	golang.org/x/text v0.3.2
 	google.golang.org/appengine v1.6.5 // indirect
 )

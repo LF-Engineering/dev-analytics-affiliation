@@ -112,7 +112,12 @@ func (p *LocalProfile) String() (s string) {
 }
 
 func (p *LocalIdentity) String() (s string) {
-	s = "{ID:" + p.ID + ",UUID:" + p.UUID + ",Source:" + p.Source + ","
+	s = "{ID:" + p.ID + ",Source:" + p.Source + ","
+	if p.UUID == nil {
+		s += "UUID:nil,"
+	} else {
+		s += "UUID:" + *p.UUID + ","
+	}
 	if p.Name == nil {
 		s += "Name:nil,"
 	} else {

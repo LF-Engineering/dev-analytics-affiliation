@@ -49,6 +49,7 @@ type Service interface {
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
 	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PostAddIdentity(ctx context.Context, in *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -246,6 +247,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddUniqueIdentity"
+	case *affiliation.PostAddIdentityParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PostAddIdentity"
 	case *affiliation.GetListProfilesParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -476,6 +481,52 @@ func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation
 	}
 	// Do the actual API call
 	uniqueIdentity, err = s.shDB.AddNestedUniqueIdentity(uuid)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// PostAddIdentity: API params:
+// /v1/affiliation/{projectSlug}/add_identity/{source}
+// {projectSlug} - required path parameter: project to add unique identity to (project slug URL encoded, can be prefixed with "/projects/")
+// {source} - required path parameter: Source of identity to be added
+// name - optional query parameter: identity name
+// email - optional query parameter: identity email
+// username - optional query parameter: identity username
+// uuid - optional query parameter: UUID, if set - identity will be connected to that UUID if not, it will be auto-generated and new unique identity will be created
+func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostAddIdentityParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	identity := &models.IdentityDataOutput{
+		Source:   params.Source,
+		Name:     params.Name,
+		Email:    params.Email,
+		Username: params.Username,
+		UUID:     params.UUID,
+	}
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("PostAddIdentity: source:%s identity:%+v uid:%+v", params.Source, s.ToLocalIdentity(identity), s.ToLocalNestedUniqueIdentity(uid)))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostAddIdentity(exit): source:%s identity:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				params.Source,
+				s.ToLocalIdentity(identity),
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	uid, err = s.shDB.AddNestedIdentity(identity)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

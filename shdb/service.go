@@ -6,7 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"crypto/sha1"
 	"database/sql"
+	"encoding/hex"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
@@ -43,6 +48,8 @@ type Service interface {
 	ArchiveIdentity(string, *time.Time, *sql.Tx) error
 	UnarchiveIdentity(string, bool, *time.Time, *sql.Tx) error
 	DeleteIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
+	ValidateIdentity(*models.IdentityDataOutput, bool) error
+	FindIdentities([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	// UniqueIdentity
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
@@ -61,7 +68,7 @@ type Service interface {
 	ArchiveEnrollment(int64, *time.Time, *sql.Tx) error
 	UnarchiveEnrollment(int64, bool, *time.Time, *sql.Tx) error
 	DeleteEnrollmentArchive(int64, bool, bool, *time.Time, *sql.Tx) error
-	ValidateEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
+	ValidateEnrollment(*models.EnrollmentDataOutput, bool) error
 	// Organization
 	FindOrganizations([]string, []interface{}, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	QueryOrganizationsNested(string, int64, int64, *sql.Tx) ([]*models.OrganizationNestedDataOutput, int64, error)
@@ -70,7 +77,7 @@ type Service interface {
 	GetOrganization(int64, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	GetOrganizationByName(string, bool, *sql.Tx) (*models.OrganizationDataOutput, error)
 	DropOrganization(int64, bool, *sql.Tx) error
-	ValidateOrganization(*models.OrganizationDataOutput, bool, *sql.Tx) error
+	ValidateOrganization(*models.OrganizationDataOutput, bool) error
 	// Organization Domain
 	DropOrgDomain(string, string, bool, *sql.Tx) error
 	QueryOrganizationsDomains(int64, string, int64, int64, *sql.Tx) ([]*models.DomainDataOutput, int64, error)
@@ -107,6 +114,7 @@ type Service interface {
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
 	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
+	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
@@ -369,34 +377,40 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 			),
 		)
 	}()
-	if identity.UUID == uniqueIdentity.UUID {
+	if identity.UUID != nil && (*(identity.UUID) == uniqueIdentity.UUID) {
 		return
 	}
-	oldUniqueIdentity, err := s.GetUniqueIdentity(identity.UUID, true, tx)
-	if err != nil {
-		return
+	var oldUniqueIdentity *models.UniqueIdentityDataOutput
+	if identity.UUID != nil {
+		oldUniqueIdentity, err = s.GetUniqueIdentity(*(identity.UUID), true, tx)
+		if err != nil {
+			return
+		}
 	}
-	identity.UUID = uniqueIdentity.UUID
+	identity.UUID = &uniqueIdentity.UUID
 	identity.LastModified = s.Now()
 	identity, err = s.EditIdentity(identity, true, tx)
 	if err != nil {
 		return
 	}
-	affected, err := s.TouchUniqueIdentity(oldUniqueIdentity.UUID, tx)
-	if err != nil {
-		return
-	}
-	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(oldUniqueIdentity), affected)
-		return
-	}
-	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
-	if err != nil {
-		return
-	}
-	if affected != 1 {
-		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(uniqueIdentity), affected)
-		return
+	if oldUniqueIdentity != nil {
+		affected := int64(0)
+		affected, err = s.TouchUniqueIdentity(oldUniqueIdentity.UUID, tx)
+		if err != nil {
+			return
+		}
+		if affected != 1 {
+			err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(oldUniqueIdentity), affected)
+			return
+		}
+		affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
+		if err != nil {
+			return
+		}
+		if affected != 1 {
+			err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(uniqueIdentity), affected)
+			return
+		}
 	}
 	return
 }
@@ -2079,10 +2093,10 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 	return
 }
 
-func (s *service) ValidateOrganization(organizationData *models.OrganizationDataOutput, forUpdate bool, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("ValidateOrganization: organizationData:%+v forUpdate:%v tx:%v", organizationData, forUpdate, tx != nil))
+func (s *service) ValidateOrganization(organizationData *models.OrganizationDataOutput, forUpdate bool) (err error) {
+	log.Info(fmt.Sprintf("ValidateOrganization: organizationData:%+v forUpdate:%v", organizationData, forUpdate))
 	defer func() {
-		log.Info(fmt.Sprintf("ValidateOrganization(exit): organizationData:%+v forUpdate:%v tx:%v err:%v", organizationData, forUpdate, tx != nil, err))
+		log.Info(fmt.Sprintf("ValidateOrganization(exit): organizationData:%+v forUpdate:%v err:%v", organizationData, forUpdate, err))
 	}()
 	if forUpdate && organizationData.ID < 1 {
 		err = fmt.Errorf("organization '%+v' missing id", organizationData)
@@ -2095,10 +2109,10 @@ func (s *service) ValidateOrganization(organizationData *models.OrganizationData
 	return
 }
 
-func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput, forUpdate bool, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("ValidateEnrollment: enrollmentData:%+v forUpdate:%v tx:%v", enrollmentData, forUpdate, tx != nil))
+func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput, forUpdate bool) (err error) {
+	log.Info(fmt.Sprintf("ValidateEnrollment: enrollmentData:%+v forUpdate:%v", enrollmentData, forUpdate))
 	defer func() {
-		log.Info(fmt.Sprintf("ValidateEnrollment(exit): enrollmentData:%+v forUpdate:%v tx:%v err:%v", enrollmentData, forUpdate, tx != nil, err))
+		log.Info(fmt.Sprintf("ValidateEnrollment(exit): enrollmentData:%+v forUpdate:%v err:%v", enrollmentData, forUpdate, err))
 	}()
 	if forUpdate && enrollmentData.ID < 1 {
 		err = fmt.Errorf("enrollment '%+v' missing id", enrollmentData)
@@ -2118,6 +2132,179 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 	}
 	if time.Time(enrollmentData.End).Before(time.Time(enrollmentData.Start)) {
 		err = fmt.Errorf("enrollment '%+v' end date must be after start date", enrollmentData)
+		return
+	}
+	return
+}
+
+func (s *service) ValidateIdentity(identityData *models.IdentityDataOutput, forUpdate bool) (err error) {
+	log.Info(fmt.Sprintf("ValidateIdentity: identityData:%+v forUpdate:%v", s.ToLocalIdentity(identityData), forUpdate))
+	defer func() {
+		log.Info(fmt.Sprintf("ValidateIdentity(exit): identityData:%+v forUpdate:%v err:%v", s.ToLocalIdentity(identityData), forUpdate, err))
+	}()
+	if forUpdate && identityData.ID == "" {
+		err = fmt.Errorf("identity '%+v' missing id", s.ToLocalIdentity(identityData))
+		return
+	}
+	if !forUpdate {
+		if identityData.Source == "" {
+			err = fmt.Errorf("identity '%+v' missing source", s.ToLocalIdentity(identityData))
+			return
+		}
+		if (identityData.Name == nil || (identityData.Name != nil && *(identityData.Name) == "")) &&
+			(identityData.Email == nil || (identityData.Email != nil && *(identityData.Email) == "")) &&
+			(identityData.Username == nil || (identityData.Username != nil && *(identityData.Username) == "")) {
+			err = fmt.Errorf("identity '%+v' you need to set at leats one of (name, email, username)", s.ToLocalIdentity(identityData))
+			return
+		}
+		return
+	}
+	return
+}
+
+func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddNestedIdentity: identity:%+v", s.ToLocalIdentity(identity)))
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddNestedIdentity(exit): identity:%+v uid:%+v err:%v",
+				s.ToLocalIdentity(identity),
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	err = s.ValidateIdentity(identity, false)
+	if err != nil {
+		uid = nil
+		return
+	}
+	stripF := func(str string) string {
+		isOk := func(r rune) bool {
+			return r < 32 || r >= 127
+		}
+		t := transform.Chain(norm.NFKD, transform.RemoveFunc(isOk))
+		str, _, _ = transform.String(t, str)
+		return str
+	}
+	email := ""
+	if identity.Email != nil {
+		email = *(identity.Email)
+	}
+	name := ""
+	if identity.Name != nil {
+		name = *(identity.Name)
+	}
+	username := ""
+	if identity.Username != nil {
+		username = *(identity.Username)
+	}
+	arg := stripF(identity.Source) + ":" + stripF(email) + ":" + stripF(name) + ":" + stripF(username)
+	hash := sha1.New()
+	_, err = hash.Write([]byte(arg))
+	if err != nil {
+		uid = nil
+		return
+	}
+	identity.ID = hex.EncodeToString(hash.Sum(nil))
+	var identities []*models.IdentityDataOutput
+	identities, err = s.FindIdentities(
+		[]string{"source", "email", "name", "username"},
+		[]interface{}{identity.Source, identity.Email, identity.Name, identity.Username},
+		[]bool{false, false, false, false},
+		false,
+		nil,
+	)
+	if err != nil {
+		return
+	}
+	if len(identities) > 0 {
+		err = fmt.Errorf("Identity (source, email, name, username) = (%s, %s, %s, %s) already exists", identity.Source, email, name, username)
+		return
+	}
+	return
+}
+
+func (s *service) FindIdentities(columns []string, values []interface{}, isDate []bool, missingFatal bool, tx *sql.Tx) (identities []*models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindIdentities: columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v", columns, values, isDate, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindIdentities(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v identities:%+v err:%v",
+				columns,
+				values,
+				isDate,
+				missingFatal,
+				tx != nil,
+				s.ToLocalIdentities(identities),
+				err,
+			),
+		)
+	}()
+	sel := "select id, name, email, username, source, uuid, last_modified from identities"
+	vals := []interface{}{}
+	nColumns := len(columns)
+	lastIndex := nColumns - 1
+	if nColumns > 0 {
+		sel += " where"
+	}
+	for index := range columns {
+		column := columns[index]
+		value := values[index]
+		date := isDate[index]
+		isNil := false
+		v, ok := value.(*string)
+		if ok {
+			isNil = v == nil
+		}
+		if isNil {
+			sel += " " + column + " is null"
+		} else {
+			if date {
+				sel += " " + column + " = str_to_date(?, ?)"
+				vals = append(vals, value)
+				vals = append(vals, DateTimeFormat)
+			} else {
+				sel += " " + column + " = ?"
+				vals = append(vals, value)
+			}
+		}
+		if index < lastIndex {
+			sel += " and"
+		}
+	}
+	sel += " order by id"
+	rows, err := s.Query(s.db, tx, sel, vals...)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		identity := &models.IdentityDataOutput{}
+		err = rows.Scan(
+			&identity.ID,
+			&identity.Name,
+			&identity.Email,
+			&identity.Username,
+			&identity.Source,
+			&identity.UUID,
+			&identity.LastModified,
+		)
+		if err != nil {
+			return
+		}
+		identities = append(identities, identity)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(identities) == 0 {
+		err = fmt.Errorf("cannot find identities for %+v/%+v", columns, values)
 		return
 	}
 	return
@@ -2268,7 +2455,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, r
 			),
 		)
 	}()
-	err = s.ValidateEnrollment(enrollmentData, false, tx)
+	err = s.ValidateEnrollment(enrollmentData, false)
 	if err != nil {
 		enrollmentData = nil
 		return
@@ -2350,7 +2537,7 @@ func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOu
 			),
 		)
 	}()
-	err = s.ValidateOrganization(organizationData, true, tx)
+	err = s.ValidateOrganization(organizationData, true)
 	if err != nil {
 		err = fmt.Errorf("organization '%+v' didn't pass update validation", organizationData)
 		organizationData = nil
@@ -2403,7 +2590,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 			),
 		)
 	}()
-	err = s.ValidateEnrollment(enrollmentData, true, tx)
+	err = s.ValidateEnrollment(enrollmentData, true)
 	if err != nil {
 		err = fmt.Errorf("enrollment '%+v' didn't pass update validation", enrollmentData)
 		enrollmentData = nil
@@ -2478,8 +2665,8 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 			),
 		)
 	}()
-	if identityData.ID == "" || identityData.UUID == "" || identityData.Source == "" {
-		err = fmt.Errorf("identity '%+v' missing id or uuid or source", s.ToLocalIdentity(identityData))
+	if identityData.ID == "" || identityData.Source == "" {
+		err = fmt.Errorf("identity '%+v' missing id or source", s.ToLocalIdentity(identityData))
 		identityData = nil
 		return
 	}
@@ -2527,15 +2714,17 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	} else if affected == 1 {
 		affected2 := int64(0)
 		// Mark identity's matching unique identity as modified
-		affected2, err = s.TouchUniqueIdentity(identityData.UUID, tx)
-		if err != nil {
-			identityData = nil
-			return
-		}
-		if affected2 != 1 {
-			err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.ToLocalIdentity(identityData), affected2)
-			identityData = nil
-			return
+		if identityData.UUID != nil {
+			affected2, err = s.TouchUniqueIdentity(*(identityData.UUID), tx)
+			if err != nil {
+				identityData = nil
+				return
+			}
+			if affected2 != 1 {
+				err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.ToLocalIdentity(identityData), affected2)
+				identityData = nil
+				return
+			}
 		}
 	} else {
 		log.Info(fmt.Sprintf("EditIdentity: identity '%+v' update didn't affected any rows", s.ToLocalIdentity(identityData)))
@@ -3267,7 +3456,6 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		}
 		uuid := uid.UUID
 		prof.UUID = uuid
-		id.UUID = uuid
 		if rolID != nil && rolOrganization != nil {
 			rol = &models.EnrollmentNestedDataOutput{
 				ID:             *rolID,
@@ -3284,6 +3472,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		if iID != nil && iSource != nil {
 			id = &models.IdentityDataOutput{
 				ID:           *iID,
+				UUID:         &uuid,
 				Name:         iName,
 				Email:        iEmail,
 				Username:     iUsername,
