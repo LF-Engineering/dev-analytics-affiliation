@@ -1159,7 +1159,7 @@ paths:
           required: true
   /affiliation/{projectSlug}/enrollments/{uuid}:
     get:
-      summary: get profile's enrollments - profile specified by UUID
+      summary: Get profile's enrollments - profile specified by UUID
       operationId: getProfileEnrollments
       produces:
         - application/json
@@ -1192,7 +1192,62 @@ paths:
           in: path
           type: string
           required: true
-          description: Identity source
+          description: Profile UUID
+        - name: Authorization
+          in: header
+          type: string
+          required: true
+  /affiliation/{projectSlug}/add_enrollment/{uuid}/{orgName}:
+    post:
+      summary: Add enrollment to profile
+      operationId: postAddEnrollment
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - get_profile_enrollments
+        - get
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: string
+          required: true
+          description: Profile UUID
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Organization name (must exists)
+        - name: start
+          in: query
+          type: string
+          format: date-time
+          description: Optional date from (default is 1900-01-01)
+        - name: end
+          in: query
+          type: string
+          format: date-time
+          description: Optional date to (default is 2100-01-01)
         - name: Authorization
           in: header
           type: string
