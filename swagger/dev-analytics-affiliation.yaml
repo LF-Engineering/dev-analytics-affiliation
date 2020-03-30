@@ -1242,12 +1242,12 @@ paths:
           in: query
           type: string
           format: date-time
-          description: Optional date from (default is 1900-01-01)
+          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z]
         - name: end
           in: query
           type: string
           format: date-time
-          description: Optional date to (default is 2100-01-01)
+          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
         - name: Authorization
           in: header
           type: string

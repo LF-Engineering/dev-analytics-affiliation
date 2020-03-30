@@ -716,4 +716,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetProfileEnrollmentsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPostAddEnrollmentHandler = affiliation.PostAddEnrollmentHandlerFunc(
+		func(params affiliation.PostAddEnrollmentParams) middleware.Responder {
+			log.Info("PostAddEnrollmentHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PostAddEnrollmentHandlerFunc: " + info)
+
+			result, err := service.PostAddEnrollment(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PostAddEnrollmentHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PostAddEnrollmentHandlerFunc(ok): " + info)
+
+			return affiliation.NewPostAddEnrollmentOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }
