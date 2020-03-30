@@ -117,6 +117,7 @@ type Service interface {
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
+	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
@@ -1847,6 +1848,37 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving enrollment id '%d' created no data", id)
+		return
+	}
+	return
+}
+
+func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, missingFatal bool, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("WithdrawEnrollment: enrollment:%+v missingFatal:%v tx:%v", enrollment, missingFatal, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("WithdrawEnrollment(exit): enrollment:%+v missingFatal:%v tx:%v err:%v", enrollment, missingFatal, tx != nil, err))
+	}()
+	del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?)"
+	res, err := s.Exec(
+		s.db,
+		tx,
+		del,
+		enrollment.UUID,
+		enrollment.OrganizationID,
+		enrollment.Start,
+		DateTimeFormat,
+		enrollment.End,
+		DateTimeFormat,
+	)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting enrollment id '%+v' had no effect", enrollment)
 		return
 	}
 	return

@@ -54,6 +54,7 @@ type Service interface {
 	DeleteIdentity(ctx context.Context, in *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
 	GetProfileEnrollments(ctx context.Context, in *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
 	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteEnrollment(ctx context.Context, in *affiliation.DeleteEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
@@ -271,6 +272,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddEnrollment"
+	case *affiliation.DeleteEnrollmentParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteEnrollment"
 	case *affiliation.PutOrgDomainParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -590,7 +595,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 // /v1/affiliation/{projectSlug}/add_enrollment/{uuid}/{orgName}
 // {projectSlug} - required path parameter: project to add enrollment to (project slug URL encoded, can be prefixed with "/projects/")
 // {uuid} - required path parameter: Profile UUID to add enrollment to
-// {orgName} - required path parameter: enrollment organization (must exist)
+// {orgName} - required path parameter: enrollment organization to add (must exist)
 // start - optional query parameter: enrollment start date, 1900-01-01 if not set
 // end - optional query parameter: enrollment end date, 2100-01-01 if not set
 func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.PostAddEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
@@ -646,6 +651,84 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	}
 	// Do the actual API call
 	_, err = s.shDB.AddEnrollment(enrollment, false, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		return
+	}
+	uid = ary[0]
+	return
+}
+
+// DeleteEnrollment: API params:
+// /v1/affiliation/{projectSlug}/delete_enrollment/{uuid}/{orgName}
+// {projectSlug} - required path parameter: project to delete enrollment from (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: Profile UUID to add enrollment from
+// {orgName} - required path parameter: enrollment organization to delete (must exist)
+// start - optional query parameter: enrollment start date, 1900-01-01 if not set
+// end - optional query parameter: enrollment end date, 2100-01-01 if not set
+func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.DeleteEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
+	organization := &models.OrganizationDataOutput{Name: params.OrgName}
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("DeleteEnrollment: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteEnrollment(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				params.UUID,
+				enrollment,
+				organization,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	enrollment.OrganizationID = organization.ID
+	_, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	_, err = s.shDB.GetProfile(params.UUID, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if params.Start != nil {
+		enrollment.Start = *(params.Start)
+	} else {
+		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+	}
+	if params.End != nil {
+		enrollment.End = *(params.End)
+	} else {
+		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+	}
+	// Do the actual API call
+	err = s.shDB.WithdrawEnrollment(enrollment, true, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
