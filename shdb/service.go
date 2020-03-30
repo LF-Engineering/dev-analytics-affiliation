@@ -50,6 +50,7 @@ type Service interface {
 	DeleteIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
 	ValidateIdentity(*models.IdentityDataOutput, bool) error
 	FindIdentities([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
+	AddIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 	// UniqueIdentity
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
@@ -2217,11 +2218,154 @@ func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *m
 		nil,
 	)
 	if err != nil {
+		uid = nil
 		return
 	}
 	if len(identities) > 0 {
 		err = fmt.Errorf("Identity (source, email, name, username) = (%s, %s, %s, %s) already exists", identity.Source, email, name, username)
+		uid = nil
 		return
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	profile := &models.ProfileDataOutput{}
+	if identity.UUID != nil {
+		_, err = s.GetUniqueIdentity(*(identity.UUID), true, nil)
+		if err != nil {
+			uid = nil
+			return
+		}
+		profile, err = s.GetProfile(*(identity.UUID), false, nil)
+		if err != nil {
+			uid = nil
+			return
+		}
+	} else {
+		_, err = s.AddUniqueIdentity(
+			&models.UniqueIdentityDataOutput{
+				UUID: identity.ID,
+			},
+			false,
+			tx,
+		)
+		if err != nil {
+			return
+		}
+		profile, err = s.AddProfile(
+			&models.ProfileDataOutput{
+				UUID:  identity.ID,
+				Name:  identity.Name,
+				Email: identity.Email,
+			},
+			false,
+			tx,
+		)
+		if err != nil {
+			return
+		}
+		identity.UUID = &(identity.ID)
+	}
+	_, err = s.AddIdentity(identity, false, tx)
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	uid.UUID = *identity.UUID
+	uid.LastModified = s.Now()
+	uid.Profile = profile
+	uid.Identities = append(uid.Identities, identity)
+	tx = nil
+	return
+}
+
+func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddIdentity: inIdentityData:%+v refresh:%v tx:%v", s.ToLocalIdentity(inIdentityData), refresh, tx != nil))
+	identityData = inIdentityData
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddIdentity(exit): inIdentityData:%+v refresh:%v tx:%v identityData:%+v err:%v",
+				s.ToLocalIdentity(inIdentityData),
+				refresh,
+				tx != nil,
+				s.ToLocalIdentity(identityData),
+				err,
+			),
+		)
+	}()
+	if identityData.LastModified == nil {
+		identityData.LastModified = s.Now()
+	}
+	err = s.ValidateIdentity(identityData, false)
+	if err != nil {
+		identityData = nil
+		return
+	}
+	insert := "insert into identities(id, uuid, source, name, email, username, last_modified) select ?, ?, ?, ?, ?, ?, str_to_date(?, ?)"
+	var res sql.Result
+	res, err = s.Exec(
+		s.db,
+		tx,
+		insert,
+		identityData.ID,
+		identityData.UUID,
+		identityData.Source,
+		identityData.Name,
+		identityData.Email,
+		identityData.Username,
+		identityData.LastModified,
+		DateTimeFormat,
+	)
+	if err != nil {
+		identityData = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		identityData = nil
+		return
+	}
+	if affected > 1 {
+		err = fmt.Errorf("identity '%+v' insert affected %d rows", s.ToLocalIdentity(identityData), affected)
+		identityData = nil
+		return
+	} else if affected == 1 {
+		affected2 := int64(0)
+		// Mark identity's matching unique identity as modified
+		if identityData.UUID != nil {
+			affected2, err = s.TouchUniqueIdentity(*(identityData.UUID), tx)
+			if err != nil {
+				identityData = nil
+				return
+			}
+			if affected2 != 1 {
+				err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.ToLocalIdentity(identityData), affected2)
+				identityData = nil
+				return
+			}
+		}
+	} else {
+		err = fmt.Errorf("adding identity '%+v' didn't affected any rows", s.ToLocalIdentity(identityData))
+		identityData = nil
+		return
+	}
+	if refresh {
+		identityData, err = s.GetIdentity(identityData.ID, true, tx)
+		if err != nil {
+			identityData = nil
+			return
+		}
 	}
 	return
 }
