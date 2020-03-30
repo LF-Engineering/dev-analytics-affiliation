@@ -743,9 +743,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPostAddEnrollmentOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
-	api.AffiliationDeleteEnrollmentHandler = affiliation.DeleteEnrollmentHandlerFunc(
-		func(params affiliation.DeleteEnrollmentParams) middleware.Responder {
-			log.Info("DeleteEnrollmentHandlerFunc")
+	api.AffiliationDeleteEnrollmentsHandler = affiliation.DeleteEnrollmentsHandlerFunc(
+		func(params affiliation.DeleteEnrollmentsParams) middleware.Responder {
+			log.Info("DeleteEnrollmentsHandlerFunc")
 			ctx := params.HTTPRequest.Context()
 
 			var nilRequestID *string
@@ -755,19 +755,46 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			info := requestInfo(params.HTTPRequest)
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
-			}).Info("DeleteEnrollmentHandlerFunc: " + info)
+			}).Info("DeleteEnrollmentsHandlerFunc: " + info)
 
-			result, err := service.DeleteEnrollment(ctx, &params)
+			result, err := service.DeleteEnrollments(ctx, &params)
 			if err != nil {
-				return swagger.ErrorHandler("DeleteEnrollmentHandlerFunc(error): "+info, err)
+				return swagger.ErrorHandler("DeleteEnrollmentsHandlerFunc(error): "+info, err)
 			}
 
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 				"Payload":      logPayload(result),
-			}).Info("DeleteEnrollmentHandlerFunc(ok): " + info)
+			}).Info("DeleteEnrollmentsHandlerFunc(ok): " + info)
 
-			return affiliation.NewDeleteEnrollmentOK().WithXREQUESTID(requestID).WithPayload(result)
+			return affiliation.NewDeleteEnrollmentsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationPutMergeEnrollmentsHandler = affiliation.PutMergeEnrollmentsHandlerFunc(
+		func(params affiliation.PutMergeEnrollmentsParams) middleware.Responder {
+			log.Info("PutMergeEnrollmentsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutMergeEnrollmentsHandlerFunc: " + info)
+
+			result, err := service.PutMergeEnrollments(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutMergeEnrollmentsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutMergeEnrollmentsHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutMergeEnrollmentsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
 }

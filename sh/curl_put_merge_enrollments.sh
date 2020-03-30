@@ -44,25 +44,10 @@ rawurlencode() {
 project=$(rawurlencode "${1}")
 uuid=$(rawurlencode "${2}")
 orgName=$(rawurlencode "${3}")
-extra=''
-
-for prop in start end
-do
-  if [ ! -z "${!prop}" ]
-  then
-    encoded=$(rawurlencode "${!prop}")
-    if [ -z "$extra" ]
-    then
-      extra="?$prop=${encoded}"
-    else
-      extra="${extra}&$prop=${encoded}"
-    fi
-  fi
-done
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_enrollments/${uuid}/${orgName}${extra}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/merge_enrollments/${uuid}/${orgName}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_enrollments/${uuid}/${orgName}${extra}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/merge_enrollments/${uuid}/${orgName}"

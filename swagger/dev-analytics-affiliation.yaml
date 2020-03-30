@@ -1255,7 +1255,7 @@ paths:
   /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
-      operationId: deleteEnrollment
+      operationId: deleteEnrollments
       produces:
         - application/json
       responses:
@@ -1308,7 +1308,7 @@ paths:
           type: string
           required: true
   /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
-    delete:
+    put:
       summary: Merge overlapping enrollments for UUID/orgName
       operationId: putMergeEnrollments
       produces:
