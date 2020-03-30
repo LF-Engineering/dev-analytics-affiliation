@@ -1015,6 +1015,46 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/delete_identity/{id}:
+    delete:
+      summary: Delete identity with given ID (it will cascade delete all objects referring to that identity)
+      operationId: deleteIdentity
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - delete_identity
+        - delete
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: id
+          in: path
+          type: string
+          required: true
+          description: Identity ID to be deleted
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID
