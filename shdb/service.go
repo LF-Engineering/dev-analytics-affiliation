@@ -3667,8 +3667,10 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	if err != nil {
 		return
 	}
-	for uuid := range uidsMap {
-		all.Profiles = append(all.Profiles, uidsMap[uuid])
+	for _, prof := range uidsMap {
+		if len(prof.Enrollments) > 0 && len(prof.Identities) > 0 {
+			all.Profiles = append(all.Profiles, prof)
+		}
 	}
 	sort.Slice(all.Profiles, func(i, j int) bool {
 		iS := ""
