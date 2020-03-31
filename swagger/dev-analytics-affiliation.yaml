@@ -1900,23 +1900,24 @@ definitions:
       source:
         type: string
         example: github
+        x-go-custom-tag: 'yaml:"s"'
       email:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"email,omitempty"'
+        x-go-custom-tag: 'yaml:"e,omitempty"'
         example: lgryglicki@cncf.io
       name:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"name,omitempty"'
+        x-go-custom-tag: 'yaml:"n,omitempty"'
         example: Lukasz Gryglicki
       username:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"username,omitempty"'
+        x-go-custom-tag: 'yaml:"u,omitempty"'
         example: lukaszgryglicki
   enrollment-short-output:
     title: Enrollment data output - short
@@ -1926,14 +1927,15 @@ definitions:
       organization:
         type: string
         example: CNCF
+        x-go-custom-tag: 'yaml:"c"'
       start:
         type: string
-        format: date-time
-        example: '2019-09-02 03:00:33.000000'
+        example: 2019-09-02
+        x-go-custom-tag: 'yaml:"f"'
       end:
         type: string
-        format: date-time
-        example: '2019-09-02 03:00:33.000000'
+        example: 2019-09-02
+        x-go-custom-tag: 'yaml:"t"'
   all-output:
     title: Human readable output for all data
     description: Human readable output for all data
@@ -1943,42 +1945,42 @@ definitions:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"name,omitempty"'
+        x-go-custom-tag: 'yaml:"n,omitempty"'
         example: lukaszgryglicki
       email:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"email,omitempty"'
+        x-go-custom-tag: 'yaml:"e,omitempty"'
         example: lgryglicki@cncf.io
       gender:
         type: string
         example: male
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"gender,omitempty"'
+        x-go-custom-tag: 'yaml:"sex,omitempty"'
       is_bot:
         type: integer
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"is_bot,omitempty"'
+        x-go-custom-tag: 'yaml:"bot,omitempty"'
         example: 1
       country_code:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"country_code,omitempty"'
+        x-go-custom-tag: 'yaml:"cc,omitempty"'
         example: PL
       identities:
         type: array
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"identities,omitempty"'
+        x-go-custom-tag: 'yaml:"ids,omitempty"'
         items:
           $ref: "#/definitions/identity-short-output"
       enrollments:
         type: array
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"enrollments,omitempty"'
+        x-go-custom-tag: 'yaml:"rols,omitempty"'
         items:
           $ref: "#/definitions/enrollment-short-output"
   all-array-output:

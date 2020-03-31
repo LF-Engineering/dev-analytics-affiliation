@@ -146,6 +146,8 @@ var (
 	MinPeriodDate = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
 	// MaxPeriodDate - default end date for enrollments
 	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	// DateFormat - format date as YYYY-MM-DD
+	DateFormat = "2006-01-02"
 )
 
 func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *models.CountryDataOutput, err error) {
@@ -3632,8 +3634,8 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		}
 		if rolID != nil && rolOrganization != nil {
 			rol = &models.EnrollmentShortOutput{
-				Start:        *rolStart,
-				End:          *rolEnd,
+				Start:        time.Time(*rolStart).Format(DateFormat),
+				End:          time.Time(*rolEnd).Format(DateFormat),
 				Organization: *rolOrganization,
 			}
 		}
@@ -3705,7 +3707,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		if len(all.Profiles[k].Enrollments) > 1 {
 			sort.Slice(all.Profiles[k].Enrollments, func(i, j int) bool {
 				rols := all.Profiles[k].Enrollments
-				return time.Time(rols[i].Start).Before(time.Time(rols[j].Start))
+				return rols[i].Start < rols[j].Start
 			})
 		}
 		if len(all.Profiles[k].Identities) > 1 {
