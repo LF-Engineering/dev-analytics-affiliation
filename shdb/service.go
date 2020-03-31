@@ -3644,7 +3644,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 			prof.Name = &tmp
 		}
 		if prof.Email != nil {
-			tmp := string.Replace(strings.TrimSpace(*prof.Email), "@", "!", -1)
+			tmp := strings.Replace(strings.TrimSpace(*prof.Email), "@", "!", -1)
 			prof.Email = &tmp
 		}
 		if iName != nil {
