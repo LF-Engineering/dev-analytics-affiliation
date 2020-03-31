@@ -3624,6 +3624,41 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		if err != nil {
 			return
 		}
+		if prof.Name != nil && strings.TrimSpace(*prof.Name) == "" {
+			prof.Name = nil
+		}
+		if prof.Email != nil && strings.TrimSpace(*prof.Email) == "" {
+			prof.Email = nil
+		}
+		if iName != nil && strings.TrimSpace(*iName) == "" {
+			iName = nil
+		}
+		if iEmail != nil && strings.TrimSpace(*iEmail) == "" {
+			iEmail = nil
+		}
+		if iUsername != nil && strings.TrimSpace(*iUsername) == "" {
+			iUsername = nil
+		}
+		if prof.Name != nil {
+			tmp := strings.TrimSpace(*prof.Name)
+			prof.Name = &tmp
+		}
+		if prof.Email != nil {
+			tmp := string.Replace(strings.TrimSpace(*prof.Email), "@", "!", -1)
+			prof.Email = &tmp
+		}
+		if iName != nil {
+			tmp := strings.TrimSpace(*iName)
+			iName = &tmp
+		}
+		if iEmail != nil {
+			tmp := strings.Replace(strings.TrimSpace(*iEmail), "@", "!", -1)
+			iEmail = &tmp
+		}
+		if iUsername != nil {
+			tmp := strings.TrimSpace(*iUsername)
+			iUsername = &tmp
+		}
 		if iID != nil && iSource != nil {
 			id = &models.IdentityShortOutput{
 				Name:     iName,

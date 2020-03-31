@@ -1911,7 +1911,7 @@ definitions:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"N,omitempty"'
+        x-go-custom-tag: 'yaml:"M,omitempty"'
         example: Lukasz Gryglicki
       username:
         type: string
@@ -1945,7 +1945,7 @@ definitions:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"N,omitempty"'
+        x-go-custom-tag: 'yaml:"U,omitempty"'
         example: lukaszgryglicki
       email:
         type: string
