@@ -1366,7 +1366,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/all-output"
+            $ref: "#/definitions/all-array-output"
         "400":
           $ref: "#/responses/invalid-request"
         "401":
@@ -1961,6 +1961,15 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/enrollment-short-output"
+  all-array-output:
+    title: Human readable output for all data
+    description: Human readable output for all data
+    type: object
+    properties:
+      profiles:
+        type: array
+        items:
+          $ref: "#/definitions/all-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call

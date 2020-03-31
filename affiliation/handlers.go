@@ -797,4 +797,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutMergeEnrollmentsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetAllAffiliationsHandler = affiliation.GetAllAffiliationsHandlerFunc(
+		func(params affiliation.GetAllAffiliationsParams) middleware.Responder {
+			log.Info("GetAllAffiliationsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetAllAffiliationsHandlerFunc: " + info)
+
+			result, err := service.GetAllAffiliations(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetAllAffiliationsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetAllAffiliationsHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetAllAffiliationsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

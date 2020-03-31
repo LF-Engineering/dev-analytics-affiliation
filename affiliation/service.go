@@ -60,6 +60,7 @@ type Service interface {
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.GetTopContributorsOutput, error)
+	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -1775,5 +1776,31 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	}
 	getTopContributors.User = username
 	getTopContributors.Scope = project
+	return
+}
+
+// GetAllAffiliations: API params:
+// /v1/affiliation/all
+func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.GetAllAffiliationsParams) (all *models.AllArrayOutput, err error) {
+	all = &models.AllArrayOutput{}
+	log.Info("GetAllAffiliations")
+	defer func() {
+		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
+	}()
+	rows := int64(0xffff)
+	page := int64(1)
+	var uids []*models.UniqueIdentityNestedDataOutput
+	for {
+		data := &models.GetListProfilesOutput{}
+		data, err = s.shDB.GetListProfiles("", rows, page)
+		if err != nil {
+			return
+		}
+		uids = append(uids, data.Uids...)
+		if int64(len(data.Uids)) < rows {
+			break
+		}
+		page++
+	}
 	return
 }
