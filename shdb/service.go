@@ -3533,7 +3533,6 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	sel += " order by o.name, do.domain"
 	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
-	//fmt.Printf("=========>\n%s\n%+v\n<==========\n", selRoot+sel, args)
 	qrows, err = s.Query(s.db, tx, selRoot+sel, args...)
 	if err != nil {
 		return
@@ -3591,7 +3590,6 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	sel += "e.id, e.start, e.end, o.name as oname from uidentities u, profiles p "
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
-	sel += " limit 100"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, nil, sel)
 	if err != nil {
@@ -3624,13 +3622,6 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		if err != nil {
 			return
 		}
-		if rolID != nil && rolOrganization != nil {
-			rol = &models.EnrollmentShortOutput{
-				Start:        *rolStart,
-				End:          *rolEnd,
-				Organization: *rolOrganization,
-			}
-		}
 		if iID != nil && iSource != nil {
 			id = &models.IdentityShortOutput{
 				Name:     iName,
@@ -3639,9 +3630,18 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 				Source:   *iSource,
 			}
 		}
-		_, ok := uidsMap[uuid]
+		if rolID != nil && rolOrganization != nil {
+			rol = &models.EnrollmentShortOutput{
+				Start:        *rolStart,
+				End:          *rolEnd,
+				Organization: *rolOrganization,
+			}
+		}
+		existingProf, ok := uidsMap[uuid]
 		if !ok {
 			uidsMap[uuid] = prof
+		} else {
+			prof = existingProf
 		}
 		if iID != nil {
 			_, ok = idsMap[*iID]
@@ -3673,40 +3673,65 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	sort.Slice(all.Profiles, func(i, j int) bool {
 		iS := ""
 		if all.Profiles[i].Name != nil {
-			iS += *(all.Profiles[i].Name)
+			iS += ":" + *(all.Profiles[i].Name)
 		}
 		if all.Profiles[i].Email != nil {
-			iS += *(all.Profiles[i].Email)
+			iS += ":" + *(all.Profiles[i].Email)
 		}
 		if all.Profiles[i].CountryCode != nil {
-			iS += *(all.Profiles[i].CountryCode)
+			iS += ":" + *(all.Profiles[i].CountryCode)
 		}
 		if all.Profiles[i].Gender != nil {
-			iS += *(all.Profiles[i].Gender)
+			iS += ":" + *(all.Profiles[i].Gender)
 		}
 		jS := ""
 		if all.Profiles[j].Name != nil {
-			jS += *(all.Profiles[j].Name)
+			jS += ":" + *(all.Profiles[j].Name)
 		}
 		if all.Profiles[j].Email != nil {
-			jS += *(all.Profiles[j].Email)
+			jS += ":" + *(all.Profiles[j].Email)
 		}
 		if all.Profiles[j].CountryCode != nil {
-			jS += *(all.Profiles[j].CountryCode)
+			jS += ":" + *(all.Profiles[j].CountryCode)
 		}
 		if all.Profiles[j].Gender != nil {
-			jS += *(all.Profiles[j].Gender)
+			jS += ":" + *(all.Profiles[j].Gender)
 		}
 		return iS < jS
 	})
 	for k := range all.Profiles {
-		if len(all.Profiles[k].Enrollments) < 2 {
-			continue
+		if len(all.Profiles[k].Enrollments) > 1 {
+			sort.Slice(all.Profiles[k].Enrollments, func(i, j int) bool {
+				rols := all.Profiles[k].Enrollments
+				return time.Time(rols[i].Start).Before(time.Time(rols[j].Start))
+			})
 		}
-		sort.Slice(all.Profiles[k].Enrollments, func(i, j int) bool {
-			rols := all.Profiles[k].Enrollments
-			return time.Time(rols[i].Start).Before(time.Time(rols[j].Start))
-		})
+		if len(all.Profiles[k].Identities) > 1 {
+			sort.Slice(all.Profiles[k].Identities, func(i, j int) bool {
+				ids := all.Profiles[k].Identities
+				iS := ids[i].Source
+				if ids[i].Name != nil {
+					iS += ":" + *(ids[i].Name)
+				}
+				if ids[i].Email != nil {
+					iS += ":" + *(ids[i].Email)
+				}
+				if ids[i].Username != nil {
+					iS += ":" + *(ids[i].Username)
+				}
+				jS := ids[j].Source
+				if ids[j].Name != nil {
+					jS += ":" + *(ids[j].Name)
+				}
+				if ids[j].Email != nil {
+					jS += ":" + *(ids[j].Email)
+				}
+				if ids[j].Username != nil {
+					jS += ":" + *(ids[j].Username)
+				}
+				return iS < jS
+			})
+		}
 	}
 	return
 }
