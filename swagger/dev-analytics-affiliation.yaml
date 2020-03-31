@@ -1958,29 +1958,29 @@ definitions:
         example: male
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"sex,omitempty"'
+        x-go-custom-tag: 'yaml:"s,omitempty"'
       is_bot:
         type: integer
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"bot,omitempty"'
+        x-go-custom-tag: 'yaml:"b,omitempty"'
         example: 1
       country_code:
         type: string
         x-nullable: true
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"cc,omitempty"'
+        x-go-custom-tag: 'yaml:"c,omitempty"'
         example: PL
       identities:
         type: array
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"ids,omitempty"'
+        x-go-custom-tag: 'yaml:"i,omitempty"'
         items:
           $ref: "#/definitions/identity-short-output"
       enrollments:
         type: array
         x-omitempty: true
-        x-go-custom-tag: 'yaml:"rols,omitempty"'
+        x-go-custom-tag: 'yaml:"r,omitempty"'
         items:
           $ref: "#/definitions/enrollment-short-output"
   all-array-output:
@@ -1990,6 +1990,7 @@ definitions:
     properties:
       profiles:
         type: array
+        x-go-custom-tag: 'yaml:"p,omitempty"'
         items:
           $ref: "#/definitions/all-output"
   text-status-output:
