@@ -1352,6 +1352,31 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/all:
+    get:
+      summary: Return all affiliations data in human readable format
+      operationId: getAllAffiliations
+      produces:
+        - application/yaml
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/all-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - all
+        - get
 definitions:
   health:
     type: object
@@ -1420,7 +1445,7 @@ definitions:
       is_bot:
         type: integer
         # database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
-        x-nullable: true  
+        x-nullable: true
         example: 1
       country_code:
         type: string
@@ -1867,6 +1892,75 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/enrollment-nested-data-output"
+  identity-short-output:
+    title: Identity data output - short
+    description: Identity data - short
+    type: object
+    properties:
+      source:
+        type: string
+        example: github
+      email:
+        type: string
+        x-nullable: true
+        example: lgryglicki@cncf.io
+      name:
+        type: string
+        x-nullable: true
+        example: Lukasz Gryglicki
+      username:
+        type: string
+        x-nullable: true
+        example: lukaszgryglicki
+  enrollment-short-output:
+    title: Enrollment data output - short
+    description: Enrollment data - short
+    type: object
+    properties:
+      organization:
+        type: string
+        example: CNCF
+      start:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
+      end:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
+  all-output:
+    title: Human readable output for all data
+    description: Human readable output for all data
+    type: object
+    properties:
+      name:
+        type: string
+        x-nullable: true
+        example: lukaszgryglicki
+      email:
+        type: string
+        x-nullable: true
+        example: lgryglicki@cncf.io
+      gender:
+        type: string
+        example: male
+        x-nullable: true
+      is_bot:
+        type: integer
+        x-nullable: true
+        example: 1
+      country_code:
+        type: string
+        x-nullable: true
+        example: PL
+      identities:
+        type: array
+        items:
+          $ref: "#/definitions/identity-short-output"
+      enrollments:
+        type: array
+        items:
+          $ref: "#/definitions/enrollment-short-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call
