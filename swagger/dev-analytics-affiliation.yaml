@@ -1903,14 +1903,20 @@ definitions:
       email:
         type: string
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"email,omitempty"'
         example: lgryglicki@cncf.io
       name:
         type: string
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"name,omitempty"'
         example: Lukasz Gryglicki
       username:
         type: string
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"username,omitempty"'
         example: lukaszgryglicki
   enrollment-short-output:
     title: Enrollment data output - short
@@ -1936,29 +1942,43 @@ definitions:
       name:
         type: string
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"name,omitempty"'
         example: lukaszgryglicki
       email:
         type: string
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"email,omitempty"'
         example: lgryglicki@cncf.io
       gender:
         type: string
         example: male
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"gender,omitempty"'
       is_bot:
         type: integer
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"is_bot,omitempty"'
         example: 1
       country_code:
         type: string
         x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"country_code,omitempty"'
         example: PL
       identities:
         type: array
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"identities,omitempty"'
         items:
           $ref: "#/definitions/identity-short-output"
       enrollments:
         type: array
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"enrollments,omitempty"'
         items:
           $ref: "#/definitions/enrollment-short-output"
   all-array-output:

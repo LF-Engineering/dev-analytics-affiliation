@@ -121,6 +121,7 @@ type Service interface {
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
+	GetAllAffiliations() (*models.AllArrayOutput, error)
 }
 
 type service struct {
@@ -3578,6 +3579,138 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	return
 }
 
+func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
+	all = &models.AllArrayOutput{}
+	log.Info("GetAllAffiliations")
+	defer func() {
+		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
+	}()
+	sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
+	sel += "i.id, i.name, i.email, i.username, i.source, s.id, s.start, s.end, s.oname "
+	sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
+	sel += "e.id, e.start, e.end, o.name as oname from uidentities u, profiles p "
+	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
+	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
+	sel += " limit 100"
+	var rows *sql.Rows
+	rows, err = s.Query(s.db, nil, sel)
+	if err != nil {
+		return
+	}
+	var (
+		iID             *string
+		iName           *string
+		iEmail          *string
+		iUsername       *string
+		iSource         *string
+		rolID           *int64
+		rolStart        *strfmt.DateTime
+		rolEnd          *strfmt.DateTime
+		rolOrganization *string
+	)
+	uidsMap := make(map[string]*models.AllOutput)
+	idsMap := make(map[string]*models.IdentityShortOutput)
+	rolsMap := make(map[int64]*models.EnrollmentShortOutput)
+	uuid := ""
+	for rows.Next() {
+		prof := &models.AllOutput{}
+		id := &models.IdentityShortOutput{}
+		rol := &models.EnrollmentShortOutput{}
+		err = rows.Scan(
+			&uuid, &prof.Name, &prof.Email, &prof.Gender, &prof.IsBot, &prof.CountryCode,
+			&iID, &iName, &iEmail, &iUsername, &iSource,
+			&rolID, &rolStart, &rolEnd, &rolOrganization,
+		)
+		if err != nil {
+			return
+		}
+		if rolID != nil && rolOrganization != nil {
+			rol = &models.EnrollmentShortOutput{
+				Start:        *rolStart,
+				End:          *rolEnd,
+				Organization: *rolOrganization,
+			}
+		}
+		if iID != nil && iSource != nil {
+			id = &models.IdentityShortOutput{
+				Name:     iName,
+				Email:    iEmail,
+				Username: iUsername,
+				Source:   *iSource,
+			}
+		}
+		_, ok := uidsMap[uuid]
+		if !ok {
+			uidsMap[uuid] = prof
+		}
+		if iID != nil {
+			_, ok = idsMap[*iID]
+			if !ok {
+				prof.Identities = append(prof.Identities, id)
+				idsMap[*iID] = id
+			}
+		}
+		if rolID != nil {
+			_, ok = rolsMap[*rolID]
+			if !ok {
+				prof.Enrollments = append(prof.Enrollments, rol)
+				rolsMap[*rolID] = rol
+			}
+		}
+		uidsMap[uuid] = prof
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	for uuid := range uidsMap {
+		all.Profiles = append(all.Profiles, uidsMap[uuid])
+	}
+	sort.Slice(all.Profiles, func(i, j int) bool {
+		iS := ""
+		if all.Profiles[i].Name != nil {
+			iS += *(all.Profiles[i].Name)
+		}
+		if all.Profiles[i].Email != nil {
+			iS += *(all.Profiles[i].Email)
+		}
+		if all.Profiles[i].CountryCode != nil {
+			iS += *(all.Profiles[i].CountryCode)
+		}
+		if all.Profiles[i].Gender != nil {
+			iS += *(all.Profiles[i].Gender)
+		}
+		jS := ""
+		if all.Profiles[j].Name != nil {
+			jS += *(all.Profiles[j].Name)
+		}
+		if all.Profiles[j].Email != nil {
+			jS += *(all.Profiles[j].Email)
+		}
+		if all.Profiles[j].CountryCode != nil {
+			jS += *(all.Profiles[j].CountryCode)
+		}
+		if all.Profiles[j].Gender != nil {
+			jS += *(all.Profiles[j].Gender)
+		}
+		return iS < jS
+	})
+	for k := range all.Profiles {
+		if len(all.Profiles[k].Enrollments) < 2 {
+			continue
+		}
+		sort.Slice(all.Profiles[k].Enrollments, func(i, j int) bool {
+			rols := all.Profiles[k].Enrollments
+			return time.Time(rols[i].Start).Before(time.Time(rols[j].Start))
+		})
+	}
+	return
+}
+
 func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identityRequired bool, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
 	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d identityRequired:%v tx:%v", q, rows, page, identityRequired, tx != nil))
 	defer func() {
@@ -3738,8 +3871,8 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 			uidsMap[uuid] = uid
 		}
 		uidentity = uidsMap[uuid]
-		_, ok = idsMap[id.ID]
 		if identityRequired || (!identityRequired && iID != nil && iSource != nil) {
+			_, ok = idsMap[id.ID]
 			if !ok {
 				uidentity.Identities = append(uidentity.Identities, id)
 				idsMap[id.ID] = id
@@ -3754,14 +3887,6 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		}
 		uidsMap[uuid] = uidentity
 	}
-	suuids := []string{}
-	for uuid := range uidsMap {
-		suuids = append(suuids, uuid)
-	}
-	sort.Strings(suuids)
-	for _, uuid := range suuids {
-		uids = append(uids, uidsMap[uuid])
-	}
 	err = qrows.Err()
 	if err != nil {
 		return
@@ -3769,6 +3894,14 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	err = qrows.Close()
 	if err != nil {
 		return
+	}
+	suuids := []string{}
+	for uuid := range uidsMap {
+		suuids = append(suuids, uuid)
+	}
+	sort.Strings(suuids)
+	for _, uuid := range suuids {
+		uids = append(uids, uidsMap[uuid])
 	}
 	sel = "select count(distinct u.uuid) from uidentities u, identities i, profiles p"
 	query = sel + " " + where

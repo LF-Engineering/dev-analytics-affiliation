@@ -1787,20 +1787,9 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 	defer func() {
 		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
 	}()
-	rows := int64(0xffff)
-	page := int64(1)
-	var uids []*models.UniqueIdentityNestedDataOutput
-	for {
-		data := &models.GetListProfilesOutput{}
-		data, err = s.shDB.GetListProfiles("", rows, page)
-		if err != nil {
-			return
-		}
-		uids = append(uids, data.Uids...)
-		if int64(len(data.Uids)) < rows {
-			break
-		}
-		page++
+	all, err = s.shDB.GetAllAffiliations()
+	if err != nil {
+		return
 	}
 	return
 }
