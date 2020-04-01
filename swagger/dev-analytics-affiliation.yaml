@@ -1740,72 +1740,95 @@ definitions:
       name:
         type: string
         example: Lukasz Gryglicki
+        x-omitempty: false
       uuid:
         type: string
         example: 00024380e0d8d854b42bf505333f245de77bd71d
+        x-omitempty: false
       email:
         type: string
         example: lgryglicki@cncf.io
+        x-omitempty: false
       organization:
         type: string
         example: CNCF
+        x-omitempty: false
       git:
         type: object
+        x-omitempty: false
         properties:
           commits:
             type: integer
             example: 123
+            x-omitempty: false
           lines_of_code_added:
             type: integer
             example: 123
+            x-omitempty: false
           lines_of_code_removed:
             type: integer
             example: 123
+            x-omitempty: false
           lines_of_code_changed:
             type: integer
             example: 123
+            x-omitempty: false
       gerrit:
         type: object
+        x-omitempty: false
         properties:
           merged_changesets:
             type: integer
             example: 123
+            x-omitempty: false
           reviews_approved:
             type: integer
             example: 123
+            x-omitempty: false
       jira:
         type: object
+        x-omitempty: false
         properties:
           issues_created:
             type: integer
             example: 123
+            x-omitempty: false
           issues_assigned:
             type: integer
             example: 123
+            x-omitempty: false
           average_issues_open_days:
             type: number
             example: 123.5
+            x-omitempty: false
       confluence:
         type: object
+        x-omitempty: false
         properties:
           pages_created:
             type: integer
             example: 123
+            x-omitempty: false
           pages_edited:
             type: integer
             example: 123
+            x-omitempty: false
           comments:
             type: integer
             example: 123
+            x-omitempty: false
           blog_posts:
             type: integer
             example: 123
+            x-omitempty: false
           date_since_last_documentation:
             type: number
             example: 123.5
+            x-omitempty: false
           last_documentation:
             type: string
             example: 2020-03-23T14:09:04.000Z
+            x-omitempty: false
   get-top-contributors-output:
     title: Top contributors output
     description: Top contributors output
