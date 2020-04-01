@@ -2,6 +2,7 @@ package affiliation
 
 import (
 	"fmt"
+	"html"
 	"strings"
 
 	"net/http"
@@ -19,6 +20,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 	requestInfo := func(r *http.Request) string {
 		agent := ""
 		hdr := r.Header
+		method := r.Method
+		path := html.EscapeString(r.URL.Path)
 		if hdr != nil {
 			uAgentAry, ok := hdr["User-Agent"]
 			if ok {
@@ -26,9 +29,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			}
 		}
 		if agent != "" {
-			return fmt.Sprintf("Request IP: %s, Request Agent: %s", r.RemoteAddr, agent)
+			return fmt.Sprintf("Request IP: %s, Request Agent: %s, method: %s, path: %s", r.RemoteAddr, agent, method, path)
 		}
-		return fmt.Sprintf("Request IP: %s", r.RemoteAddr)
+		return fmt.Sprintf("Request IP: %s, method: %s, path: %s", r.RemoteAddr, method, path)
 	}
 	maxPayload := 0x8000
 	logPayload := func(payload interface{}) interface{} {
