@@ -108,7 +108,7 @@ spec:
               key: AUTH0_USERNAME_CLAIM.secret
       restartPolicy: {{ .Values.apiRestartPolicy }}
       nodeSelector:
-{{- with .Values.appNodeSelector -}}
+{{- with .Values.nodeSelector -}}
 {{ toYaml . | nindent 8 }}
 {{ end }}
 {{ end }}
