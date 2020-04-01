@@ -216,7 +216,7 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 		}
 		sortedDates = append(sortedDates, newPair)
 	}
-	sort.Slice(sortedDates, func(i, j int) bool {
+	sort.SliceStable(sortedDates, func(i, j int) bool {
 		idx := 0
 		if sortedDates[i][0] == sortedDates[j][0] {
 			idx = 1
@@ -606,7 +606,7 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 	if err != nil {
 		return
 	}
-	sort.Slice(unaffiliated, func(i, j int) bool {
+	sort.SliceStable(unaffiliated, func(i, j int) bool {
 		return unaffiliated[i].Contributions > unaffiliated[j].Contributions
 	})
 	return
@@ -3709,7 +3709,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 			all.Profiles = append(all.Profiles, prof)
 		}
 	}
-	sort.Slice(all.Profiles, func(i, j int) bool {
+	sort.SliceStable(all.Profiles, func(i, j int) bool {
 		iS := ""
 		if all.Profiles[i].Name != nil {
 			iS += ":" + *(all.Profiles[i].Name)
@@ -3722,6 +3722,13 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		}
 		if all.Profiles[i].Gender != nil {
 			iS += ":" + *(all.Profiles[i].Gender)
+		}
+		if all.Profiles[i].IsBot != nil {
+			if *(all.Profiles[i].IsBot) == 0 {
+				iS += ":0"
+			} else {
+				iS += ":1"
+			}
 		}
 		jS := ""
 		if all.Profiles[j].Name != nil {
@@ -3736,17 +3743,30 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		if all.Profiles[j].Gender != nil {
 			jS += ":" + *(all.Profiles[j].Gender)
 		}
+		if all.Profiles[j].IsBot != nil {
+			if *(all.Profiles[j].IsBot) == 0 {
+				jS += ":0"
+			} else {
+				jS += ":1"
+			}
+		}
 		return iS < jS
 	})
 	for k := range all.Profiles {
 		if len(all.Profiles[k].Enrollments) > 1 {
-			sort.Slice(all.Profiles[k].Enrollments, func(i, j int) bool {
+			sort.SliceStable(all.Profiles[k].Enrollments, func(i, j int) bool {
 				rols := all.Profiles[k].Enrollments
+				if rols[i].Start == rols[j].Start {
+					if rols[i].End == rols[j].End {
+						return rols[i].Organization < rols[j].Organization
+					}
+					return rols[i].End < rols[j].End
+				}
 				return rols[i].Start < rols[j].Start
 			})
 		}
 		if len(all.Profiles[k].Identities) > 1 {
-			sort.Slice(all.Profiles[k].Identities, func(i, j int) bool {
+			sort.SliceStable(all.Profiles[k].Identities, func(i, j int) bool {
 				ids := all.Profiles[k].Identities
 				iS := ids[i].Source
 				if ids[i].Name != nil {
