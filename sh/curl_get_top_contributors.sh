@@ -9,16 +9,6 @@ then
   echo "$0: please specify project slug as a 1st arg"
   exit 2
 fi
-if [ -z "$2" ]
-then
-  echo "$0: please specify from as a 2nd arg"
-  exit 3
-fi
-if [ -z "$3" ]
-then
-  echo "$0: please specify to as a 3rd arg"
-  exit 4
-fi
 if [ -z "$API_URL" ]
 then
   export API_URL="http://127.0.0.1:8080"
@@ -42,8 +32,16 @@ rawurlencode() {
 }
 
 project=$(rawurlencode "${1}")
-from=$(rawurlencode "${2}")
-to=$(rawurlencode "${3}")
+from=''
+if [ ! -z "$2" ]
+then
+  from=$(rawurlencode "${2}")
+fi
+to=''
+if [ ! -z "$3" ]
+then
+  to=$(rawurlencode "${3}")
+fi
 limit=10
 if [ ! -z "$4" ]
 then

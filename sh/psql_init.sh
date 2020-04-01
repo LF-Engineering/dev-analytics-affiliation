@@ -24,5 +24,7 @@ then
 else
   psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics < sh/dev_analytics_prod.sql
 fi
-psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c "insert into access_control_entries(scope, subject, resource, action, effect, extra) select 'odpi/egeria', 'lgryglicki', 'identity', 'manage', 0, '{}'"
+# psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c "insert into access_control_entries(scope, subject, resource, action, effect, extra) select 'odpi/egeria', 'lgryglicki', 'identity', 'manage', 0, '{}'"
+psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c "insert into access_control_entries(scope, subject, resource, action, effect) select distinct slug, 'lgryglicki', 'identity', 'manage', 0 from projects"
+psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c "insert into access_control_entries(scope, subject, resource, action, effect) select distinct '/projects/' || slug, 'lgryglicki', 'identity', 'manage', 0 from projects"
 psql -U postgres -h 127.0.0.1 -p 15432 dev_analytics -c '\d'

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"encoding/json"
 	"net/http"
@@ -1721,8 +1722,8 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 // GetTopContributors: API params:
 // /v1/affiliation/{projectSlug}/top_contributors?from=1552790984700&to=1552790984700][&limit=50][&offset=2]
 // {projectSlug} - required path parameter: project to get top contributors stats (project slug URL encoded, can be prefixed with "/projects/")
-// from - required query parameter - milliseconds since 1970, for example 1552790984700, filter data from
-// to - required query parameter - milliseconds since 1970, for example 1552790984700, filter data to
+// from - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data from, default 90 days ago
+// to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
 // limit - optional query parameter: page size, default 10
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (getTopContributors *models.GetTopContributorsOutput, err error) {
@@ -1740,16 +1741,29 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 			offset = 1
 		}
 	}
+	from := int64(0)
+	if params.From != nil {
+		from = *params.From
+	} else {
+		from = (time.Now().Add(-24 * 90 * time.Hour)).UnixNano() / 1.0e6
+	}
+	to := int64(0)
+	if params.To != nil {
+		to = *params.To
+	} else {
+		to = time.Now().UnixNano() / 1.0e6
+	}
+
 	getTopContributors = &models.GetTopContributorsOutput{}
-	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d", params.From, params.To, limit, offset))
+	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d", from, to, limit, offset))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
 				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d apiName:%s project:%s username:%s getTopContributors:%d err:%v",
-				params.From,
-				params.To,
+				from,
+				to,
 				limit,
 				offset,
 				apiName,
@@ -1764,16 +1778,18 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		return
 	}
 	// Do the actual API call
-	getTopContributors, err = s.es.GetTopContributors(project, params.From, params.To, limit, offset)
+	getTopContributors, err = s.es.GetTopContributors(project, from, to, limit, offset)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	err = s.shDB.EnrichContributors(getTopContributors.Contributors, params.To, nil)
+	err = s.shDB.EnrichContributors(getTopContributors.Contributors, to, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
 	}
+	getTopContributors.From = from
+	getTopContributors.To = to
 	getTopContributors.User = username
 	getTopContributors.Scope = project
 	return

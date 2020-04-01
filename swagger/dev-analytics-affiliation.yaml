@@ -64,13 +64,11 @@ paths:
         - name: from
           in: query
           type: integer
-          required: true
-          description: the datetime from which to search, e.g 1552790984700
+          description: the datetime from which to search, e.g 1552790984700, default is 90 days ago
         - name: to
           in: query
           type: integer
-          required: true
-          description: the datetime from which to search, e.g 1552790984700
+          description: the datetime from which to search, e.g 1552790984700, default is now
         - name: limit
           in: query
           type: integer
@@ -1819,6 +1817,12 @@ definitions:
       scope:
         type: string
         example: academy-software-foundation/opencue
+      from:
+        type: integer
+        example: 1552790984700
+      to:
+        type: integer
+        example: 1552790984700
       contributors:
         type: array
         items:
