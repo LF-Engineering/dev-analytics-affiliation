@@ -3709,89 +3709,29 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 			all.Profiles = append(all.Profiles, prof)
 		}
 	}
-	sort.SliceStable(all.Profiles, func(i, j int) bool {
-		iS := ""
-		if all.Profiles[i].Name != nil {
-			iS += ":" + *(all.Profiles[i].Name)
-		}
-		if all.Profiles[i].Email != nil {
-			iS += ":" + *(all.Profiles[i].Email)
-		}
-		if all.Profiles[i].CountryCode != nil {
-			iS += ":" + *(all.Profiles[i].CountryCode)
-		}
-		if all.Profiles[i].Gender != nil {
-			iS += ":" + *(all.Profiles[i].Gender)
-		}
-		if all.Profiles[i].IsBot != nil {
-			if *(all.Profiles[i].IsBot) == 0 {
-				iS += ":0"
-			} else {
-				iS += ":1"
-			}
-		}
-		jS := ""
-		if all.Profiles[j].Name != nil {
-			jS += ":" + *(all.Profiles[j].Name)
-		}
-		if all.Profiles[j].Email != nil {
-			jS += ":" + *(all.Profiles[j].Email)
-		}
-		if all.Profiles[j].CountryCode != nil {
-			jS += ":" + *(all.Profiles[j].CountryCode)
-		}
-		if all.Profiles[j].Gender != nil {
-			jS += ":" + *(all.Profiles[j].Gender)
-		}
-		if all.Profiles[j].IsBot != nil {
-			if *(all.Profiles[j].IsBot) == 0 {
-				jS += ":0"
-			} else {
-				jS += ":1"
-			}
-		}
-		return iS < jS
-	})
 	for k := range all.Profiles {
 		if len(all.Profiles[k].Enrollments) > 1 {
 			sort.SliceStable(all.Profiles[k].Enrollments, func(i, j int) bool {
 				rols := all.Profiles[k].Enrollments
-				if rols[i].Start == rols[j].Start {
-					if rols[i].End == rols[j].End {
-						return rols[i].Organization < rols[j].Organization
-					}
-					return rols[i].End < rols[j].End
-				}
-				return rols[i].Start < rols[j].Start
+				a := &shared.LocalEnrollmentShortOutput{EnrollmentShortOutput: rols[i]}
+				b := &shared.LocalEnrollmentShortOutput{EnrollmentShortOutput: rols[j]}
+				return a.SortKey() < b.SortKey()
 			})
 		}
 		if len(all.Profiles[k].Identities) > 1 {
 			sort.SliceStable(all.Profiles[k].Identities, func(i, j int) bool {
 				ids := all.Profiles[k].Identities
-				iS := ids[i].Source
-				if ids[i].Name != nil {
-					iS += ":" + *(ids[i].Name)
-				}
-				if ids[i].Email != nil {
-					iS += ":" + *(ids[i].Email)
-				}
-				if ids[i].Username != nil {
-					iS += ":" + *(ids[i].Username)
-				}
-				jS := ids[j].Source
-				if ids[j].Name != nil {
-					jS += ":" + *(ids[j].Name)
-				}
-				if ids[j].Email != nil {
-					jS += ":" + *(ids[j].Email)
-				}
-				if ids[j].Username != nil {
-					jS += ":" + *(ids[j].Username)
-				}
-				return iS < jS
+				a := &shared.LocalIdentityShortOutput{IdentityShortOutput: ids[i]}
+				b := &shared.LocalIdentityShortOutput{IdentityShortOutput: ids[j]}
+				return a.SortKey() < b.SortKey()
 			})
 		}
 	}
+	sort.SliceStable(all.Profiles, func(i, j int) bool {
+		a := &shared.LocalAllOutput{AllOutput: all.Profiles[i]}
+		b := &shared.LocalAllOutput{AllOutput: all.Profiles[j]}
+		return a.SortKey() < b.SortKey()
+	})
 	return
 }
 

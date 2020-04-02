@@ -81,6 +81,84 @@ type LocalOrganization struct {
 	*models.OrganizationDataOutput
 }
 
+type LocalEnrollmentShortOutput struct {
+	*models.EnrollmentShortOutput
+}
+
+type LocalIdentityShortOutput struct {
+	*models.IdentityShortOutput
+}
+
+type LocalAllOutput struct {
+	*models.AllOutput
+}
+
+// SortKey - defines sort order for enrollments
+func (e *LocalEnrollmentShortOutput) SortKey() string {
+	return e.Start + ":" + e.End + ":" + e.Organization
+}
+
+func (i *LocalIdentityShortOutput) SortKey() (key string) {
+	key = i.Source
+	if i.Name != nil {
+		key += ":" + *(i.Name)
+	} else {
+		key += ":"
+	}
+	if i.Email != nil {
+		key += ":" + *(i.Email)
+	} else {
+		key += ":"
+	}
+	if i.Username != nil {
+		key += ":" + *(i.Username)
+	} else {
+		key += ":"
+	}
+	return
+}
+
+func (a *LocalAllOutput) SortKey() (key string) {
+	if a.Name != nil {
+		key += ":" + *(a.Name)
+	} else {
+		key += ":"
+	}
+	if a.Email != nil {
+		key += ":" + *(a.Email)
+	} else {
+		key += ":"
+	}
+	if a.CountryCode != nil {
+		key += ":" + *(a.CountryCode)
+	} else {
+		key += ":"
+	}
+	if a.Gender != nil {
+		key += ":" + *(a.Gender)
+	} else {
+		key += ":"
+	}
+	if a.IsBot != nil {
+		if *(a.IsBot) == 0 {
+			key += ":0"
+		} else {
+			key += ":1"
+		}
+	} else {
+		key += ":"
+	}
+	for _, identity := range a.Identities {
+		a := &LocalIdentityShortOutput{IdentityShortOutput: identity}
+		key += ":" + a.SortKey()
+	}
+	for _, enrollment := range a.Enrollments {
+		a := &LocalEnrollmentShortOutput{EnrollmentShortOutput: enrollment}
+		key += ":" + a.SortKey()
+	}
+	return
+}
+
 func (p *LocalProfile) String() (s string) {
 	s = "{UUID:" + p.UUID + ","
 	if p.Name == nil {
