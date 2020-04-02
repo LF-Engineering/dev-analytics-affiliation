@@ -21,6 +21,11 @@ const (
 	LogListMax = 30
 )
 
+var (
+	// GSQLOut - if set displays all SQLs that are executed (if not set, only failed ones)
+	GSQLOut bool
+)
+
 // ServiceInterface - Shared API interface
 type ServiceInterface interface {
 	// Formatting data for logs
@@ -452,8 +457,10 @@ func (s *ServiceStruct) QueryOut(query string, args ...interface{}) {
 // QueryDB - query database without transaction
 func (s *ServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.Query(query, args...)
-	if err != nil {
-		log.Info("QueryDB failed")
+	if err != nil || GSQLOut {
+		if err != nil {
+			log.Info("QueryDB failed")
+		}
 		s.QueryOut(query, args...)
 	}
 	return
@@ -462,8 +469,10 @@ func (s *ServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interface{}) 
 // QueryTX - query database with transaction
 func (s *ServiceStruct) QueryTX(db *sql.Tx, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.Query(query, args...)
-	if err != nil {
-		log.Info("QueryTX failed")
+	if err != nil || GSQLOut {
+		if err != nil {
+			log.Info("QueryTX failed")
+		}
 		s.QueryOut(query, args...)
 	}
 	return
@@ -480,8 +489,10 @@ func (s *ServiceStruct) Query(db *sqlx.DB, tx *sql.Tx, query string, args ...int
 // ExecDB - execute DB query without transaction
 func (s *ServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = db.Exec(query, args...)
-	if err != nil {
-		log.Info("ExecDB failed")
+	if err != nil || GSQLOut {
+		if err != nil {
+			log.Info("ExecDB failed")
+		}
 		s.QueryOut(query, args...)
 	}
 	return
@@ -490,8 +501,10 @@ func (s *ServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interface{}) (
 // ExecTX - execute DB query with transaction
 func (s *ServiceStruct) ExecTX(db *sql.Tx, query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = db.Exec(query, args...)
-	if err != nil {
-		log.Info("ExecTX failed")
+	if err != nil || GSQLOut {
+		if err != nil {
+			log.Info("ExecTX failed")
+		}
 		s.QueryOut(query, args...)
 	}
 	return

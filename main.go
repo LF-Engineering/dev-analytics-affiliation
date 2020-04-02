@@ -15,6 +15,7 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
 	"github.com/LF-Engineering/dev-analytics-affiliation/health"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/cmd"
@@ -96,6 +97,10 @@ func initES() *elasticsearch.Client {
 	return client
 }
 
+func setupEnv() {
+	shared.GSQLOut = os.Getenv("DA_AFF_API_SQL_OUT") != ""
+}
+
 func main() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 	logrus.SetLevel(logrus.DebugLevel)
@@ -119,6 +124,7 @@ func main() {
 		logrus.Panicln("Invalid swagger file for initializing", err)
 	}
 
+	setupEnv()
 	api := operations.NewDevAnalyticsAffiliationAPI(swaggerSpec)
 
 	healthService := health.New()
