@@ -1,0 +1,50 @@
+{
+  "add": [
+    {
+      "country_code": "US",
+      "email": "da-jeff!linuxfoundation.com",
+      "name": "DAJeff",
+      "gender": "male",
+      "is_bot": 0,
+      "enrollments": [
+        {
+          "start": "1900-01-01",
+          "end": "2100-01-01",
+          "organization": "The Linux Foundation"
+        }
+      ],
+      "identities": [
+        {
+          "source": "github",
+          "email": "da-jeff!linuxfoundation.com",
+          "name": "DA Jeff",
+          "username": "da-jeff"
+        }
+      ]
+    }
+  ],
+  "del": [
+    {
+      "country_code": "US",
+      "email": "da-jeff!linuxfoundation.com",
+      "name": "DAJeff",
+      "gender": "male",
+      "is_bot": 0,
+      "enrollments": [
+        {
+          "start": "1900-01-01",
+          "end": "2100-01-01",
+          "organization": "The Linux Foundation"
+        }
+      ],
+      "identities": [
+        {
+          "source": "github",
+          "email": "da-jeff!linuxfoundation.com",
+          "name": "DA Jeff",
+          "username": "da-jeff"
+        }
+      ]
+    }
+  ]
+}

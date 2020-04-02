@@ -81,14 +81,17 @@ type LocalOrganization struct {
 	*models.OrganizationDataOutput
 }
 
+// LocalEnrollmentShortOutput - embed to add Sortkey() method
 type LocalEnrollmentShortOutput struct {
 	*models.EnrollmentShortOutput
 }
 
+// LocalIdentityShortOutput - embed to add Sortkey() method
 type LocalIdentityShortOutput struct {
 	*models.IdentityShortOutput
 }
 
+// LocalAllOutput - embed to add Sortkey() method
 type LocalAllOutput struct {
 	*models.AllOutput
 }
@@ -98,6 +101,7 @@ func (e *LocalEnrollmentShortOutput) SortKey() string {
 	return e.Start + ":" + e.End + ":" + e.Organization
 }
 
+// SortKey - defines sort order for enrollments
 func (i *LocalIdentityShortOutput) SortKey() (key string) {
 	key = i.Source
 	if i.Name != nil {
@@ -118,6 +122,7 @@ func (i *LocalIdentityShortOutput) SortKey() (key string) {
 	return
 }
 
+// SortKey - defines sort order for enrollments
 func (a *LocalAllOutput) SortKey() (key string) {
 	if a.Name != nil {
 		key += *(a.Name)

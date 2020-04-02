@@ -1375,6 +1375,41 @@ paths:
         - affiliation
         - all
         - get
+  /affiliation/bulk_update:
+    post:
+      summary: Bulk process updates to DB
+      operationId: postBulkUpdate
+      consumes:
+        - application/yaml
+        - application/json
+      produces:
+        - application/yaml
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - bulk_update
+        - post
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: arrays of profiles to be added and/or deleted
+          schema:
+            $ref: "#/definitions/db-update"
 definitions:
   health:
     type: object
@@ -2020,6 +2055,21 @@ definitions:
         x-go-custom-tag: 'yaml:"P,omitempty"'
         items:
           $ref: "#/definitions/all-output"
+  db-update:
+    title: Profiles to be added and/or deleted from the affiliation database
+    description: Profiles to be added and/or deleted from the affiliation database
+    type: object
+    properties:
+      add:
+        type: array
+        x-go-custom-tag: 'yaml:"A,omitempty"'
+        items:
+          $ref: "#/definitions/all-output"
+      del:
+        type: array
+        x-go-custom-tag: 'yaml:"R,omitempty"'
+        items:
+          $ref: "#/definitions/all-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call
@@ -2027,6 +2077,8 @@ definitions:
     properties:
       text:
         type: string
+        x-go-custom-tag: 'yaml:"text"'
+        x-omitempty: false
         example: API call was succesfull
 schemes:
   - http

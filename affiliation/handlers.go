@@ -827,4 +827,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetAllAffiliationsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPostBulkUpdateHandler = affiliation.PostBulkUpdateHandlerFunc(
+		func(params affiliation.PostBulkUpdateParams) middleware.Responder {
+			log.Info("PostBulkUpdateHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PostBulkUpdateHandlerFunc: " + info)
+
+			result, err := service.PostBulkUpdate(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PostBulkUpdateHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PostBulkUpdateHandlerFunc(ok): " + info)
+
+			return affiliation.NewPostBulkUpdateOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

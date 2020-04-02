@@ -62,6 +62,7 @@ type Service interface {
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.GetTopContributorsOutput, error)
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
+	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -1810,5 +1811,18 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 	if err != nil {
 		return
 	}
+	return
+}
+
+// PostBulkUpdate: API params:
+// /v1/affiliation/bulk_update
+// update - required body YAML parameter - list of profiles to add and/or remove
+func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBulkUpdateParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PostBulkUpdate")
+	defer func() {
+		log.Info(fmt.Sprintf("PostBulkUpdate(exit): status:%s err:%v", status.Text, err))
+	}()
+	status.Text = "OK"
 	return
 }
