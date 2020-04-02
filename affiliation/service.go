@@ -1819,10 +1819,10 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 // update - required body YAML parameter - list of profiles to add and/or remove
 func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBulkUpdateParams) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
-	log.Info("PostBulkUpdate")
+	log.Info(fmt.Sprintf("PostBulkUpdate: add:%d del:%d", len(params.Body.Add), len(params.Body.Del)))
 	defer func() {
-		log.Info(fmt.Sprintf("PostBulkUpdate(exit): status:%s err:%v", status.Text, err))
+		log.Info(fmt.Sprintf("PostBulkUpdate(exit): add:%d del:%d status:%s err:%v", len(params.Body.Add), len(params.Body.Del), status.Text, err))
 	}()
-	status.Text = "OK"
+	status.Text = fmt.Sprintf("Added: %d, Removed: %d", len(params.Body.Add), len(params.Body.Del))
 	return
 }
