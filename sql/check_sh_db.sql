@@ -1,0 +1,9 @@
+select e1.uuid, e1.id, e2.id, e1.start, e2.start, e1.end, e2.end, o1.name, o2.name from enrollments e1, enrollments e2, organizations o1, organizations o2 where e1.uuid = e2.uuid and e1.start = '1900-01-01' and e2.start = '1970-01-01' and e1.organization_id = o1.id and e2.organization_id = o2.id;
+select e1.uuid, e1.id, e2.id, e1.start, e2.start, e1.end, e2.end, o1.name, o2.name from enrollments e1, enrollments e2, organizations o1, organizations o2 where e1.uuid = e2.uuid and e1.end = '2100-01-01' and e2.end = '2099-01-01' and e1.organization_id = o1.id and e2.organization_id = o2.id;
+select e1.uuid, e1.id, e2.id, e1.start, e2.start, e1.end, e2.end, o1.name, o2.name from enrollments e1, enrollments e2, organizations o1, organizations o2 where e1.uuid = e2.uuid and (e1.start = '1900-01-01' or e1.end = '2100-01-01') and (e2.start = '1970-01-01' or e2.end = '2099-01-01') and e1.organization_id = o1.id and e2.organization_id = o2.id;
+delete from enrollments where id in (select e1.id from enrollments e1, enrollments e2 where e1.uuid = e2.uuid and e1.start = '1900-01-01' and e1.end = '2100-01-01' and e2.start = '1970-01-01' and e2.end = '2099-01-01' and e1.organization_id = e2.organization_id);
+delete from enrollments where id in (select e1.id from enrollments e1, enrollments e2 where e1.uuid = e2.uuid and e1.start = '1900-01-01' and e1.end = '2100-01-01' and e2.start = '1970-01-01' and e2.end = '2099-01-01');
+delete from enrollments where id in (select e1.id from enrollments e1, enrollments e2 where e1.uuid = e2.uuid and e1.start = '1900-01-01' and e2.start = '1970-01-01');
+delete from enrollments where id in (select e2.id from enrollments e1, enrollments e2 where e1.uuid = e2.uuid and e1.end = '2100-01-01' and e2.end = '2099-01-01');
+update enrollments set start = '1900-01-01' where start = '1970-01-01';
+update enrollments set end = '2100-01-01' where end = '2099-01-01';
