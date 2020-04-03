@@ -1754,8 +1754,8 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	} else {
 		to = time.Now().UnixNano() / 1.0e6
 	}
-	if to <= from {
-		err = fmt.Errorf("to parameter (%d) must be higher than from (%d)", to, from)
+	if to < from {
+		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
 	}
 	getTopContributors = &models.GetTopContributorsOutput{}

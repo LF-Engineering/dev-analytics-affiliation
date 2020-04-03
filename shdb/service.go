@@ -3525,6 +3525,7 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	selRoot := "select o.id, o.name, do.id, do.domain, do.is_top_domain"
 	sel := " from domains_organizations do, organizations o where do.organization_id = o.id"
 	if q != "" {
+		q = strings.TrimSpace(q)
 		args = append(args, "%"+q+"%")
 		sel += " and do.domain like ?"
 	}
@@ -3764,6 +3765,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	where := ""
 	qWhere := ""
 	if q != "" {
+		q = strings.TrimSpace(q)
 		if strings.HasPrefix(q, "uuid=") {
 			qLike := "%" + q[5:] + "%"
 			qWhere += "and u.uuid like ?"
@@ -3976,6 +3978,7 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
 	qLike := ""
 	sel := "select id from organizations"
 	if q != "" {
+		q = strings.TrimSpace(q)
 		qLike = "%" + q + "%"
 		sel += " where name like ?"
 	}
@@ -4059,6 +4062,7 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
 	}
 	sel = "select count(*) from organizations"
 	if q != "" {
+		q = strings.TrimSpace(q)
 		sel += " where name like ?"
 	}
 	if q == "" {
@@ -4112,6 +4116,7 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 	qLike := ""
 	sel := "select excluded from matching_blacklist"
 	if q != "" {
+		q = strings.TrimSpace(q)
 		qLike = "%" + q + "%"
 		sel += " where excluded like ?"
 	}
@@ -4144,6 +4149,7 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 	}
 	sel = "select count(*) from matching_blacklist"
 	if q != "" {
+		q = strings.TrimSpace(q)
 		sel += " where excluded like ?"
 	}
 	if q == "" {
@@ -4556,6 +4562,8 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
 	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
 	putOrgDomain = &models.PutOrgDomainOutput{}
+	org = strings.TrimSpace(org)
+	dom = strings.TrimSpace(dom)
 	defer func() {
 		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, putOrgDomain, err))
 	}()
