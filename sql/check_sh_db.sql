@@ -7,3 +7,4 @@ delete from enrollments where id in (select e1.id from enrollments e1, enrollmen
 delete from enrollments where id in (select e2.id from enrollments e1, enrollments e2 where e1.uuid = e2.uuid and e1.end = '2100-01-01' and e2.end = '2099-01-01');
 update enrollments set start = '1900-01-01' where start = '1970-01-01';
 update enrollments set end = '2100-01-01' where end = '2099-01-01';
+delete from enrollments where start = '2099-01-01';
