@@ -40,6 +40,8 @@ type Service interface {
 	ArchiveProfile(string, *time.Time, *sql.Tx) error
 	UnarchiveProfile(string, bool, *time.Time, *sql.Tx) error
 	DeleteProfileArchive(string, bool, bool, *time.Time, *sql.Tx) error
+	FindProfiles([]string, []interface{}, bool, *sql.Tx) ([]*models.ProfileDataOutput, error)
+	ProfileUUIDHash(*models.ProfileDataOutput) (string, error)
 	// Identity
 	TouchIdentity(string, *sql.Tx) (int64, error)
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
@@ -51,6 +53,7 @@ type Service interface {
 	ValidateIdentity(*models.IdentityDataOutput, bool) error
 	FindIdentities([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	AddIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
+	IdentityIDHash(*models.IdentityDataOutput) (string, error)
 	// UniqueIdentity
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
 	AddUniqueIdentity(*models.UniqueIdentityDataOutput, bool, *sql.Tx) (*models.UniqueIdentityDataOutput, error)
@@ -733,6 +736,70 @@ func (s *service) FindUniqueIdentityOrganizations(uuid string, missingFatal bool
 	return
 }
 
+func (s *service) FindProfiles(columns []string, values []interface{}, missingFatal bool, tx *sql.Tx) (profiles []*models.ProfileDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindProfiles: columns:%+v values:%+v missingFatal:%v tx:%v", columns, values, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindProfiles(exit): columns:%+v values:%+v missingFatal:%v tx:%v profiles:%+v err:%v",
+				columns,
+				values,
+				missingFatal,
+				tx != nil,
+				s.ToLocalProfiles(profiles),
+				err,
+			),
+		)
+	}()
+	sel := "select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles"
+	nColumns := len(columns)
+	lastIndex := nColumns - 1
+	if nColumns > 0 {
+		sel += " where"
+	}
+	for index := range columns {
+		column := columns[index]
+		sel += " " + column + " = ?"
+		if index < lastIndex {
+			sel += " and"
+		}
+	}
+	sel += " order by uuid asc"
+	rows, err := s.Query(s.db, tx, sel, values...)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		profileData := &models.ProfileDataOutput{}
+		err = rows.Scan(
+			&profileData.UUID,
+			&profileData.Name,
+			&profileData.Email,
+			&profileData.Gender,
+			&profileData.GenderAcc,
+			&profileData.IsBot,
+			&profileData.CountryCode,
+		)
+		if err != nil {
+			return
+		}
+		profiles = append(profiles, profileData)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(profiles) == 0 {
+		err = fmt.Errorf("cannot find profiles for %+v/%+v", columns, values)
+		return
+	}
+	return
+}
+
 func (s *service) FindOrganizations(columns []string, values []interface{}, missingFatal bool, tx *sql.Tx) (organizations []*models.OrganizationDataOutput, err error) {
 	log.Info(fmt.Sprintf("FindOrganizations: columns:%+v values:%+v missingFatal:%v tx:%v", columns, values, missingFatal, tx != nil))
 	defer func() {
@@ -791,6 +858,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 	}
 	return
 }
+
 func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
 	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v", columns, values, isDate, missingFatal, tx != nil))
 	defer func() {
@@ -2275,24 +2343,72 @@ func (s *service) ValidateIdentity(identityData *models.IdentityDataOutput, forU
 	return
 }
 
-func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *models.UniqueIdentityNestedDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddNestedIdentity: identity:%+v", s.ToLocalIdentity(identity)))
-	uid = &models.UniqueIdentityNestedDataOutput{}
+func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash string, err error) {
+	log.Info(fmt.Sprintf("ProfileUUIDHash: profile:%+v", s.ToLocalProfile(profile)))
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"AddNestedIdentity(exit): identity:%+v uid:%+v err:%v",
-				s.ToLocalIdentity(identity),
-				s.ToLocalNestedUniqueIdentity(uid),
+				"ProfileUUIDHash(exit): profile:%+v idHash:%s err:%v",
+				s.ToLocalProfile(profile),
+				idHash,
 				err,
 			),
 		)
 	}()
-	err = s.ValidateIdentity(identity, false)
+	stripF := func(str string) string {
+		isOk := func(r rune) bool {
+			return r < 32 || r >= 127
+		}
+		t := transform.Chain(norm.NFKD, transform.RemoveFunc(isOk))
+		str, _, _ = transform.String(t, str)
+		return str
+	}
+	name := ""
+	if profile.Name != nil {
+		name = *(profile.Name)
+	}
+	email := ""
+	if profile.Email != nil {
+		email = *(profile.Email)
+	}
+	gender := ""
+	if profile.Gender != nil {
+		gender = *(profile.Gender)
+	}
+	genderAcc := ""
+	if profile.GenderAcc != nil {
+		genderAcc = fmt.Sprintf("%d", *(profile.GenderAcc))
+	}
+	isBot := ""
+	if profile.IsBot != nil {
+		isBot = fmt.Sprintf("%d", *(profile.IsBot))
+	}
+	countryCode := ""
+	if profile.CountryCode != nil {
+		countryCode = *(profile.CountryCode)
+	}
+	arg := stripF(name) + ":" + stripF(email) + ":" + stripF(gender) + ":" + genderAcc + ":" + isBot + ":" + stripF(countryCode)
+	hash := sha1.New()
+	_, err = hash.Write([]byte(arg))
 	if err != nil {
-		uid = nil
 		return
 	}
+	idHash = hex.EncodeToString(hash.Sum(nil))
+	return
+}
+
+func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash string, err error) {
+	log.Info(fmt.Sprintf("IdentityIDHash: identity:%+v", s.ToLocalIdentity(identity)))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"IdentityIDHash(exit): identity:%+v idHash:%s err:%v",
+				s.ToLocalIdentity(identity),
+				idHash,
+				err,
+			),
+		)
+	}()
 	stripF := func(str string) string {
 		isOk := func(r rune) bool {
 			return r < 32 || r >= 127
@@ -2317,10 +2433,49 @@ func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *m
 	hash := sha1.New()
 	_, err = hash.Write([]byte(arg))
 	if err != nil {
+		return
+	}
+	idHash = hex.EncodeToString(hash.Sum(nil))
+	return
+}
+
+func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddNestedIdentity: identity:%+v", s.ToLocalIdentity(identity)))
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddNestedIdentity(exit): identity:%+v uid:%+v err:%v",
+				s.ToLocalIdentity(identity),
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	err = s.ValidateIdentity(identity, false)
+	if err != nil {
 		uid = nil
 		return
 	}
-	identity.ID = hex.EncodeToString(hash.Sum(nil))
+	idHash := ""
+	idHash, err = s.IdentityIDHash(identity)
+	if err != nil {
+		uid = nil
+		return
+	}
+	email := ""
+	if identity.Email != nil {
+		email = *(identity.Email)
+	}
+	name := ""
+	if identity.Name != nil {
+		name = *(identity.Name)
+	}
+	username := ""
+	if identity.Username != nil {
+		username = *(identity.Username)
+	}
+	identity.ID = idHash
 	var identities []*models.IdentityDataOutput
 	identities, err = s.FindIdentities(
 		[]string{"source", "email", "name", "username"},
@@ -4823,6 +4978,135 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		delete(mDelProf, k)
 		mUpdProf[k] = [2]*models.AllOutput{a, d}
 	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	for _, prof := range mAddProf {
+		foundProfs := []*models.ProfileDataOutput{}
+		columns := []string{}
+		values := []interface{}{}
+		if prof.Name != nil {
+			columns = append(columns, "name")
+			values = append(values, *prof.Name)
+		}
+		if prof.Email != nil {
+			columns = append(columns, "email")
+			values = append(values, *prof.Email)
+		}
+		if len(columns) == 0 {
+			obj := &shared.LocalAllOutput{AllOutput: prof}
+			err = fmt.Errorf("profile must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+			return
+		}
+		if prof.Gender != nil {
+			columns = append(columns, "gender")
+			values = append(values, *prof.Gender)
+		}
+		if prof.IsBot != nil {
+			columns = append(columns, "is_bot")
+			values = append(values, *prof.IsBot)
+		}
+		if prof.CountryCode != nil {
+			columns = append(columns, "country_code")
+			values = append(values, *prof.CountryCode)
+		}
+		foundProfs, err = s.FindProfiles(columns, values, false, tx)
+		if err != nil {
+			return
+		}
+		if len(foundProfs) > 0 {
+			obj := &shared.LocalAllOutput{AllOutput: prof}
+			err = fmt.Errorf("adding profile '%s' - such profile already exists in database, should be also listed in delete array", obj.SortKey(true))
+			log.Info(fmt.Sprintf("BulkUpdate: adding profile '%s', already exists profile(s) %+v\n", obj.SortKey(true), s.ToLocalProfiles(foundProfs)))
+			return
+		}
+		var genderAcc *int64
+		if prof.Gender != nil {
+			i100 := int64(100)
+			genderAcc = &i100
+		}
+		profile := &models.ProfileDataOutput{
+			Name:        prof.Name,
+			Email:       prof.Email,
+			Gender:      prof.Gender,
+			GenderAcc:   genderAcc,
+			IsBot:       prof.IsBot,
+			CountryCode: prof.CountryCode,
+		}
+		uuid := ""
+		uuid, err = s.ProfileUUIDHash(profile)
+		if err != nil {
+			return
+		}
+		profile.UUID = uuid
+		_, err = s.AddUniqueIdentity(&models.UniqueIdentityDataOutput{UUID: uuid}, false, tx)
+		if err != nil {
+			return
+		}
+		_, err = s.AddProfile(profile, false, tx)
+		if err != nil {
+			return
+		}
+		iid := ""
+		for _, iden := range prof.Identities {
+			identity := &models.IdentityDataOutput{
+				UUID:     &uuid,
+				Source:   iden.Source,
+				Email:    iden.Email,
+				Name:     iden.Name,
+				Username: iden.Username,
+			}
+			iid, err = s.IdentityIDHash(identity)
+			if err != nil {
+				return
+			}
+			identity.ID = iid
+			_, err = s.AddIdentity(identity, false, tx)
+			if err != nil {
+				return
+			}
+		}
+		var (
+			start time.Time
+			end   time.Time
+		)
+		for _, rol := range prof.Enrollments {
+			start, err = s.TimeParseAny(rol.Start)
+			if err != nil {
+				return
+			}
+			end, err = s.TimeParseAny(rol.End)
+			if err != nil {
+				return
+			}
+			var organization *models.OrganizationDataOutput
+			organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+			if err != nil {
+				return
+			}
+			enrollment := &models.EnrollmentDataOutput{
+				UUID:           uuid,
+				Start:          strfmt.DateTime(start),
+				End:            strfmt.DateTime(end),
+				OrganizationID: organization.ID,
+			}
+			_, err = s.AddEnrollment(enrollment, false, tx)
+			if err != nil {
+				return
+			}
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
 	nAdded = len(mAddProf)
 	nDeleted = len(mDelProf)
 	nUpdated = len(mUpdProf)

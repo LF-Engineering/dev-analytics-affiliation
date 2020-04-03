@@ -1,7 +1,7 @@
 {
   "add": [
     {
-      "country_code": "US",
+      "country_code": "RU",
       "email": "da-jeff!linuxfoundation.com",
       "name": "DAJeff",
       "gender": "male",
@@ -25,7 +25,7 @@
   ],
   "del": [
     {
-      "country_code": "US",
+      "country_code": "PL",
       "email": "da-jeff!linuxfoundation.com",
       "name": "DAJeff",
       "gender": "male",
@@ -34,7 +34,7 @@
         {
           "start": "1900-01-01",
           "end": "2100-01-01",
-          "organization": "The Linux Foundation 2"
+          "organization": "The Linux Foundation"
         }
       ],
       "identities": [

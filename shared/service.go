@@ -39,7 +39,9 @@ type ServiceInterface interface {
 	ToLocalUnaffiliatedObj(*models.GetUnaffiliatedOutput) []interface{}
 	ToLocalUnaffiliated([]*models.UnaffiliatedDataOutput) []interface{}
 	ToLocalProfile(*models.ProfileDataOutput) *LocalProfile
+	ToLocalProfiles([]*models.ProfileDataOutput) []*LocalProfile
 	ToLocalIdentity(*models.IdentityDataOutput) *LocalIdentity
+	ToLocalIdentities([]*models.IdentityDataOutput) []*LocalIdentity
 	ToLocalUniqueIdentity(*models.UniqueIdentityDataOutput) *LocalUniqueIdentity
 	ToLocalOrganization(*models.OrganizationDataOutput) *LocalOrganization
 	ToLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
@@ -55,6 +57,7 @@ type ServiceInterface interface {
 	Exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
 	// Other utils
 	Now() *strfmt.DateTime
+	TimeParseAny(string) (time.Time, error)
 }
 
 // ServiceStruct - Shared API Struct
@@ -472,6 +475,18 @@ func (s *ServiceStruct) ToLocalProfile(i *models.ProfileDataOutput) (o *LocalPro
 	return
 }
 
+// ToLocalProfiles - to display values inside pointers
+func (s *ServiceStruct) ToLocalProfiles(ia []*models.ProfileDataOutput) (oa []*LocalProfile) {
+	for _, i := range ia {
+		if i == nil {
+			oa = append(oa, nil)
+			continue
+		}
+		oa = append(oa, &LocalProfile{i})
+	}
+	return
+}
+
 // ToLocalIdentity - to display values inside pointers
 func (s *ServiceStruct) ToLocalIdentity(i *models.IdentityDataOutput) (o *LocalIdentity) {
 	if i == nil {
@@ -515,6 +530,27 @@ func (s *ServiceStruct) ToLocalOrganization(i *models.OrganizationDataOutput) (o
 func (s *ServiceStruct) Now() *strfmt.DateTime {
 	n := strfmt.DateTime(time.Now())
 	return &n
+}
+
+// TimeParseAny - parse time from string
+func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
+	formats := []string{
+		"2006-01-02T15:04:05Z",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02 15",
+		"2006-01-02",
+		"2006-01",
+		"2006",
+	}
+	for _, format := range formats {
+		t, e := time.Parse(format, dtStr)
+		if e == nil {
+			return t, nil
+		}
+	}
+	err := fmt.Errorf("cannot parse datetime: '%s'\n", dtStr)
+	return time.Now(), err
 }
 
 // QueryOut - display DB query
