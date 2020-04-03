@@ -122,6 +122,7 @@ type Service interface {
 	MergeUniqueIdentities(string, string, bool) error
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
+	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
 }
 
 type service struct {
@@ -3731,7 +3732,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	sort.SliceStable(all.Profiles, func(i, j int) bool {
 		a := &shared.LocalAllOutput{AllOutput: all.Profiles[i]}
 		b := &shared.LocalAllOutput{AllOutput: all.Profiles[j]}
-		return a.SortKey() < b.SortKey()
+		return a.SortKey(true) < b.SortKey(true)
 	})
 	return
 }
@@ -4730,5 +4731,100 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	} else {
 		putOrgDomain.Info += ", " + info
 	}
+	return
+}
+
+func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nUpdated int, err error) {
+	log.Info(fmt.Sprintf("BulkUpdate: add:%d del:%d", len(add), len(del)))
+	defer func() {
+		log.Info(fmt.Sprintf("BulkUpdate(exit): add:%d del:%d err:%+v", len(add), len(del), err))
+	}()
+	mAdd := make(map[string]*models.AllOutput)
+	mDel := make(map[string]*models.AllOutput)
+	for _, obj := range add {
+		lobj := &shared.LocalAllOutput{AllOutput: obj}
+		mAdd[lobj.SortKey(true)] = obj
+	}
+	for _, obj := range del {
+		lobj := &shared.LocalAllOutput{AllOutput: obj}
+		mDel[lobj.SortKey(true)] = obj
+	}
+	sharedM := make(map[string]struct{})
+	for k := range mAdd {
+		_, ok := mDel[k]
+		if ok {
+			sharedM[k] = struct{}{}
+		}
+	}
+	for k := range mDel {
+		_, ok := mAdd[k]
+		if ok {
+			sharedM[k] = struct{}{}
+		}
+	}
+	for k := range sharedM {
+		log.Info(fmt.Sprintf("BulkUpdate: trying to add and delete the same object, skipping: '%s'", k))
+		delete(mAdd, k)
+		delete(mDel, k)
+	}
+	mAddProf := make(map[string]*models.AllOutput)
+	mDelProf := make(map[string]*models.AllOutput)
+	for _, obj := range mAdd {
+		lobj := &shared.LocalAllOutput{AllOutput: obj}
+		key := lobj.SortKey(false)
+		p, ok := mAddProf[key]
+		if ok {
+			pobj := &shared.LocalAllOutput{AllOutput: p}
+			err = fmt.Errorf(
+				"attempt to add two profiles with the same profile data but different identities and/or enrollments: '%s' and '%s' both map into '%s'",
+				pobj.SortKey(true),
+				lobj.SortKey(true),
+				key,
+			)
+			return
+		}
+		mAddProf[key] = obj
+	}
+	for _, obj := range mDel {
+		lobj := &shared.LocalAllOutput{AllOutput: obj}
+		key := lobj.SortKey(false)
+		p, ok := mDelProf[key]
+		if ok {
+			pobj := &shared.LocalAllOutput{AllOutput: p}
+			err = fmt.Errorf(
+				"attempt to delete two profiles with the same profile data but different identities and/or enrollments: '%s' and '%s' both map into '%s'",
+				pobj.SortKey(true),
+				lobj.SortKey(true),
+				key,
+			)
+			return
+		}
+		mDelProf[key] = obj
+	}
+	sharedProf := make(map[string]struct{})
+	for k := range mAddProf {
+		_, ok := mDelProf[k]
+		if ok {
+			sharedProf[k] = struct{}{}
+		}
+	}
+	for k := range mDelProf {
+		_, ok := mAddProf[k]
+		if ok {
+			sharedProf[k] = struct{}{}
+		}
+	}
+	mUpdProf := make(map[string][2]*models.AllOutput)
+	for k := range sharedProf {
+		log.Info(fmt.Sprintf("BulkUpdate: detected update on profile '%s'", k))
+		a := mAddProf[k]
+		d := mDelProf[k]
+		delete(mAddProf, k)
+		delete(mDelProf, k)
+		mUpdProf[k] = [2]*models.AllOutput{a, d}
+	}
+	nAdded = len(mAddProf)
+	nDeleted = len(mDelProf)
+	nUpdated = len(mUpdProf)
 	return
 }

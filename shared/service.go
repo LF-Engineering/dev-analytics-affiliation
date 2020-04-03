@@ -123,7 +123,7 @@ func (i *LocalIdentityShortOutput) SortKey() (key string) {
 }
 
 // SortKey - defines sort order for enrollments
-func (a *LocalAllOutput) SortKey() (key string) {
+func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 	if a.Name != nil {
 		key += *(a.Name)
 	}
@@ -150,6 +150,9 @@ func (a *LocalAllOutput) SortKey() (key string) {
 		}
 	} else {
 		key += ":"
+	}
+	if !recursive {
+		return
 	}
 	for _, identity := range a.Identities {
 		a := &LocalIdentityShortOutput{IdentityShortOutput: identity}

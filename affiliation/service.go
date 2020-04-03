@@ -1819,10 +1819,17 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 // update - required body YAML parameter - list of profiles to add and/or remove
 func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBulkUpdateParams) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
+	nAdded := 0
+	nDeleted := 0
+	nUpdated := 0
 	log.Info(fmt.Sprintf("PostBulkUpdate: add:%d del:%d", len(params.Body.Add), len(params.Body.Del)))
 	defer func() {
-		log.Info(fmt.Sprintf("PostBulkUpdate(exit): add:%d del:%d status:%s err:%v", len(params.Body.Add), len(params.Body.Del), status.Text, err))
+		log.Info(fmt.Sprintf("PostBulkUpdate(exit): add:%d del:%d added:%d deleted:%d updated:%d status:%s err:%v", len(params.Body.Add), len(params.Body.Del), nAdded, nDeleted, nUpdated, status.Text, err))
 	}()
-	status.Text = fmt.Sprintf("Added: %d, Removed: %d", len(params.Body.Add), len(params.Body.Del))
+	nAdded, nDeleted, nUpdated, err = s.shDB.BulkUpdate(params.Body.Add, params.Body.Del)
+	if err != nil {
+		return
+	}
+	status.Text = fmt.Sprintf("Requested: Add: %d, Delete:%d, Done: Added: %d, Deleted: %d, Updated: %d", len(params.Body.Add), len(params.Body.Del), nAdded, nDeleted, nUpdated)
 	return
 }
