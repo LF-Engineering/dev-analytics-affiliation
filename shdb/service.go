@@ -5020,6 +5020,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		if err != nil {
 			return
 		}
+    // FIXME: it is possible that we can find a profile that exists but have 0 identities or 0 enrollments
+    // we need to deal with this
 		if len(foundProfs) > 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
 			err = fmt.Errorf("adding profile '%s' - such profile already exists in database, should be also listed in delete array", obj.SortKey(true))
