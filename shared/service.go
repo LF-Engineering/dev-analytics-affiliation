@@ -59,6 +59,9 @@ type ServiceInterface interface {
 	// Other utils
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
+	SanitizeShortProfile(*models.AllOutput, bool)
+	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
+	SanitizeShortEnrollment(*models.EnrollmentShortOutput)
 }
 
 // ServiceStruct - Shared API Struct
@@ -114,7 +117,7 @@ func (i *LocalIdentityShortOutput) SortKey() (key string) {
 		key += ":"
 	}
 	if i.Email != nil {
-		key += ":" + strings.Replace(*(i.Email), "@", "!", -1)
+		key += ":" + *(i.Email)
 	} else {
 		key += ":"
 	}
@@ -132,12 +135,12 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 		key += *(a.Name)
 	}
 	if a.Email != nil {
-		key += ":" + strings.Replace(*(a.Email), "@", "!", -1)
+		key += ":" + *(a.Email)
 	} else {
 		key += ":"
 	}
 	if a.CountryCode != nil {
-		key += ":" + *(a.CountryCode)
+		key += ":" + strings.ToLower(*(a.CountryCode))
 	} else {
 		key += ":"
 	}
@@ -168,6 +171,63 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 		key += ":" + a.SortKey()
 	}
 	return
+}
+
+func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutput, atToExcl bool) {
+	from := "@"
+	to := "!"
+	if !atToExcl {
+		from, to = to, from
+	}
+	identity.Source = strings.TrimSpace(identity.Source)
+	if identity.Email != nil {
+		email := strings.TrimSpace(strings.Replace(*(identity.Email), from, to, -1))
+		identity.Email = &email
+	}
+	if identity.Name != nil {
+		name := strings.TrimSpace(*(identity.Name))
+		identity.Name = &name
+	}
+	if identity.Username != nil {
+		username := strings.TrimSpace(*(identity.Username))
+		identity.Username = &username
+	}
+}
+
+func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentShortOutput) {
+	enrollment.Organization = strings.TrimSpace(enrollment.Organization)
+	enrollment.Start = strings.TrimSpace(enrollment.Start)
+	enrollment.End = strings.TrimSpace(enrollment.End)
+}
+
+func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, atToExcl bool) {
+	from := "@"
+	to := "!"
+	if !atToExcl {
+		from, to = to, from
+	}
+	if prof.Email != nil {
+		email := strings.TrimSpace(strings.Replace(*(prof.Email), from, to, -1))
+		prof.Email = &email
+	}
+	if prof.Name != nil {
+		name := strings.TrimSpace(*(prof.Name))
+		prof.Name = &name
+	}
+	if prof.Gender != nil {
+		gender := strings.TrimSpace(*(prof.Gender))
+		prof.Gender = &gender
+	}
+	if prof.CountryCode != nil {
+		countryCode := strings.TrimSpace(*(prof.CountryCode))
+		prof.CountryCode = &countryCode
+	}
+	for _, identity := range prof.Identities {
+		s.SanitizeShortIdentity(identity, atToExcl)
+	}
+	for _, enrollment := range prof.Enrollments {
+		s.SanitizeShortEnrollment(enrollment)
+	}
 }
 
 func (p *LocalProfile) String() (s string) {

@@ -67,7 +67,7 @@ type Service interface {
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	EditEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
-	AddEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
+	AddEnrollment(*models.EnrollmentDataOutput, bool, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	DeleteEnrollment(int64, bool, bool, *time.Time, *sql.Tx) error
 	ArchiveEnrollment(int64, *time.Time, *sql.Tx) error
 	UnarchiveEnrollment(int64, bool, *time.Time, *sql.Tx) error
@@ -315,7 +315,7 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 			continue
 		}
 		newEnrollment := &models.EnrollmentDataOutput{UUID: uniqueIdentity.UUID, OrganizationID: organization.ID, Start: st, End: en}
-		_, err = s.AddEnrollment(newEnrollment, false, tx)
+		_, err = s.AddEnrollment(newEnrollment, false, false, tx)
 		if err != nil {
 			return
 		}
@@ -2858,14 +2858,15 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 	return
 }
 
-func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, refresh bool, tx *sql.Tx) (enrollmentData *models.EnrollmentDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddEnrollment: inEnrollmentData:%+v refresh:%v tx:%v", inEnrollmentData, refresh, tx != nil))
+func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, ignore, refresh bool, tx *sql.Tx) (enrollmentData *models.EnrollmentDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddEnrollment: inEnrollmentData:%+v ignore:%v refresh:%v tx:%v", inEnrollmentData, ignore, refresh, tx != nil))
 	enrollmentData = inEnrollmentData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"AddEnrollment(exit): inEnrollmentData:%+v refresh:%v tx:%v enrollmentData:%+v err:%v",
+				"AddEnrollment(exit): inEnrollmentData:%+v ignore:%v refresh:%v tx:%v enrollmentData:%+v err:%v",
 				inEnrollmentData,
+				ignore,
 				refresh,
 				tx != nil,
 				enrollmentData,
@@ -2878,7 +2879,11 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, r
 		enrollmentData = nil
 		return
 	}
-	insert := "insert into enrollments(uuid, organization_id, start, end) select ?, ?, str_to_date(?, ?), str_to_date(?, ?)"
+	root := "insert"
+	if ignore {
+		root += " ignore"
+	}
+	insert := root + " into enrollments(uuid, organization_id, start, end) select ?, ?, str_to_date(?, ?), str_to_date(?, ?)"
 	var res sql.Result
 	res, err = s.Exec(
 		s.db,
@@ -2919,9 +2924,11 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, r
 			return
 		}
 	} else {
-		err = fmt.Errorf("adding enrollment '%+v' didn't affected any rows", enrollmentData)
-		enrollmentData = nil
-		return
+		if !ignore {
+			err = fmt.Errorf("adding enrollment '%+v' didn't affected any rows", enrollmentData)
+			enrollmentData = nil
+			return
+		}
 	}
 	if refresh {
 		id := int64(0)
@@ -3807,17 +3814,9 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 			tmp := strings.TrimSpace(*prof.Name)
 			prof.Name = &tmp
 		}
-		if prof.Email != nil {
-			tmp := strings.Replace(strings.TrimSpace(*prof.Email), "@", "!", -1)
-			prof.Email = &tmp
-		}
 		if iName != nil {
 			tmp := strings.TrimSpace(*iName)
 			iName = &tmp
-		}
-		if iEmail != nil {
-			tmp := strings.Replace(strings.TrimSpace(*iEmail), "@", "!", -1)
-			iEmail = &tmp
 		}
 		if iUsername != nil {
 			tmp := strings.TrimSpace(*iUsername)
@@ -3858,6 +3857,8 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 				rolsMap[*rolID] = rol
 			}
 		}
+		// @ -> ! + trim spaces
+		s.SanitizeShortProfile(prof, true)
 		uidsMap[uuid] = prof
 	}
 	err = rows.Err()
@@ -4904,11 +4905,15 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	mAdd := make(map[string]*models.AllOutput)
 	mDel := make(map[string]*models.AllOutput)
 	for _, obj := range add {
+		// ! -> @ + trim spaces
+		s.SanitizeShortProfile(obj, false)
 		lobj := &shared.LocalAllOutput{AllOutput: obj}
 		key := lobj.SortKey(true)
 		mAdd[key] = obj
 	}
 	for _, obj := range del {
+		// ! -> @ + trim spaces
+		s.SanitizeShortProfile(obj, false)
 		lobj := &shared.LocalAllOutput{AllOutput: obj}
 		// key := strings.ToLower(lobj.SortKey(true))
 		key := lobj.SortKey(true)
@@ -5009,8 +5014,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			values = append(values, *prof.Name)
 		}
 		if prof.Email != nil {
-			email := strings.Replace(*prof.Email, "!", "@", -1)
-			prof.Email = &email
 			columns = append(columns, "email")
 			values = append(values, *prof.Email)
 		}
@@ -5073,8 +5076,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						isDates = append(isDates, false)
 					}
 					if iden.Email != nil {
-						email := strings.Replace(*iden.Email, "!", "@", -1)
-						iden.Email = &email
 						columns = append(columns, "email")
 						values = append(values, *iden.Email)
 						isDates = append(isDates, false)
@@ -5174,8 +5175,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			values = append(values, *prof.Name)
 		}
 		if prof.Email != nil {
-			email := strings.Replace(*prof.Email, "!", "@", -1)
-			prof.Email = &email
 			columns = append(columns, "email")
 			values = append(values, *prof.Email)
 		}
@@ -5331,10 +5330,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		}
 		iid := ""
 		for _, iden := range prof.Identities {
-			if iden.Email != nil {
-				email := strings.Replace(*iden.Email, "!", "@", -1)
-				iden.Email = &email
-			}
 			identity := &models.IdentityDataOutput{
 				UUID:     &uuid,
 				Source:   iden.Source,
@@ -5386,7 +5381,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				End:            strfmt.DateTime(end),
 				OrganizationID: organization.ID,
 			}
-			_, err = s.AddEnrollment(enrollment, false, tx)
+			_, err = s.AddEnrollment(enrollment, false, false, tx)
 			if err != nil {
 				return
 			}
@@ -5408,8 +5403,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				values = append(values, *prof.Name)
 			}
 			if prof.Email != nil {
-				email := strings.Replace(*prof.Email, "!", "@", -1)
-				prof.Email = &email
 				columns = append(columns, "email")
 				values = append(values, *prof.Email)
 			}
@@ -5466,8 +5459,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						isDates = append(isDates, false)
 					}
 					if iden.Email != nil {
-						email := strings.Replace(*iden.Email, "!", "@", -1)
-						iden.Email = &email
 						columns = append(columns, "email")
 						values = append(values, *iden.Email)
 						isDates = append(isDates, false)
@@ -5555,6 +5546,24 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			}
 		}
 		for uuid := range uuids {
+			var genderAcc *int64
+			if prof.Gender != nil {
+				i100 := int64(100)
+				genderAcc = &i100
+			}
+			profile := &models.ProfileDataOutput{
+				UUID:        uuid,
+				Name:        prof.Name,
+				Email:       prof.Email,
+				Gender:      prof.Gender,
+				GenderAcc:   genderAcc,
+				IsBot:       prof.IsBot,
+				CountryCode: prof.CountryCode,
+			}
+			_, err = s.EditProfile(profile, false, tx)
+			if err != nil {
+				return
+			}
 			for _, iden := range delProf.Identities {
 				columns := []string{"uuid", "source"}
 				values := []interface{}{uuid, iden.Source}
@@ -5565,8 +5574,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					isDates = append(isDates, false)
 				}
 				if iden.Email != nil {
-					email := strings.Replace(*iden.Email, "!", "@", -1)
-					iden.Email = &email
 					columns = append(columns, "email")
 					values = append(values, *iden.Email)
 					isDates = append(isDates, false)
@@ -5636,10 +5643,6 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				}
 			}
 			for _, iden := range prof.Identities {
-				if iden.Email != nil {
-					email := strings.Replace(*iden.Email, "!", "@", -1)
-					iden.Email = &email
-				}
 				identity := &models.IdentityDataOutput{
 					UUID:     &uuid,
 					Source:   iden.Source,
@@ -5692,7 +5695,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					End:            strfmt.DateTime(end),
 					OrganizationID: organization.ID,
 				}
-				_, err = s.AddEnrollment(enrollment, false, tx)
+				_, err = s.AddEnrollment(enrollment, true, false, tx)
 				if err != nil {
 					return
 				}

@@ -658,7 +658,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
 	}
 	// Do the actual API call
-	_, err = s.shDB.AddEnrollment(enrollment, false, nil)
+	_, err = s.shDB.AddEnrollment(enrollment, false, false, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

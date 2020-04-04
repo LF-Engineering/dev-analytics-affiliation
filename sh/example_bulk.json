@@ -1,10 +1,10 @@
 {
   "add": [
     {
-      "country_code": "pl",
-      "email": "lukaszgryglicki!o2.pl",
-      "name": "Łukasz Gryglicki",
-      "gender": "male",
+      "country_code": "pl ",
+      "email": " Lukaszgryglicki!o2.pl",
+      "name": " Łukasz Gryglicki",
+      "gender": " male",
       "is_bot": 0,
       "enrollments": [
         {
@@ -14,11 +14,6 @@
         },
         {
           "start": "2006-03-01",
-          "end": "2011-06-15",
-          "organization": "Innsoft"
-        },
-        {
-          "start": "2011-06-15",
           "end": "2012-08-01",
           "organization": "IGF PAN Hornsund Expedition"
         },
@@ -28,33 +23,32 @@
           "organization": "Cleverstep"
         },
         {
-          "start": "2013-10-15",
-          "end": "2014-04-15",
-          "organization": "Societe Generale"
+          "start": " 2013-10-15  ",
+          "end": "  2014-04-15 ",
+          "organization": "Societe Generale "
         },
         {
           "start": "2014-04-15",
           "end": "2015-11-20",
-          "organization": "Cleverstep"
+          "organization": "  Cleverstep"
         },
         {
           "start": "2015-11-20",
           "end": "2017-03-15",
-          "organization": "Spreemo"
+          "organization": " Google "
         },
         {
           "start": "2017-03-15",
+          "end": "2020-05-01",
+          "organization": "CNCF  "
+        },
+        {
+          "start": "2020-05-01",
           "end": "2100-01-01",
-          "organization": "CNCF"
+          "organization": " The Linux foundation  "
         }
       ],
       "identities": [
-        {
-          "source": "github",
-          "email": "lukaszgryglicki!o2.pl",
-          "name": "Łukasz Gryglicki",
-          "username": "lukaszgryglicki"
-        },
         {
           "source": "git",
           "email": "lukaszgryglicki!o2.pl",
@@ -69,6 +63,12 @@
           "source": "git",
           "email": "lukaszgryglicki!o2.pl",
           "name": "lukaszgryglicki"
+        },
+        {
+          "source": "jira",
+          "email": "lgryglicki!cncf.io",
+          "name": "Łukasz Gryglicki",
+          "username": "lgryglicki"
         }
       ]
     }
@@ -82,7 +82,7 @@
       "is_bot": 0,
       "enrollments": [
         {
-          "start": "1900-01-01",
+          "start": "1970-01-01",
           "end": "2006-03-01",
           "organization": "Independent"
         },
@@ -118,7 +118,7 @@
         },
         {
           "start": "2017-03-15",
-          "end": "2100-01-01",
+          "end": "2099-01-01",
           "organization": "CNCF"
         }
       ],
