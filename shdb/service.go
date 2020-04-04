@@ -52,7 +52,7 @@ type Service interface {
 	DeleteIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
 	ValidateIdentity(*models.IdentityDataOutput, bool) error
 	FindIdentities([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
-	AddIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
+	AddIdentity(*models.IdentityDataOutput, bool, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 	IdentityIDHash(*models.IdentityDataOutput) (string, error)
 	// UniqueIdentity
 	TouchUniqueIdentity(string, *sql.Tx) (int64, error)
@@ -2539,7 +2539,7 @@ func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *m
 		}
 		identity.UUID = &(identity.ID)
 	}
-	_, err = s.AddIdentity(identity, false, tx)
+	_, err = s.AddIdentity(identity, false, false, tx)
 	if err != nil {
 		return
 	}
@@ -2555,14 +2555,15 @@ func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *m
 	return
 }
 
-func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
-	log.Info(fmt.Sprintf("AddIdentity: inIdentityData:%+v refresh:%v tx:%v", s.ToLocalIdentity(inIdentityData), refresh, tx != nil))
+func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore, refresh bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("AddIdentity: inIdentityData:%+v ignore:%v refresh:%v tx:%v", s.ToLocalIdentity(inIdentityData), ignore, refresh, tx != nil))
 	identityData = inIdentityData
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"AddIdentity(exit): inIdentityData:%+v refresh:%v tx:%v identityData:%+v err:%v",
+				"AddIdentity(exit): inIdentityData:%+v ignore:%v refresh:%v tx:%v identityData:%+v err:%v",
 				s.ToLocalIdentity(inIdentityData),
+				ignore,
 				refresh,
 				tx != nil,
 				s.ToLocalIdentity(identityData),
@@ -2578,7 +2579,11 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, refresh
 		identityData = nil
 		return
 	}
-	insert := "insert into identities(id, uuid, source, name, email, username, last_modified) select ?, ?, ?, ?, ?, ?, str_to_date(?, ?)"
+	root := "insert"
+	if ignore {
+		root += " ignore"
+	}
+	insert := root + " into identities(id, uuid, source, name, email, username, last_modified) select ?, ?, ?, ?, ?, ?, str_to_date(?, ?)"
 	var res sql.Result
 	res, err = s.Exec(
 		s.db,
@@ -2623,9 +2628,11 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, refresh
 			}
 		}
 	} else {
-		err = fmt.Errorf("adding identity '%+v' didn't affected any rows", s.ToLocalIdentity(identityData))
-		identityData = nil
-		return
+		if !ignore {
+			err = fmt.Errorf("adding identity '%+v' didn't affected any rows", s.ToLocalIdentity(identityData))
+			identityData = nil
+			return
+		}
 	}
 	if refresh {
 		identityData, err = s.GetIdentity(identityData.ID, true, tx)
@@ -5020,8 +5027,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		if err != nil {
 			return
 		}
-    // FIXME: it is possible that we can find a profile that exists but have 0 identities or 0 enrollments
-    // we need to deal with this
+		// FIXME: it is possible that we can find a profile that exists but have 0 identities or 0 enrollments
+		// we need to deal with this
 		if len(foundProfs) > 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
 			err = fmt.Errorf("adding profile '%s' - such profile already exists in database, should be also listed in delete array", obj.SortKey(true))
@@ -5069,7 +5076,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				return
 			}
 			identity.ID = iid
-			_, err = s.AddIdentity(identity, false, tx)
+			_, err = s.AddIdentity(identity, true, false, tx)
 			if err != nil {
 				return
 			}
