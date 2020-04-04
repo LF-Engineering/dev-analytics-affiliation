@@ -5003,6 +5003,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			values = append(values, *prof.Name)
 		}
 		if prof.Email != nil {
+			email := strings.Replace(*prof.Email, "!", "@", -1)
+			prof.Email = &email
 			columns = append(columns, "email")
 			values = append(values, *prof.Email)
 		}
@@ -5027,13 +5029,98 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		if err != nil {
 			return
 		}
-		// FIXME: it is possible that we can find a profile that exists but have 0 identities or 0 enrollments
-		// we need to deal with this
 		if len(foundProfs) > 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
-			err = fmt.Errorf("adding profile '%s' - such profile already exists in database, should be also listed in delete array", obj.SortKey(true))
-			log.Info(fmt.Sprintf("BulkUpdate: adding profile '%s', already exists profile(s) %+v\n", obj.SortKey(true), s.ToLocalProfiles(foundProfs)))
-			return
+			log.Info(fmt.Sprintf("BulkUpdate: profile '%s' - found %d matching profiles", obj.SortKey(true), len(foundProfs)))
+			dels := []*models.AllOutput{}
+			uuids := []string{}
+			for _, foundProf := range foundProfs {
+				var identities []*models.IdentityDataOutput
+				var enrollments []*models.EnrollmentDataOutput
+				identities, err = s.FindIdentities([]string{"uuid"}, []interface{}{foundProf.UUID}, []bool{false}, false, tx)
+				if err != nil {
+					return
+				}
+				enrollments, err = s.FindEnrollments([]string{"uuid"}, []interface{}{foundProf.UUID}, []bool{false}, false, tx)
+				if err != nil {
+					return
+				}
+				if len(identities) > 0 && len(enrollments) > 0 {
+					obj := &shared.LocalAllOutput{AllOutput: prof}
+					err = fmt.Errorf(
+						"adding profile '%s' - such profile '%+v' '%+v' '%+v' already exists in database and has both identities and enrollments, you should find that profile and edit it instead",
+						obj.SortKey(true),
+						s.ToLocalProfile(foundProf),
+						s.ToLocalIdentities(identities),
+						s.ToLocalEnrollments(enrollments),
+					)
+					return
+				}
+				log.Info(fmt.Sprintf(
+					"BulkUpdate: profile '%s' - found profile with missing identities or enrollments '%+v' '%+v' '%+v'",
+					obj.SortKey(true),
+					s.ToLocalProfile(foundProf),
+					s.ToLocalIdentities(identities),
+					s.ToLocalEnrollments(enrollments),
+				))
+				del := &models.AllOutput{
+					Name:        foundProf.Name,
+					Email:       foundProf.Email,
+					Gender:      foundProf.Gender,
+					IsBot:       foundProf.IsBot,
+					CountryCode: foundProf.CountryCode,
+				}
+				for _, identity := range identities {
+					iden := &models.IdentityShortOutput{
+						Source:   identity.Source,
+						Name:     identity.Name,
+						Email:    identity.Email,
+						Username: identity.Username,
+					}
+					del.Identities = append(del.Identities, iden)
+				}
+				sort.SliceStable(del.Identities, func(i, j int) bool {
+					identities := del.Identities
+					a := &shared.LocalIdentityShortOutput{IdentityShortOutput: identities[i]}
+					b := &shared.LocalIdentityShortOutput{IdentityShortOutput: identities[j]}
+					return a.SortKey() < b.SortKey()
+				})
+				for _, enrollment := range enrollments {
+					var organization *models.OrganizationDataOutput
+					organization, err = s.GetOrganization(enrollment.OrganizationID, true, tx)
+					if err != nil {
+						return
+					}
+					rol := &models.EnrollmentShortOutput{
+						Start:        time.Time(enrollment.Start).Format(DateFormat),
+						End:          time.Time(enrollment.End).Format(DateFormat),
+						Organization: organization.Name,
+					}
+					del.Enrollments = append(del.Enrollments, rol)
+				}
+				sort.SliceStable(del.Enrollments, func(i, j int) bool {
+					rols := del.Enrollments
+					a := &shared.LocalEnrollmentShortOutput{EnrollmentShortOutput: rols[i]}
+					b := &shared.LocalEnrollmentShortOutput{EnrollmentShortOutput: rols[j]}
+					return a.SortKey() < b.SortKey()
+				})
+				dels = append(dels, del)
+				uuids = append(uuids, foundProf.UUID)
+			}
+			k := obj.SortKey(false)
+			for index, del := range dels {
+				dobj := &shared.LocalAllOutput{AllOutput: del}
+				uuid := uuids[index]
+				key := uuid + "=" + k
+				log.Info(fmt.Sprintf("BulkUpdate: profile '%s' - generated update record '%s' '%s'", obj.SortKey(true), key, dobj.SortKey(true)))
+				mUpdProf[key] = [2]*models.AllOutput{prof, del}
+			}
+			_, ok := mAddProf[k]
+			if !ok {
+				err = fmt.Errorf("add profile map '%+v' doesn't have key '%s'", mAddProf, k)
+			}
+			delete(mAddProf, k)
+			continue
 		}
 		var genderAcc *int64
 		if prof.Gender != nil {
@@ -5064,6 +5151,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		}
 		iid := ""
 		for _, iden := range prof.Identities {
+			email := strings.Replace(*iden.Email, "!", "@", -1)
+			iden.Email = &email
 			identity := &models.IdentityDataOutput{
 				UUID:     &uuid,
 				Source:   iden.Source,
@@ -5111,11 +5200,14 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			}
 		}
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
-	}
-	tx = nil
+	// FIXME: uncomment when all ready
+	/*
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+	*/
 	nAdded = len(mAddProf)
 	nDeleted = len(mDelProf)
 	nUpdated = len(mUpdProf)

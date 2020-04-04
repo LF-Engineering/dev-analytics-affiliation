@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"database/sql"
@@ -113,7 +114,7 @@ func (i *LocalIdentityShortOutput) SortKey() (key string) {
 		key += ":"
 	}
 	if i.Email != nil {
-		key += ":" + *(i.Email)
+		key += ":" + strings.Replace(*(i.Email), "@", "!", -1)
 	} else {
 		key += ":"
 	}
@@ -131,7 +132,7 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 		key += *(a.Name)
 	}
 	if a.Email != nil {
-		key += ":" + *(a.Email)
+		key += ":" + strings.Replace(*(a.Email), "@", "!", -1)
 	} else {
 		key += ":"
 	}

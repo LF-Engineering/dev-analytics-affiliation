@@ -23,8 +23,18 @@
       ]
     },
     {
-      "name": "Gerard Hynes",
-      "is_bot": 0
+      "name": "Julian Zucker",
+      "email": "julian.zucker!gmail.com",
+      "gender": "male",
+      "is_bot": 0,
+      "country_code": "US"
+    },
+    {
+      "name": "Tammer Saleh",
+      "email": "hello!superorbit.al",
+      "gender": "male",
+      "is_bot": 0,
+      "country_code": "US"
     }
   ],
   "del": [
