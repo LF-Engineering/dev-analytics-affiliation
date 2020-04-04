@@ -5696,14 +5696,11 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			}
 		}
 	}
-	// FIXME: uncomment when all ready
-	/*
-		err = tx.Commit()
-		if err != nil {
-			return
-		}
-		tx = nil
-	*/
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
 	nAdded = len(mAddProf)
 	nDeleted = len(mDelProf)
 	nUpdated = len(mUpdProf)
