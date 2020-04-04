@@ -156,6 +156,7 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 		key += ":"
 	}
 	if !recursive {
+		key = strings.ToLower(key)
 		return
 	}
 	for _, identity := range a.Identities {

@@ -1,0 +1,79 @@
+{
+  "add": [
+    {
+      "country_code": "RU",
+      "email": "da-jeff!linuxfoundation.com",
+      "name": "DAJeff",
+      "gender": "male",
+      "is_bot": 0,
+      "enrollments": [
+        {
+          "start": "1900-01-01",
+          "end": "2100-01-01",
+          "organization": "The Linux Foundation"
+        }
+      ],
+      "identities": [
+        {
+          "source": "github",
+          "email": "da-jeff!linuxfoundation.com",
+          "name": "DA Jeff",
+          "username": "da-jeff"
+        }
+      ]
+    },
+    {
+      "name": "Julian Zucker",
+      "email": "julian.zucker!gmail.com",
+      "gender": "male",
+      "is_bot": 0,
+      "country_code": "US"
+    },
+    {
+      "name": "Tammer Saleh",
+      "email": "hello!superorbit.al",
+      "gender": "male",
+      "is_bot": 0,
+      "country_code": "US"
+    }
+  ],
+  "del": [
+    {
+      "country_code": "PL",
+      "email": "da-jeff!linuxfoundation.com",
+      "name": "DAJeff",
+      "gender": "male",
+      "is_bot": 0,
+      "enrollments": [
+        {
+          "start": "1900-01-01",
+          "end": "2100-01-01",
+          "organization": "The Linux Foundation"
+        }
+      ],
+      "identities": [
+        {
+          "source": "github",
+          "email": "da-jeff!linuxfoundation.com",
+          "name": "DA Jeff",
+          "username": "da-jeff"
+        }
+      ]
+    },
+    {
+      "name": "Tammer Saleh",
+      "email": "hello!superorbit.al",
+      "gender": "male",
+      "is_bot": 0,
+      "country_code": "US",
+      "identities": [
+        {
+          "source": "github",
+          "email": "hello@superorbit.al",
+          "name": "Tammer Saleh",
+          "username": "tammersaleh"
+        }
+      ]
+    }
+  ]
+}

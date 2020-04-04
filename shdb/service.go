@@ -4905,11 +4905,14 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	mDel := make(map[string]*models.AllOutput)
 	for _, obj := range add {
 		lobj := &shared.LocalAllOutput{AllOutput: obj}
-		mAdd[lobj.SortKey(true)] = obj
+		key := lobj.SortKey(true)
+		mAdd[key] = obj
 	}
 	for _, obj := range del {
 		lobj := &shared.LocalAllOutput{AllOutput: obj}
-		mDel[lobj.SortKey(true)] = obj
+		// key := strings.ToLower(lobj.SortKey(true))
+		key := lobj.SortKey(true)
+		mDel[key] = obj
 	}
 	sharedM := make(map[string]struct{})
 	for k := range mAdd {
@@ -5105,7 +5108,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					if err != nil {
 						return
 					}
-					end, err = s.TimeParseAny(rol.Start)
+					end, err = s.TimeParseAny(rol.End)
 					if err != nil {
 						return
 					}
@@ -5122,8 +5125,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						[]string{"uuid", "start", "end", "organization_id"},
 						[]interface{}{
 							foundProf.UUID,
-							start,
-							end,
+							strfmt.DateTime(start),
+							strfmt.DateTime(end),
 							organization.ID,
 						},
 						[]bool{false, true, true, false},
@@ -5498,7 +5501,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					if err != nil {
 						return
 					}
-					end, err = s.TimeParseAny(rol.Start)
+					end, err = s.TimeParseAny(rol.End)
 					if err != nil {
 						return
 					}
@@ -5515,8 +5518,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						[]string{"uuid", "start", "end", "organization_id"},
 						[]interface{}{
 							foundProf.UUID,
-							start,
-							end,
+							strfmt.DateTime(start),
+							strfmt.DateTime(end),
 							organization.ID,
 						},
 						[]bool{false, true, true, false},
@@ -5597,7 +5600,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				if err != nil {
 					return
 				}
-				end, err = s.TimeParseAny(rol.Start)
+				end, err = s.TimeParseAny(rol.End)
 				if err != nil {
 					return
 				}
@@ -5614,8 +5617,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					[]string{"uuid", "start", "end", "organization_id"},
 					[]interface{}{
 						uuid,
-						start,
-						end,
+						strfmt.DateTime(start),
+						strfmt.DateTime(end),
 						organization.ID,
 					},
 					[]bool{false, true, true, false},

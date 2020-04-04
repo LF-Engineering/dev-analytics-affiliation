@@ -1,77 +1,148 @@
 {
   "add": [
     {
-      "country_code": "RU",
-      "email": "da-jeff!linuxfoundation.com",
-      "name": "DAJeff",
+      "country_code": "pl",
+      "email": "lukaszgryglicki!o2.pl",
+      "name": "Łukasz Gryglicki",
       "gender": "male",
       "is_bot": 0,
       "enrollments": [
         {
           "start": "1900-01-01",
+          "end": "2006-03-01",
+          "organization": "Independent"
+        },
+        {
+          "start": "2006-03-01",
+          "end": "2011-06-15",
+          "organization": "Innsoft"
+        },
+        {
+          "start": "2011-06-15",
+          "end": "2012-08-01",
+          "organization": "IGF PAN Hornsund Expedition"
+        },
+        {
+          "start": "2012-08-01",
+          "end": "2013-10-15",
+          "organization": "Cleverstep"
+        },
+        {
+          "start": "2013-10-15",
+          "end": "2014-04-15",
+          "organization": "Societe Generale"
+        },
+        {
+          "start": "2014-04-15",
+          "end": "2015-11-20",
+          "organization": "Cleverstep"
+        },
+        {
+          "start": "2015-11-20",
+          "end": "2017-03-15",
+          "organization": "Spreemo"
+        },
+        {
+          "start": "2017-03-15",
           "end": "2100-01-01",
-          "organization": "The Linux Foundation"
+          "organization": "CNCF"
         }
       ],
       "identities": [
         {
           "source": "github",
-          "email": "da-jeff!linuxfoundation.com",
-          "name": "DA Jeff",
-          "username": "da-jeff"
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "Łukasz Gryglicki",
+          "username": "lukaszgryglicki"
+        },
+        {
+          "source": "git",
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "Lukasz Gryglicki"
+        },
+        {
+          "source": "git",
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "Łukasz Gryglicki"
+        },
+        {
+          "source": "git",
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "lukaszgryglicki"
         }
       ]
-    },
-    {
-      "name": "Julian Zucker",
-      "email": "julian.zucker!gmail.com",
-      "gender": "male",
-      "is_bot": 0,
-      "country_code": "US"
-    },
-    {
-      "name": "Tammer Saleh",
-      "email": "hello!superorbit.al",
-      "gender": "male",
-      "is_bot": 0,
-      "country_code": "US"
     }
   ],
   "del": [
     {
       "country_code": "PL",
-      "email": "da-jeff!linuxfoundation.com",
-      "name": "DAJeff",
+      "email": "lukaszgryglicki!o2.pl",
+      "name": "Łukasz Gryglicki",
       "gender": "male",
       "is_bot": 0,
       "enrollments": [
         {
           "start": "1900-01-01",
+          "end": "2006-03-01",
+          "organization": "Independent"
+        },
+        {
+          "start": "2006-03-01",
+          "end": "2011-06-15",
+          "organization": "Innsoft"
+        },
+        {
+          "start": "2011-06-15",
+          "end": "2012-08-01",
+          "organization": "IGF PAN Hornsund Expedition"
+        },
+        {
+          "start": "2012-08-01",
+          "end": "2013-10-15",
+          "organization": "Cleverstep"
+        },
+        {
+          "start": "2013-10-15",
+          "end": "2014-04-15",
+          "organization": "Societe Generale"
+        },
+        {
+          "start": "2014-04-15",
+          "end": "2015-11-20",
+          "organization": "Cleverstep"
+        },
+        {
+          "start": "2015-11-20",
+          "end": "2017-03-15",
+          "organization": "Spreemo"
+        },
+        {
+          "start": "2017-03-15",
           "end": "2100-01-01",
-          "organization": "The Linux Foundation"
+          "organization": "CNCF"
         }
       ],
       "identities": [
         {
           "source": "github",
-          "email": "da-jeff!linuxfoundation.com",
-          "name": "DA Jeff",
-          "username": "da-jeff"
-        }
-      ]
-    },
-    {
-      "name": "Tammer Saleh",
-      "email": "hello!superorbit.al",
-      "gender": "male",
-      "is_bot": 0,
-      "country_code": "US",
-      "identities": [
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "Łukasz Gryglicki",
+          "username": "lukaszgryglicki"
+        },
         {
-          "source": "github",
-          "email": "hello@superorbit.al",
-          "name": "Tammer Saleh",
-          "username": "tammersaleh"
+          "source": "git",
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "Lukasz Gryglicki"
+        },
+        {
+          "source": "git",
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "Łukasz Gryglicki"
+        },
+        {
+          "source": "git",
+          "email": "lukaszgryglicki!o2.pl",
+          "name": "lukaszgryglicki"
         }
       ]
     }
