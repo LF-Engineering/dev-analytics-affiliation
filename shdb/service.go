@@ -4994,7 +4994,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			tx.Rollback()
 		}
 	}()
-	for _, prof := range mAddProf {
+	archiveDate := time.Now()
+	for _, prof := range mDelProf {
 		foundProfs := []*models.ProfileDataOutput{}
 		columns := []string{}
 		values := []interface{}{}
@@ -5010,7 +5011,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		}
 		if len(columns) == 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
-			err = fmt.Errorf("profile must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+			err = fmt.Errorf("profile to delete must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
 			return
 		}
 		if prof.Gender != nil {
@@ -5029,9 +5030,64 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		if err != nil {
 			return
 		}
-		if len(foundProfs) > 0 {
+		nFoundProfs := len(foundProfs)
+		obj := &shared.LocalAllOutput{AllOutput: prof}
+		switch nFoundProfs {
+		case 0:
+			log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' - didn't found matching profiles, continuying", obj.SortKey(true)))
+		case 1:
+			uuid := foundProfs[0].UUID
+			_, err = s.ArchiveUUID(uuid, &archiveDate, tx)
+			if err != nil {
+				return
+			}
+			err = s.DeleteUniqueIdentity(uuid, false, true, nil, tx)
+			if err != nil {
+				return
+			}
+			log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' - archived and deleted UUID '%s'", obj.SortKey(true), uuid))
+		default:
+			log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' found %d matching profiles to delete", obj.SortKey(true), nFoundProfs))
+		}
+	}
+	for _, prof := range mAddProf {
+		foundProfs := []*models.ProfileDataOutput{}
+		columns := []string{}
+		values := []interface{}{}
+		if prof.Name != nil {
+			columns = append(columns, "name")
+			values = append(values, *prof.Name)
+		}
+		if prof.Email != nil {
+			email := strings.Replace(*prof.Email, "!", "@", -1)
+			prof.Email = &email
+			columns = append(columns, "email")
+			values = append(values, *prof.Email)
+		}
+		if len(columns) == 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
-			log.Info(fmt.Sprintf("BulkUpdate: profile '%s' - found %d matching profiles", obj.SortKey(true), len(foundProfs)))
+			err = fmt.Errorf("profile to add must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+			return
+		}
+		if prof.Gender != nil {
+			columns = append(columns, "gender")
+			values = append(values, *prof.Gender)
+		}
+		if prof.IsBot != nil {
+			columns = append(columns, "is_bot")
+			values = append(values, *prof.IsBot)
+		}
+		if prof.CountryCode != nil {
+			columns = append(columns, "country_code")
+			values = append(values, *prof.CountryCode)
+		}
+		foundProfs, err = s.FindProfiles(columns, values, false, tx)
+		if err != nil {
+			return
+		}
+		obj := &shared.LocalAllOutput{AllOutput: prof}
+		if len(foundProfs) > 0 {
+			log.Info(fmt.Sprintf("BulkUpdate: add profile '%s' - found %d matching profiles", obj.SortKey(true), len(foundProfs)))
 			dels := []*models.AllOutput{}
 			uuids := []string{}
 			for _, foundProf := range foundProfs {
@@ -5057,7 +5113,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					return
 				}
 				log.Info(fmt.Sprintf(
-					"BulkUpdate: profile '%s' - found profile with missing identities or enrollments '%+v' '%+v' '%+v'",
+					"BulkUpdate: add profile '%s' - found profile with missing identities or enrollments '%+v' '%+v' '%+v'",
 					obj.SortKey(true),
 					s.ToLocalProfile(foundProf),
 					s.ToLocalIdentities(identities),
@@ -5112,7 +5168,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				dobj := &shared.LocalAllOutput{AllOutput: del}
 				uuid := uuids[index]
 				key := uuid + "=" + k
-				log.Info(fmt.Sprintf("BulkUpdate: profile '%s' - generated update record '%s' '%s'", obj.SortKey(true), key, dobj.SortKey(true)))
+				log.Info(fmt.Sprintf("BulkUpdate: add profile '%s' - generated update record '%s' '%s'", obj.SortKey(true), key, dobj.SortKey(true)))
 				mUpdProf[key] = [2]*models.AllOutput{prof, del}
 			}
 			_, ok := mAddProf[k]
@@ -5141,6 +5197,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			return
 		}
 		profile.UUID = uuid
+		log.Info(fmt.Sprintf("BulkUpdate: add profile '%s' - generated profile UUID '%s'", obj.SortKey(true), uuid))
 		_, err = s.AddUniqueIdentity(&models.UniqueIdentityDataOutput{UUID: uuid}, false, tx)
 		if err != nil {
 			return
@@ -5165,6 +5222,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				return
 			}
 			identity.ID = iid
+			iobj := &shared.LocalIdentityShortOutput{IdentityShortOutput: iden}
+			log.Info(fmt.Sprintf("BulkUpdate: add profile identity '%s' - generated identity ID '%s'", iobj.SortKey(), iid))
 			_, err = s.AddIdentity(identity, true, false, tx)
 			if err != nil {
 				return
