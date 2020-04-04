@@ -4994,6 +4994,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			tx.Rollback()
 		}
 	}()
+	mOrgID := make(map[int64]*models.OrganizationDataOutput)
+	mOrgName := make(map[string]*models.OrganizationDataOutput)
 	archiveDate := time.Now()
 	for _, prof := range mDelProf {
 		foundProfs := []*models.ProfileDataOutput{}
@@ -5097,6 +5099,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						end          time.Time
 						organization *models.OrganizationDataOutput
 						enrollments  []*models.EnrollmentDataOutput
+						ok           bool
 					)
 					start, err = s.TimeParseAny(rol.Start)
 					if err != nil {
@@ -5106,9 +5109,14 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					if err != nil {
 						return
 					}
-					organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
-					if err != nil {
-						return
+					organization, ok = mOrgName[rol.Organization]
+					if !ok {
+						organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+						if err != nil {
+							return
+						}
+						mOrgName[rol.Organization] = organization
+						mOrgID[organization.ID] = organization
 					}
 					enrollments, err = s.FindEnrollments(
 						[]string{"uuid", "start", "end", "organization_id"},
@@ -5246,10 +5254,18 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					return a.SortKey() < b.SortKey()
 				})
 				for _, enrollment := range enrollments {
-					var organization *models.OrganizationDataOutput
-					organization, err = s.GetOrganization(enrollment.OrganizationID, true, tx)
-					if err != nil {
-						return
+					var (
+						organization *models.OrganizationDataOutput
+						ok           bool
+					)
+					organization, ok = mOrgID[enrollment.OrganizationID]
+					if !ok {
+						organization, err = s.GetOrganization(enrollment.OrganizationID, true, tx)
+						if err != nil {
+							return
+						}
+						mOrgID[enrollment.OrganizationID] = organization
+						mOrgName[organization.Name] = organization
 					}
 					rol := &models.EnrollmentShortOutput{
 						Start:        time.Time(enrollment.Start).Format(DateFormat),
@@ -5348,10 +5364,18 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			if err != nil {
 				return
 			}
-			var organization *models.OrganizationDataOutput
-			organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
-			if err != nil {
-				return
+			var (
+				organization *models.OrganizationDataOutput
+				ok           bool
+			)
+			organization, ok = mOrgName[rol.Organization]
+			if !ok {
+				organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+				if err != nil {
+					return
+				}
+				mOrgName[rol.Organization] = organization
+				mOrgID[organization.ID] = organization
 			}
 			enrollment := &models.EnrollmentDataOutput{
 				UUID:           uuid,
@@ -5468,6 +5492,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						end          time.Time
 						organization *models.OrganizationDataOutput
 						enrollments  []*models.EnrollmentDataOutput
+						ok           bool
 					)
 					start, err = s.TimeParseAny(rol.Start)
 					if err != nil {
@@ -5477,9 +5502,14 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					if err != nil {
 						return
 					}
-					organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
-					if err != nil {
-						return
+					organization, ok = mOrgName[rol.Organization]
+					if !ok {
+						organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+						if err != nil {
+							return
+						}
+						mOrgName[rol.Organization] = organization
+						mOrgID[organization.ID] = organization
 					}
 					enrollments, err = s.FindEnrollments(
 						[]string{"uuid", "start", "end", "organization_id"},
@@ -5561,6 +5591,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					end          time.Time
 					organization *models.OrganizationDataOutput
 					enrollments  []*models.EnrollmentDataOutput
+					ok           bool
 				)
 				start, err = s.TimeParseAny(rol.Start)
 				if err != nil {
@@ -5570,9 +5601,14 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				if err != nil {
 					return
 				}
-				organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
-				if err != nil {
-					return
+				organization, ok = mOrgName[rol.Organization]
+				if !ok {
+					organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+					if err != nil {
+						return
+					}
+					mOrgName[rol.Organization] = organization
+					mOrgID[organization.ID] = organization
 				}
 				enrollments, err = s.FindEnrollments(
 					[]string{"uuid", "start", "end", "organization_id"},
@@ -5634,10 +5670,18 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				if err != nil {
 					return
 				}
-				var organization *models.OrganizationDataOutput
-				organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
-				if err != nil {
-					return
+				var (
+					organization *models.OrganizationDataOutput
+					ok           bool
+				)
+				organization, ok = mOrgName[rol.Organization]
+				if !ok {
+					organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+					if err != nil {
+						return
+					}
+					mOrgName[rol.Organization] = organization
+					mOrgID[organization.ID] = organization
 				}
 				enrollment := &models.EnrollmentDataOutput{
 					UUID:           uuid,
