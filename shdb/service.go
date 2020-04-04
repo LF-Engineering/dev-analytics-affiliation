@@ -5048,6 +5048,110 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' - archived and deleted UUID '%s'", obj.SortKey(true), uuid))
 		default:
 			log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' found %d matching profiles to delete", obj.SortKey(true), nFoundProfs))
+			if len(prof.Enrollments) == 0 && len(prof.Identities) == 0 {
+				err = fmt.Errorf(
+					"profile to delete '%s' has no enrollments and no identities (in delete record) and searching for this profile generates multiple results '%+v', cannot delete multiple objects",
+					obj.SortKey(true),
+					s.ToLocalProfiles(foundProfs),
+				)
+				return
+			}
+			uuids := make(map[string]struct{})
+			for _, foundProf := range foundProfs {
+				for _, iden := range prof.Identities {
+					columns := []string{"uuid", "source"}
+					values := []interface{}{foundProf.UUID, iden.Source}
+					isDates := []bool{false, false}
+					if iden.Name != nil {
+						columns = append(columns, "name")
+						values = append(values, *iden.Name)
+						isDates = append(isDates, false)
+					}
+					if iden.Email != nil {
+						email := strings.Replace(*iden.Email, "!", "@", -1)
+						iden.Email = &email
+						columns = append(columns, "email")
+						values = append(values, *iden.Email)
+						isDates = append(isDates, false)
+					}
+					if iden.Username != nil {
+						columns = append(columns, "username")
+						values = append(values, *iden.Username)
+						isDates = append(isDates, false)
+					}
+					var identities []*models.IdentityDataOutput
+					identities, err = s.FindIdentities(columns, values, isDates, false, tx)
+					if err != nil {
+						return
+					}
+					for _, identity := range identities {
+						if identity.UUID == nil {
+							continue
+						}
+						uuids[*identity.UUID] = struct{}{}
+					}
+				}
+				for _, rol := range prof.Enrollments {
+					var (
+						start        time.Time
+						end          time.Time
+						organization *models.OrganizationDataOutput
+						enrollments  []*models.EnrollmentDataOutput
+					)
+					start, err = s.TimeParseAny(rol.Start)
+					if err != nil {
+						return
+					}
+					end, err = s.TimeParseAny(rol.Start)
+					if err != nil {
+						return
+					}
+					organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+					if err != nil {
+						return
+					}
+					enrollments, err = s.FindEnrollments(
+						[]string{"uuid", "start", "end", "organization_id"},
+						[]interface{}{
+							foundProf.UUID,
+							start,
+							end,
+							organization.ID,
+						},
+						[]bool{false, true, true, false},
+						false,
+						tx,
+					)
+					if err != nil {
+						return
+					}
+					for _, enrollment := range enrollments {
+						uuids[enrollment.UUID] = struct{}{}
+					}
+				}
+			}
+			nUUIDs := len(uuids)
+			switch nUUIDs {
+			case 0:
+				log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' - detailed search didn't found matching profiles, continuying", obj.SortKey(true)))
+			case 1:
+				uuid := ""
+				for k := range uuids {
+					uuid = k
+					break
+				}
+				_, err = s.ArchiveUUID(uuid, &archiveDate, tx)
+				if err != nil {
+					return
+				}
+				err = s.DeleteUniqueIdentity(uuid, false, true, nil, tx)
+				if err != nil {
+					return
+				}
+				log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' - archived and deleted UUID '%s' after detailed search", obj.SortKey(true), uuid))
+			default:
+				log.Info(fmt.Sprintf("BulkUpdate: delete profile '%s' detailed search returned multiple UUIDs: %+v, skipping delete", obj.SortKey(true), uuids))
+			}
 		}
 	}
 	for _, prof := range mAddProf {

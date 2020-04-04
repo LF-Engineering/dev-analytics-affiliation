@@ -72,7 +72,15 @@
       "email": "hello!superorbit.al",
       "gender": "male",
       "is_bot": 0,
-      "country_code": "US"
+      "country_code": "US",
+      "identities": [
+        {
+          "source": "github",
+          "email": "hello@superorbit.al",
+          "name": "Tammer Saleh",
+          "username": "tammersaleh"
+        }
+      ]
     }
   ]
 }
