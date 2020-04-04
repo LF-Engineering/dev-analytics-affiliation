@@ -26,14 +26,14 @@
       "name": "Julian Zucker",
       "email": "julian.zucker!gmail.com",
       "gender": "male",
-      "is_bot": 1,
+      "is_bot": 0,
       "country_code": "US"
     },
     {
       "name": "Tammer Saleh",
       "email": "hello!superorbit.al",
       "gender": "male",
-      "is_bot": 1,
+      "is_bot": 0,
       "country_code": "US"
     }
   ],
@@ -59,13 +59,6 @@
           "username": "da-jeff"
         }
       ]
-    },
-    {
-      "name": "Julian Zucker",
-      "email": "julian.zucker!gmail.com",
-      "gender": "male",
-      "is_bot": 0,
-      "country_code": "US"
     },
     {
       "name": "Tammer Saleh",

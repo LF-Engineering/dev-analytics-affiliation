@@ -5271,7 +5271,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			for index, del := range dels {
 				dobj := &shared.LocalAllOutput{AllOutput: del}
 				uuid := uuids[index]
-				key := uuid + "=" + k
+				key := uuid + "==[uuid]==" + k
 				log.Info(fmt.Sprintf("BulkUpdate: add profile '%s' - generated update record '%s' '%s'", obj.SortKey(true), key, dobj.SortKey(true)))
 				mUpdProf[key] = [2]*models.AllOutput{prof, del}
 			}
@@ -5361,6 +5361,55 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			if err != nil {
 				return
 			}
+		}
+	}
+	for k, data := range mUpdProf {
+		prof := data[0]
+		delProf := data[1]
+		foundProfs := []*models.ProfileDataOutput{}
+		columns := []string{}
+		values := []interface{}{}
+		ary := strings.Split(k, "==[uuid]==")
+		if len(ary) > 1 {
+			columns = append(columns, "uuid")
+			values = append(values, ary[0])
+		} else {
+			if prof.Name != nil {
+				columns = append(columns, "name")
+				values = append(values, *prof.Name)
+			}
+			if prof.Email != nil {
+				email := strings.Replace(*prof.Email, "!", "@", -1)
+				prof.Email = &email
+				columns = append(columns, "email")
+				values = append(values, *prof.Email)
+			}
+			if len(columns) == 0 {
+				obj := &shared.LocalAllOutput{AllOutput: prof}
+				err = fmt.Errorf("profile to add must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+				return
+			}
+			if prof.Gender != nil {
+				columns = append(columns, "gender")
+				values = append(values, *prof.Gender)
+			}
+			if prof.IsBot != nil {
+				columns = append(columns, "is_bot")
+				values = append(values, *prof.IsBot)
+			}
+			if prof.CountryCode != nil {
+				columns = append(columns, "country_code")
+				values = append(values, *prof.CountryCode)
+			}
+		}
+		foundProfs, err = s.FindProfiles(columns, values, false, tx)
+		if err != nil {
+			return
+		}
+		obj := &shared.LocalAllOutput{AllOutput: prof}
+		delObj := &shared.LocalAllOutput{AllOutput: delProf}
+		if len(foundProfs) > 0 {
+			log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' - found %d profiles '%+v'", obj.SortKey(true), delObj.SortKey(true), len(foundProfs), s.ToLocalProfiles(foundProfs)))
 		}
 	}
 	// FIXME: uncomment when all ready
