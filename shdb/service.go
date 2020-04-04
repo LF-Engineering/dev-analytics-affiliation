@@ -5312,8 +5312,10 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		}
 		iid := ""
 		for _, iden := range prof.Identities {
-			email := strings.Replace(*iden.Email, "!", "@", -1)
-			iden.Email = &email
+			if iden.Email != nil {
+				email := strings.Replace(*iden.Email, "!", "@", -1)
+				iden.Email = &email
+			}
 			identity := &models.IdentityDataOutput{
 				UUID:     &uuid,
 				Source:   iden.Source,
@@ -5408,8 +5410,246 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		}
 		obj := &shared.LocalAllOutput{AllOutput: prof}
 		delObj := &shared.LocalAllOutput{AllOutput: delProf}
-		if len(foundProfs) > 0 {
+		nFoundProfs := len(foundProfs)
+		if nFoundProfs > 0 {
 			log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' - found %d profiles '%+v'", obj.SortKey(true), delObj.SortKey(true), len(foundProfs), s.ToLocalProfiles(foundProfs)))
+		}
+		uuids := make(map[string]struct{})
+		switch nFoundProfs {
+		case 0:
+			log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' - didn't found matching profiles, continuying", obj.SortKey(true), delObj.SortKey(true)))
+		case 1:
+			uuid := foundProfs[0].UUID
+			_, err = s.ArchiveUUID(uuid, &archiveDate, tx)
+			if err != nil {
+				return
+			}
+			log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' - archived UUID '%s'", obj.SortKey(true), delObj.SortKey(true), uuid))
+			uuids[uuid] = struct{}{}
+		default:
+			log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' found %d matching profiles to update", obj.SortKey(true), delObj.SortKey(true), nFoundProfs))
+			for _, foundProf := range foundProfs {
+				for _, iden := range prof.Identities {
+					columns := []string{"uuid", "source"}
+					values := []interface{}{foundProf.UUID, iden.Source}
+					isDates := []bool{false, false}
+					if iden.Name != nil {
+						columns = append(columns, "name")
+						values = append(values, *iden.Name)
+						isDates = append(isDates, false)
+					}
+					if iden.Email != nil {
+						email := strings.Replace(*iden.Email, "!", "@", -1)
+						iden.Email = &email
+						columns = append(columns, "email")
+						values = append(values, *iden.Email)
+						isDates = append(isDates, false)
+					}
+					if iden.Username != nil {
+						columns = append(columns, "username")
+						values = append(values, *iden.Username)
+						isDates = append(isDates, false)
+					}
+					var identities []*models.IdentityDataOutput
+					identities, err = s.FindIdentities(columns, values, isDates, false, tx)
+					if err != nil {
+						return
+					}
+					for _, identity := range identities {
+						if identity.UUID == nil {
+							continue
+						}
+						uuids[*identity.UUID] = struct{}{}
+					}
+				}
+				for _, rol := range prof.Enrollments {
+					var (
+						start        time.Time
+						end          time.Time
+						organization *models.OrganizationDataOutput
+						enrollments  []*models.EnrollmentDataOutput
+					)
+					start, err = s.TimeParseAny(rol.Start)
+					if err != nil {
+						return
+					}
+					end, err = s.TimeParseAny(rol.Start)
+					if err != nil {
+						return
+					}
+					organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+					if err != nil {
+						return
+					}
+					enrollments, err = s.FindEnrollments(
+						[]string{"uuid", "start", "end", "organization_id"},
+						[]interface{}{
+							foundProf.UUID,
+							start,
+							end,
+							organization.ID,
+						},
+						[]bool{false, true, true, false},
+						false,
+						tx,
+					)
+					if err != nil {
+						return
+					}
+					for _, enrollment := range enrollments {
+						uuids[enrollment.UUID] = struct{}{}
+					}
+				}
+			}
+			nUUIDs := len(uuids)
+			if nUUIDs == 0 {
+				for _, foundProf := range foundProfs {
+					uuids[foundProf.UUID] = struct{}{}
+				}
+			}
+			nUUIDs = len(uuids)
+			switch nUUIDs {
+			case 0:
+				log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' - detailed search didn't found matching profiles, continuying", obj.SortKey(true), delObj.SortKey(true)))
+			default:
+				for uuid := range uuids {
+					_, err = s.ArchiveUUID(uuid, &archiveDate, tx)
+					if err != nil {
+						return
+					}
+				}
+				log.Info(fmt.Sprintf("BulkUpdate: update profile '%s'/'%s' - archived UUIDs '%+v' after detailed search", obj.SortKey(true), delObj.SortKey(true), uuids))
+			}
+		}
+		for uuid := range uuids {
+			for _, iden := range delProf.Identities {
+				columns := []string{"uuid", "source"}
+				values := []interface{}{uuid, iden.Source}
+				isDates := []bool{false, false}
+				if iden.Name != nil {
+					columns = append(columns, "name")
+					values = append(values, *iden.Name)
+					isDates = append(isDates, false)
+				}
+				if iden.Email != nil {
+					email := strings.Replace(*iden.Email, "!", "@", -1)
+					iden.Email = &email
+					columns = append(columns, "email")
+					values = append(values, *iden.Email)
+					isDates = append(isDates, false)
+				}
+				if iden.Username != nil {
+					columns = append(columns, "username")
+					values = append(values, *iden.Username)
+					isDates = append(isDates, false)
+				}
+				var identities []*models.IdentityDataOutput
+				identities, err = s.FindIdentities(columns, values, isDates, false, tx)
+				if err != nil {
+					return
+				}
+				for _, identity := range identities {
+					err = s.DeleteIdentity(identity.ID, false, false, nil, tx)
+					if err != nil {
+						return
+					}
+				}
+			}
+			for _, rol := range delProf.Enrollments {
+				var (
+					start        time.Time
+					end          time.Time
+					organization *models.OrganizationDataOutput
+					enrollments  []*models.EnrollmentDataOutput
+				)
+				start, err = s.TimeParseAny(rol.Start)
+				if err != nil {
+					return
+				}
+				end, err = s.TimeParseAny(rol.Start)
+				if err != nil {
+					return
+				}
+				organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+				if err != nil {
+					return
+				}
+				enrollments, err = s.FindEnrollments(
+					[]string{"uuid", "start", "end", "organization_id"},
+					[]interface{}{
+						uuid,
+						start,
+						end,
+						organization.ID,
+					},
+					[]bool{false, true, true, false},
+					false,
+					tx,
+				)
+				if err != nil {
+					return
+				}
+				for _, enrollment := range enrollments {
+					err = s.DeleteEnrollment(enrollment.ID, false, false, nil, tx)
+					if err != nil {
+						return
+					}
+				}
+			}
+			for _, iden := range prof.Identities {
+				if iden.Email != nil {
+					email := strings.Replace(*iden.Email, "!", "@", -1)
+					iden.Email = &email
+				}
+				identity := &models.IdentityDataOutput{
+					UUID:     &uuid,
+					Source:   iden.Source,
+					Email:    iden.Email,
+					Name:     iden.Name,
+					Username: iden.Username,
+				}
+				iid := ""
+				iid, err = s.IdentityIDHash(identity)
+				if err != nil {
+					return
+				}
+				identity.ID = iid
+				iobj := &shared.LocalIdentityShortOutput{IdentityShortOutput: iden}
+				log.Info(fmt.Sprintf("BulkUpdate: update profile identity '%s' - generated identity ID '%s'", iobj.SortKey(), iid))
+				_, err = s.AddIdentity(identity, true, false, tx)
+				if err != nil {
+					return
+				}
+			}
+			var (
+				start time.Time
+				end   time.Time
+			)
+			for _, rol := range prof.Enrollments {
+				start, err = s.TimeParseAny(rol.Start)
+				if err != nil {
+					return
+				}
+				end, err = s.TimeParseAny(rol.End)
+				if err != nil {
+					return
+				}
+				var organization *models.OrganizationDataOutput
+				organization, err = s.GetOrganizationByName(rol.Organization, true, tx)
+				if err != nil {
+					return
+				}
+				enrollment := &models.EnrollmentDataOutput{
+					UUID:           uuid,
+					Start:          strfmt.DateTime(start),
+					End:            strfmt.DateTime(end),
+					OrganizationID: organization.ID,
+				}
+				_, err = s.AddEnrollment(enrollment, false, tx)
+				if err != nil {
+					return
+				}
+			}
 		}
 	}
 	// FIXME: uncomment when all ready
