@@ -1250,6 +1250,71 @@ paths:
           in: header
           type: string
           required: true
+  /affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}:
+    put:
+      summary: Edit profile enrollment
+      operationId: putEditEnrollment
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - add_enrollment
+        - post
+      parameters:
+        - name: projectSlug
+          in: path
+          type: string
+          required: true
+          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - name: uuid
+          in: path
+          type: string
+          required: true
+          description: Profile UUID
+        - name: orgName
+          in: path
+          type: string
+          required: true
+          description: Organization name (must exists), if organization is enrolled more than once in profile, start and/or end must be given too
+        - name: start
+          in: query
+          type: string
+          format: date-time
+          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z], this is a start date from the existing enrollment
+        - name: end
+          in: query
+          type: string
+          format: date-time
+          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is an end date from the existing enrollment
+        - name: new_start
+          in: query
+          type: string
+          format: date-time
+          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new start date for the existing enrollment
+        - name: new_end
+          in: query
+          type: string
+          format: date-time
+          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new end date for the existing enrollment
+        - name: Authorization
+          in: header
+          type: string
+          required: true
   /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile

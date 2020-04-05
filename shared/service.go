@@ -175,6 +175,7 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 	return
 }
 
+// SanitizeIdentity - trim white spaces
 func (s *ServiceStruct) SanitizeIdentity(identity *models.IdentityDataOutput) {
 	identity.ID = strings.TrimSpace(identity.ID)
 	identity.Source = strings.TrimSpace(identity.Source)
@@ -196,6 +197,7 @@ func (s *ServiceStruct) SanitizeIdentity(identity *models.IdentityDataOutput) {
 	}
 }
 
+// SanitizeShortIdentity - trim white spaces and email @/!
 func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutput, atToExcl bool) {
 	from := "@"
 	to := "!"
@@ -217,12 +219,14 @@ func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutp
 	}
 }
 
+// SanitizeShortEnrollment - trim white spaces
 func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentShortOutput) {
 	enrollment.Organization = strings.TrimSpace(enrollment.Organization)
 	enrollment.Start = strings.TrimSpace(enrollment.Start)
 	enrollment.End = strings.TrimSpace(enrollment.End)
 }
 
+// SanitizeProfile - trim white spaces
 func (s *ServiceStruct) SanitizeProfile(prof *models.ProfileDataOutput) {
 	prof.UUID = strings.TrimSpace(prof.UUID)
 	if prof.Email != nil {
@@ -243,6 +247,7 @@ func (s *ServiceStruct) SanitizeProfile(prof *models.ProfileDataOutput) {
 	}
 }
 
+// SanitizeShortProfile - trim white spaces, email @/! and dependent objects
 func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, atToExcl bool) {
 	from := "@"
 	to := "!"
