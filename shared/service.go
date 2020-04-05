@@ -62,6 +62,8 @@ type ServiceInterface interface {
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
 	SanitizeShortEnrollment(*models.EnrollmentShortOutput)
+	SanitizeIdentity(*models.IdentityDataOutput)
+	SanitizeProfile(*models.ProfileDataOutput)
 }
 
 // ServiceStruct - Shared API Struct
@@ -173,6 +175,27 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 	return
 }
 
+func (s *ServiceStruct) SanitizeIdentity(identity *models.IdentityDataOutput) {
+	identity.ID = strings.TrimSpace(identity.ID)
+	identity.Source = strings.TrimSpace(identity.Source)
+	if identity.UUID != nil {
+		uuid := strings.TrimSpace(*(identity.UUID))
+		identity.UUID = &uuid
+	}
+	if identity.Email != nil {
+		email := strings.TrimSpace(*(identity.Email))
+		identity.Email = &email
+	}
+	if identity.Name != nil {
+		name := strings.TrimSpace(*(identity.Name))
+		identity.Name = &name
+	}
+	if identity.Username != nil {
+		username := strings.TrimSpace(*(identity.Username))
+		identity.Username = &username
+	}
+}
+
 func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutput, atToExcl bool) {
 	from := "@"
 	to := "!"
@@ -198,6 +221,26 @@ func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentSho
 	enrollment.Organization = strings.TrimSpace(enrollment.Organization)
 	enrollment.Start = strings.TrimSpace(enrollment.Start)
 	enrollment.End = strings.TrimSpace(enrollment.End)
+}
+
+func (s *ServiceStruct) SanitizeProfile(prof *models.ProfileDataOutput) {
+	prof.UUID = strings.TrimSpace(prof.UUID)
+	if prof.Email != nil {
+		email := strings.TrimSpace(*(prof.Email))
+		prof.Email = &email
+	}
+	if prof.Name != nil {
+		name := strings.TrimSpace(*(prof.Name))
+		prof.Name = &name
+	}
+	if prof.Gender != nil {
+		gender := strings.TrimSpace(*(prof.Gender))
+		prof.Gender = &gender
+	}
+	if prof.CountryCode != nil {
+		countryCode := strings.TrimSpace(*(prof.CountryCode))
+		prof.CountryCode = &countryCode
+	}
 }
 
 func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, atToExcl bool) {

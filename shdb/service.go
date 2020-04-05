@@ -443,6 +443,7 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 			),
 		)
 	}()
+	matchingBlacklist.Excluded = strings.TrimSpace(matchingBlacklist.Excluded)
 	_, err = s.Exec(
 		s.db,
 		tx,
@@ -634,6 +635,7 @@ func (s *service) AddOrganization(inOrganization *models.OrganizationDataOutput,
 			),
 		)
 	}()
+	organization.Name = strings.TrimSpace(organization.Name)
 	_, err = s.Exec(
 		s.db,
 		tx,
@@ -669,6 +671,7 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 			),
 		)
 	}()
+	uniqueIdentity.UUID = strings.TrimSpace(uniqueIdentity.UUID)
 	if uniqueIdentity.LastModified == nil {
 		uniqueIdentity.LastModified = s.Now()
 	}
@@ -1675,6 +1678,7 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Ti
 	defer func() {
 		log.Info(fmt.Sprintf("UnarchiveUniqueIdentity(exit): uuid:%s replace:%v tm:%v tx:%v err:%v", uuid, replace, tm, tx != nil, err))
 	}()
+	uuid = strings.TrimSpace(uuid)
 	if replace {
 		err = s.DeleteUniqueIdentity(uuid, false, false, nil, tx)
 		if err != nil {
@@ -1716,6 +1720,7 @@ func (s *service) ArchiveUniqueIdentity(uuid string, tm *time.Time, tx *sql.Tx) 
 	defer func() {
 		log.Info(fmt.Sprintf("ArchiveUniqueIdentity(exit): uuid:%s tm:%v tx:%v err:%v", uuid, tm, tx != nil, err))
 	}()
+	uuid = strings.TrimSpace(uuid)
 	if tm == nil {
 		t := time.Now()
 		tm = &t
@@ -2151,6 +2156,7 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	defer func() {
 		log.Info(fmt.Sprintf("UnarchiveProfile(exit): uuid:%s replace:%v tm:%v tx:%v err:%v", uuid, replace, tm, tx != nil, err))
 	}()
+	uuid = strings.TrimSpace(uuid)
 	if replace {
 		err = s.DeleteProfile(uuid, false, false, nil, tx)
 		if err != nil {
@@ -2192,6 +2198,7 @@ func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (err er
 	defer func() {
 		log.Info(fmt.Sprintf("ArchiveProfile(exit): uuid:%s tm:%v tx:%v err:%v", uuid, tm, tx != nil, err))
 	}()
+	uuid = strings.TrimSpace(uuid)
 	if tm == nil {
 		t := time.Now()
 		tm = &t
@@ -2574,6 +2581,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 			),
 		)
 	}()
+	s.SanitizeIdentity(identityData)
 	if identityData.LastModified == nil {
 		identityData.LastModified = s.Now()
 	}
@@ -2800,6 +2808,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 			),
 		)
 	}()
+	s.SanitizeProfile(profileData)
 	err = s.ValidateProfile(profileData, tx)
 	if err != nil {
 		profileData = nil
@@ -2965,6 +2974,7 @@ func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOu
 			),
 		)
 	}()
+	organizationData.Name = strings.TrimSpace(organizationData.Name)
 	err = s.ValidateOrganization(organizationData, true)
 	if err != nil {
 		err = fmt.Errorf("organization '%+v' didn't pass update validation", organizationData)
@@ -3093,6 +3103,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 			),
 		)
 	}()
+	s.SanitizeIdentity(identityData)
 	if identityData.ID == "" || identityData.Source == "" {
 		err = fmt.Errorf("identity '%+v' missing id or source", s.ToLocalIdentity(identityData))
 		identityData = nil
@@ -3182,6 +3193,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			),
 		)
 	}()
+	s.SanitizeProfile(profileData)
 	err = s.ValidateProfile(profileData, tx)
 	if err != nil {
 		profileData = nil
@@ -4794,6 +4806,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 			tx.Rollback()
 		}
 	}()
+	dom = strings.TrimSpace(dom)
 	_, err = s.Exec(
 		s.db,
 		tx,
