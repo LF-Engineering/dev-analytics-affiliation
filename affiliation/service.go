@@ -55,6 +55,7 @@ type Service interface {
 	DeleteIdentity(ctx context.Context, in *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
 	GetProfileEnrollments(ctx context.Context, in *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
 	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutEditEnrollment(ctx context.Context, in *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteEnrollments(ctx context.Context, in *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeEnrollments(ctx context.Context, in *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
@@ -276,6 +277,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PostAddEnrollment"
+	case *affiliation.PutEditEnrollmentParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutEditEnrollment"
 	case *affiliation.DeleteEnrollmentsParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -606,6 +611,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 // {orgName} - required path parameter: enrollment organization to add (must exist)
 // start - optional query parameter: enrollment start date, 1900-01-01 if not set
 // end - optional query parameter: enrollment end date, 2100-01-01 if not set
+// merge - optional query parameter: if set it will merge enrollment dates for organization added
 func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.PostAddEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -637,7 +643,8 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		return
 	}
 	enrollment.OrganizationID = organization.ID
-	_, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
+	uniqueIdentity := &models.UniqueIdentityDataOutput{}
+	uniqueIdentity, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
@@ -662,6 +669,132 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
+	}
+	if params.Merge != nil && *(params.Merge) {
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
+		if err != nil {
+			err = errors.Wrap(err, apiName)
+			return
+		}
+	}
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		return
+	}
+	uid = ary[0]
+	return
+}
+
+// PutEditEnrollment: API params:
+// /v1/affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}
+// {projectSlug} - required path parameter: project to edit enrollment for (project slug URL encoded, can be prefixed with "/projects/")
+// {uuid} - required path parameter: Profile UUID to edit enrollment on
+// {orgName} - required path parameter: enrollment organization to edt (must exist) (if that organization is affiliated to given profile more than once, start and/or end date must be given too)
+// start - optional query parameter: current enrollment start date to edit, not used if not specified, start or end must be specified if organization is enrolled more than once on the profile
+// end - optional query parameter: current enrollment end date, not used if not specified, start or end must be specified if organization is enrolled more than once on the profile
+// new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
+// new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
+// merge - optional query parameter: if set it will merge enrollment dates for organization edited
+func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.PutEditEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
+	organization := &models.OrganizationDataOutput{Name: params.OrgName}
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("PutEditEnrollment: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutEditEnrollment(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				params.UUID,
+				enrollment,
+				organization,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	enrollment.OrganizationID = organization.ID
+	uniqueIdentity := &models.UniqueIdentityDataOutput{}
+	uniqueIdentity, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	_, err = s.shDB.GetProfile(params.UUID, true, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	columns := []string{"uuid", "organization_id"}
+	values := []interface{}{params.UUID, enrollment.OrganizationID}
+	isDates := []bool{false, false}
+	if params.Start != nil {
+		columns = append(columns, "start")
+		values = append(values, *(params.Start))
+		isDates = append(isDates, true)
+	}
+	if params.End != nil {
+		columns = append(columns, "end")
+		values = append(values, *(params.End))
+		isDates = append(isDates, true)
+	}
+	rols := []*models.EnrollmentDataOutput{}
+	rols, err = s.shDB.FindEnrollments(columns, values, isDates, true, nil)
+	if err != nil {
+		return
+	}
+	if len(rols) > 1 {
+		err = errors.Wrap(
+			fmt.Errorf(
+				"multiple enrollments found for columns %+v values %+v: %+v",
+				columns,
+				values,
+				s.ToLocalEnrollments(rols),
+			),
+			apiName,
+		)
+		return
+	}
+	enrollment.ID = rols[0].ID
+	if params.NewStart != nil {
+		enrollment.Start = *(params.NewStart)
+	} else {
+		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+	}
+	if params.NewEnd != nil {
+		enrollment.End = *(params.NewEnd)
+	} else {
+		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+	}
+	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if params.Merge != nil && *(params.Merge) {
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
+		if err != nil {
+			err = errors.Wrap(err, apiName)
+			return
+		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
@@ -801,8 +934,8 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		return
 	}
 	enrollment.OrganizationID = organization.ID
-	uu := &models.UniqueIdentityDataOutput{}
-	uu, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
+	uniqueIdentity := &models.UniqueIdentityDataOutput{}
+	uniqueIdentity, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
@@ -813,7 +946,7 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		return
 	}
 	// Do the actual API call
-	err = s.shDB.MergeEnrollments(uu, organization, nil)
+	err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return

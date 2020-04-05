@@ -3034,7 +3034,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		enrollmentData = nil
 		return
 	}
-	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to-date(?, ?), end = str_to_date(?, ?) where id = ?"
+	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?) where id = ?"
 	var res sql.Result
 	res, err = s.Exec(
 		s.db,

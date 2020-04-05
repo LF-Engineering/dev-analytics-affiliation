@@ -746,6 +746,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPostAddEnrollmentOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutEditEnrollmentHandler = affiliation.PutEditEnrollmentHandlerFunc(
+		func(params affiliation.PutEditEnrollmentParams) middleware.Responder {
+			log.Info("PutEditEnrollmentHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutEditEnrollmentHandlerFunc: " + info)
+
+			result, err := service.PutEditEnrollment(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutEditEnrollmentHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutEditEnrollmentHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutEditEnrollmentOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationDeleteEnrollmentsHandler = affiliation.DeleteEnrollmentsHandlerFunc(
 		func(params affiliation.DeleteEnrollmentsParams) middleware.Responder {
 			log.Info("DeleteEnrollmentsHandlerFunc")

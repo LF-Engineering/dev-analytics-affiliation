@@ -46,7 +46,7 @@ uuid=$(rawurlencode "${2}")
 orgName=$(rawurlencode "${3}")
 extra=''
 
-for prop in start end merge
+for prop in start end new_start new_end merge
 do
   if [ ! -z "${!prop}" ]
   then
@@ -62,7 +62,7 @@ done
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPOST "${API_URL}/v1/affiliation/${project}/add_enrollment/${uuid}/${orgName}${extra}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/edit_enrollment/${uuid}/${orgName}${extra}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPOST "${API_URL}/v1/affiliation/${project}/add_enrollment/${uuid}/${orgName}${extra}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/edit_enrollment/${uuid}/${orgName}${extra}"

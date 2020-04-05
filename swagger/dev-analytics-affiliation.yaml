@@ -1246,6 +1246,10 @@ paths:
           type: string
           format: date-time
           description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
+        - name: merge
+          in: query
+          type: boolean
+          description: if set it will merge enrollments for given organization after adding data
         - name: Authorization
           in: header
           type: string
@@ -1295,12 +1299,12 @@ paths:
           in: query
           type: string
           format: date-time
-          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z], this is a start date from the existing enrollment
+          description: Optional date from (not used if not specified), must be in format 2015-05-05T15:15[:05Z], this is a start date from the existing enrollment
         - name: end
           in: query
           type: string
           format: date-time
-          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is an end date from the existing enrollment
+          description: Optional date to (not used if not specified), must be in format 2015-05-05T15:15[:05Z], this is an end date from the existing enrollment
         - name: new_start
           in: query
           type: string
@@ -1311,6 +1315,10 @@ paths:
           type: string
           format: date-time
           description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new end date for the existing enrollment
+        - name: merge
+          in: query
+          type: boolean
+          description: if set it will merge enrollments for given organization after editing data
         - name: Authorization
           in: header
           type: string
