@@ -24,10 +24,10 @@ type Service interface {
 	// External methods
 	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
-	GetTopContributors(string, int64, int64, int64, int64) (*models.GetTopContributorsOutput, error)
+	GetTopContributors(string, int64, int64, int64, int64, string, string, string) (*models.GetTopContributorsOutput, error)
 	// Internal methods
 	projectSlugToIndexPattern(string) string
-	contributorStatsQuery(int64, int64, int64, int64) string
+	contributorStatsQuery(int64, int64, int64, int64, string, string, string) string
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -148,7 +148,9 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
-func (s *service) contributorStatsQuery(from, to, limit, offset int64) string {
+func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, sortField, sortOrder string) string {
+	// FIXME: handle limit/offset correctly (currently we always fetch (offset+1)*limit results and then reject records from pages 0 - (offset-1)
+	// FIXME: handle search, sortField, sortOrder params
 	return fmt.Sprintf(`{
   "size": 0,
   "query": {
@@ -381,11 +383,11 @@ type topContributorsResult struct {
 	} `json:"aggregations"`
 }
 
-func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset int64) (top *models.GetTopContributorsOutput, err error) {
+func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.GetTopContributorsOutput, err error) {
 	pattern := s.projectSlugToIndexPattern(projectSlug)
-	log.Info(fmt.Sprintf("GetTopContributors: projectSlug:%s pattern:%s from:%d to:%d limit:%d offset:%d", projectSlug, pattern, from, to, limit, offset))
+	log.Info(fmt.Sprintf("GetTopContributors: projectSlug:%s pattern:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", projectSlug, pattern, from, to, limit, offset, search, sortField, sortOrder))
 	top = &models.GetTopContributorsOutput{}
-	data := s.contributorStatsQuery(from, to, limit, offset)
+	data := s.contributorStatsQuery(from, to, limit, offset, search, sortField, sortOrder)
 	defer func() {
 		inf := ""
 		nTop := len(top.Contributors)
@@ -396,13 +398,16 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): projectSlug:%s pattern:%s from:%d to:%d limit:%d offset:%d data:%s top:%+v err:%v",
+				"GetTopContributors(exit): projectSlug:%s pattern:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s data:%s top:%+v err:%v",
 				projectSlug,
 				pattern,
 				from,
 				to,
 				limit,
 				offset,
+				search,
+				sortField,
+				sortOrder,
 				data,
 				inf,
 				err,

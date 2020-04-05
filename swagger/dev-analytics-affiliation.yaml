@@ -79,6 +79,18 @@ paths:
           type: integer
           default: 0
           description: the page offset to get something like top 10-20 contributors with offset 1, default 0
+        - name: search
+          in: query
+          type: string
+          description: search string for example john
+        - name: sort_field
+          in: query
+          type: string
+          description: sort field for example gerrit_merged_changesets
+        - name: sort_order
+          in: query
+          type: string
+          description: sort order for example desc
         - name: Authorization
           in: header
           type: string
@@ -1954,6 +1966,21 @@ definitions:
       to:
         type: integer
         example: 1552790984700
+      limit:
+        type: integer
+        example: 10
+      offset:
+        type: integer
+        example: 2
+      search:
+        type: string
+        example: john
+      sort_field:
+        type: string
+        example: gerrit_merged_changesets
+      sort_order:
+        type: string
+        example: desc
       contributors:
         type: array
         items:
