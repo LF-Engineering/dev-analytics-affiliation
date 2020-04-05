@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"crypto/sha1"
@@ -130,13 +131,15 @@ type Service interface {
 
 type service struct {
 	shared.ServiceStruct
-	db *sqlx.DB
+	db  *sqlx.DB
+	mtx *sync.RWMutex
 }
 
 // New creates new db service instance with given db
 func New(db *sqlx.DB) Service {
 	return &service{
-		db: db,
+		db:  db,
+		mtx: &sync.RWMutex{},
 	}
 }
 
@@ -3753,8 +3756,10 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 
 func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	all = &models.AllArrayOutput{}
+	s.mtx.RLock()
 	log.Info("GetAllAffiliations")
 	defer func() {
+		s.mtx.RUnlock()
 		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
 	}()
 	sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
@@ -4898,8 +4903,10 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 }
 
 func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nUpdated int, err error) {
+	s.mtx.Lock()
 	log.Info(fmt.Sprintf("BulkUpdate: add:%d del:%d", len(add), len(del)))
 	defer func() {
+		s.mtx.Unlock()
 		log.Info(fmt.Sprintf("BulkUpdate(exit): add:%d del:%d err:%+v", len(add), len(del), err))
 	}()
 	mAdd := make(map[string]*models.AllOutput)
