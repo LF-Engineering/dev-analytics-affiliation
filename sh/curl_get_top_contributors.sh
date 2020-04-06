@@ -52,10 +52,25 @@ if [ ! -z "$5" ]
 then
   offset=$(rawurlencode "${5}")
 fi
+search=''
+if [ ! -z "$6" ]
+then
+  search=$(rawurlencode "${6}")
+fi
+sortField=''
+if [ ! -z "$7" ]
+then
+  sortField=$(rawurlencode "${7}")
+fi
+sortOrder=''
+if [ ! -z "$8" ]
+then
+  sortOrder=$(rawurlencode "${8}")
+fi
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}"
+  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}"
+curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"

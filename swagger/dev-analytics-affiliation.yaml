@@ -43,7 +43,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/get-top-contributors-output"
+            $ref: "#/definitions/top-contributors-flat-output"
         "400":
           $ref: "#/responses/invalid-request"
         "401":
@@ -1852,7 +1852,7 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/unaffiliated-data-output"
-  contributor-stats:
+  contributor-flat-stats:
     title: Contributor stats
     description: contributor stats
     type: object
@@ -1873,83 +1873,67 @@ definitions:
         type: string
         example: CNCF
         x-omitempty: false
-      git:
-        type: object
+      git_commits:
+        type: integer
+        example: 123
         x-omitempty: false
-        properties:
-          commits:
-            type: integer
-            example: 123
-            x-omitempty: false
-          lines_of_code_added:
-            type: integer
-            example: 123
-            x-omitempty: false
-          lines_of_code_removed:
-            type: integer
-            example: 123
-            x-omitempty: false
-          lines_of_code_changed:
-            type: integer
-            example: 123
-            x-omitempty: false
-      gerrit:
-        type: object
+      git_lines_of_code_added:
+        type: integer
+        example: 123
         x-omitempty: false
-        properties:
-          merged_changesets:
-            type: integer
-            example: 123
-            x-omitempty: false
-          reviews_approved:
-            type: integer
-            example: 123
-            x-omitempty: false
-      jira:
-        type: object
+      git_lines_of_code_removed:
+        type: integer
+        example: 123
         x-omitempty: false
-        properties:
-          issues_created:
-            type: integer
-            example: 123
-            x-omitempty: false
-          issues_assigned:
-            type: integer
-            example: 123
-            x-omitempty: false
-          average_issues_open_days:
-            type: number
-            example: 123.5
-            x-omitempty: false
-      confluence:
-        type: object
+      git_lines_of_code_changed:
+        type: integer
+        example: 123
         x-omitempty: false
-        properties:
-          pages_created:
-            type: integer
-            example: 123
-            x-omitempty: false
-          pages_edited:
-            type: integer
-            example: 123
-            x-omitempty: false
-          comments:
-            type: integer
-            example: 123
-            x-omitempty: false
-          blog_posts:
-            type: integer
-            example: 123
-            x-omitempty: false
-          date_since_last_documentation:
-            type: number
-            example: 123.5
-            x-omitempty: false
-          last_documentation:
-            type: string
-            example: 2020-03-23T14:09:04.000Z
-            x-omitempty: false
-  get-top-contributors-output:
+      gerrit_merged_changesets:
+        type: integer
+        example: 123
+        x-omitempty: false
+      gerrit_reviews_approved:
+        type: integer
+        example: 123
+        x-omitempty: false
+      jira_issues_created:
+        type: integer
+        example: 123
+        x-omitempty: false
+      jira_issues_assigned:
+        type: integer
+        example: 123
+        x-omitempty: false
+      jira_average_issues_open_days:
+        type: number
+        example: 123.5
+        x-omitempty: false
+      confluence_pages_created:
+        type: integer
+        example: 123
+        x-omitempty: false
+      confluence_pages_edited:
+        type: integer
+        example: 123
+        x-omitempty: false
+      confluence_comments:
+        type: integer
+        example: 123
+        x-omitempty: false
+      confluence_blog_posts:
+        type: integer
+        example: 123
+        x-omitempty: false
+      confluence_date_since_last_documentation:
+        type: number
+        example: 123.5
+        x-omitempty: false
+      confluence_last_documentation:
+        type: string
+        example: 2020-03-23T14:09:04.000Z
+        x-omitempty: false
+  top-contributors-flat-output:
     title: Top contributors output
     description: Top contributors output
     type: object
@@ -1984,7 +1968,7 @@ definitions:
       contributors:
         type: array
         items:
-          $ref: "#/definitions/contributor-stats"
+          $ref: "#/definitions/contributor-flat-stats"
   unique-identity-nested-data-output:
     title: Unique identity nested data output
     description: Unique indentity nested data

@@ -105,7 +105,7 @@ type Service interface {
 	UnarchiveUUID(string, time.Time, *sql.Tx) error
 	Unarchive(string, string) (bool, error)
 	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
-	EnrichContributors([]*models.ContributorStats, int64, *sql.Tx) error
+	EnrichContributors([]*models.ContributorFlatStats, int64, *sql.Tx) error
 
 	// API endpoints
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
@@ -464,13 +464,13 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 	return
 }
 
-func (s *service) EnrichContributors(contributors []*models.ContributorStats, millisSinceEpoch int64, tx *sql.Tx) (err error) {
+func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats, millisSinceEpoch int64, tx *sql.Tx) (err error) {
 	inf := ""
 	n := len(contributors)
 	if n > shared.LogListMax {
 		inf = fmt.Sprintf("%d", n)
 	} else {
-		inf = fmt.Sprintf("%+v", s.ToLocalTopContributors(contributors))
+		inf = fmt.Sprintf("%+v", s.ToLocalTopContributorsFlat(contributors))
 	}
 	found := 0
 	orgFound := 0

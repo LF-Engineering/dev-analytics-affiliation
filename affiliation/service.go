@@ -61,7 +61,7 @@ type Service interface {
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
-	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.GetTopContributorsOutput, error)
+	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
 	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	SetServiceRequestID(requestID string)
@@ -1863,7 +1863,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 // search - optional query parameter: for example john
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 // sort_order - optional query parameter: sort order for example desc, asc
-func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (getTopContributors *models.GetTopContributorsOutput, err error) {
+func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
 	limit := int64(10)
 	if params.Limit != nil {
 		limit = *params.Limit
@@ -1906,14 +1906,14 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	if params.SortOrder != nil {
 		sortOrder = strings.ToLower(strings.TrimSpace(*params.SortOrder))
 	}
-	getTopContributors = &models.GetTopContributorsOutput{}
+	topContributors = &models.TopContributorsFlatOutput{}
 	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s getTopContributors:%d err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d err:%v",
 				from,
 				to,
 				limit,
@@ -1924,7 +1924,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 				apiName,
 				project,
 				username,
-				len(getTopContributors.Contributors),
+				len(topContributors.Contributors),
 				err,
 			),
 		)
@@ -1933,25 +1933,25 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		return
 	}
 	// Do the actual API call
-	getTopContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
+	topContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	err = s.shDB.EnrichContributors(getTopContributors.Contributors, to, nil)
+	err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	getTopContributors.From = from
-	getTopContributors.To = to
-	getTopContributors.Limit = limit
-	getTopContributors.Offset = offset
-	getTopContributors.Search = search
-	getTopContributors.SortField = sortField
-	getTopContributors.SortOrder = sortOrder
-	getTopContributors.User = username
-	getTopContributors.Scope = project
+	topContributors.From = from
+	topContributors.To = to
+	topContributors.Limit = limit
+	topContributors.Offset = offset
+	topContributors.Search = search
+	topContributors.SortField = sortField
+	topContributors.SortOrder = sortOrder
+	topContributors.User = username
+	topContributors.Scope = project
 	return
 }
 

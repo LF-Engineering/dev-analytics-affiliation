@@ -24,7 +24,7 @@ type Service interface {
 	// External methods
 	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
-	GetTopContributors(string, int64, int64, int64, int64, string, string, string) (*models.GetTopContributorsOutput, error)
+	GetTopContributors(string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	contributorStatsQuery(int64, int64, int64, int64, string, string, string) string
@@ -383,10 +383,10 @@ type topContributorsResult struct {
 	} `json:"aggregations"`
 }
 
-func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.GetTopContributorsOutput, err error) {
+func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
 	pattern := s.projectSlugToIndexPattern(projectSlug)
 	log.Info(fmt.Sprintf("GetTopContributors: projectSlug:%s pattern:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", projectSlug, pattern, from, to, limit, offset, search, sortField, sortOrder))
-	top = &models.GetTopContributorsOutput{}
+	top = &models.TopContributorsFlatOutput{}
 	data := s.contributorStatsQuery(from, to, limit, offset, search, sortField, sortOrder)
 	defer func() {
 		inf := ""
@@ -394,7 +394,7 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 		if nTop > shared.LogListMax {
 			inf = fmt.Sprintf("%d", nTop)
 		} else {
-			inf = fmt.Sprintf("%+v", s.ToLocalTopContributorsObj(top))
+			inf = fmt.Sprintf("%+v", s.ToLocalTopContributorsFlatObj(top))
 		}
 		log.Info(
 			fmt.Sprintf(
@@ -443,37 +443,31 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 	idxTo := idxFrom + limit
 	for idx, bucket := range result.Aggregations.Contributions.Buckets {
 		if int64(idx) >= idxFrom && int64(idx) < idxTo {
-			contributor := &models.ContributorStats{UUID: bucket.Key}
-			contributor.Git = &models.ContributorStatsGit{
-				LinesOfCodeAdded:   int64(bucket.Git.LinesAdded.Value),
-				LinesOfCodeChanged: int64(bucket.Git.LinesChanged.Value),
-				LinesOfCodeRemoved: int64(bucket.Git.LinesRemoved.Value),
-				Commits:            int64(bucket.Git.Commits.Value),
-			}
-			contributor.Gerrit = &models.ContributorStatsGerrit{
-				ReviewsApproved:  int64(bucket.Gerrit.GerritApprovals.Value),
-				MergedChangesets: int64(bucket.Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value),
-			}
-			contributor.Jira = &models.ContributorStatsJira{
-				AverageIssuesOpenDays: bucket.Jira.AverageIssueOpenDays.Value,
-				IssuesAssigned:        int64(bucket.Jira.IssuesAssigned.Value),
-				IssuesCreated:         int64(bucket.Jira.IssuesCreated.Value),
-			}
 			lastActionDateMillis := bucket.Confluence.LastActionDate.Value
 			daysAgo := 0.0
 			if lastActionDateMillis > 0 {
 				nowMillis := float64(time.Now().Unix()) * 1000.0
 				daysAgo = (nowMillis - lastActionDateMillis) / 86400000.0
 			}
-			contributor.Confluence = &models.ContributorStatsConfluence{
-				PagesCreated: int64(bucket.Confluence.PagesCreated.Value),
-				PagesEdited:  int64(bucket.Confluence.PagesEdited.Value),
-				BlogPosts:    int64(bucket.Confluence.BlogPosts.Value),
-				Comments:     int64(bucket.Confluence.Comments.Value),
+			contributor := &models.ContributorFlatStats{
+				UUID:                      bucket.Key,
+				GitLinesOfCodeAdded:       int64(bucket.Git.LinesAdded.Value),
+				GitLinesOfCodeChanged:     int64(bucket.Git.LinesChanged.Value),
+				GitLinesOfCodeRemoved:     int64(bucket.Git.LinesRemoved.Value),
+				GitCommits:                int64(bucket.Git.Commits.Value),
+				GerritReviewsApproved:     int64(bucket.Gerrit.GerritApprovals.Value),
+				GerritMergedChangesets:    int64(bucket.Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value),
+				JiraAverageIssuesOpenDays: bucket.Jira.AverageIssueOpenDays.Value,
+				JiraIssuesAssigned:        int64(bucket.Jira.IssuesAssigned.Value),
+				JiraIssuesCreated:         int64(bucket.Jira.IssuesCreated.Value),
+				ConfluencePagesCreated:    int64(bucket.Confluence.PagesCreated.Value),
+				ConfluencePagesEdited:     int64(bucket.Confluence.PagesEdited.Value),
+				ConfluenceBlogPosts:       int64(bucket.Confluence.BlogPosts.Value),
+				ConfluenceComments:        int64(bucket.Confluence.Comments.Value),
 			}
 			if lastActionDateMillis > 0 {
-				contributor.Confluence.DateSinceLastDocumentation = daysAgo
-				contributor.Confluence.LastDocumentation = bucket.Confluence.LastActionDate.ValueAsString
+				contributor.ConfluenceDateSinceLastDocumentation = daysAgo
+				contributor.ConfluenceLastDocumentation = bucket.Confluence.LastActionDate.ValueAsString
 			}
 			top.Contributors = append(top.Contributors, contributor)
 		}
