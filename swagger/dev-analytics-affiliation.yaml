@@ -130,16 +130,8 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: rows
-          in: query
-          type: integer
-          default: 10
-          description: rows per page, if 0 maximum page size 65535 is set
-        - name: page
-          in: query
-          type: integer
-          default: 1
-          description: If set, it will return rows from a given page
+        - $ref: '#/parameters/rows'
+        - $ref: '#/parameters/page'
   /affiliation/{projectSlug}/matching_blacklist:
     get:
       summary: Get blacklisted emails
@@ -168,21 +160,9 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: q
-          in: query
-          type: string
-          default: ''
-          description: If set, it will return emails matching '%q%'
-        - name: rows
-          in: query
-          type: integer
-          default: 10
-          description: rows per page, if 0 maximum page size 65535 is set
-        - name: page
-          in: query
-          type: integer
-          default: 1
-          description: If set, it will return rows from a given page
+        - $ref: '#/parameters/rows'
+        - $ref: '#/parameters/page'
+        - $ref: '#/parameters/q'
   /affiliation/{projectSlug}/matching_blacklist/{email}:
     post:
       summary: Add blacklist email
@@ -211,11 +191,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: email
-          in: path
-          type: string
-          required: true
-          description: email to be added to blacklist
+        - $ref: '#/parameters/required-email'
     delete:
       summary: Delete blacklist email
       operationId: deleteMatchingBlacklist
@@ -243,11 +219,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: email
-          in: path
-          type: string
-          required: true
-          description: email to be added to blacklist
+        - $ref: '#/parameters/required-email'
   /affiliation/{projectSlug}/list_organizations:
     get:
       summary: Get organizations
@@ -276,21 +248,9 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: q
-          in: query
-          type: string
-          default: ''
-          description: If set, it will return emails matching '%q%'
-        - name: rows
-          in: query
-          type: integer
-          default: 10
-          description: rows per page, if 0 maximum page size 65535 is set
-        - name: page
-          in: query
-          type: integer
-          default: 1
-          description: If set, it will return rows from a given page
+        - $ref: '#/parameters/rows'
+        - $ref: '#/parameters/page'
+        - $ref: '#/parameters/q'
   /affiliation/{projectSlug}/add_organization/{orgName}:
     post:
       summary: Add organization
@@ -319,11 +279,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name to be added
+        - $ref: '#/parameters/org-name'
   /affiliation/{projectSlug}/edit_organization/{orgID}/{orgName}:
     put:
       summary: Edit organization
@@ -352,16 +308,8 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgID
-          in: path
-          type: integer
-          required: true
-          description: Organization ID to be edited
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Update current organization name to this new name
+        - $ref: '#/parameters/org-id'
+        - $ref: '#/parameters/org-name'
   /affiliation/{projectSlug}/find_organization_by_id/{orgID}:
     get:
       summary: Find organization by ID
@@ -390,11 +338,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgID
-          in: path
-          type: integer
-          required: true
-          description: Organization ID to be found
+        - $ref: '#/parameters/org-id'
   /affiliation/{projectSlug}/find_organization_by_name/{orgName}:
     get:
       summary: Find organization by Name
@@ -423,11 +367,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name to be found
+        - $ref: '#/parameters/org-name'
   /affiliation/{projectSlug}/delete_organization_by_id/{orgID}:
     delete:
       summary: Delete organization by ID
@@ -456,11 +396,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgID
-          in: path
-          type: integer
-          required: true
-          description: Organization ID to be deleted
+        - $ref: '#/parameters/org-id'
   /affiliation/{projectSlug}/list_domains:
     get:
       summary: Get organization domains
@@ -489,26 +425,14 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/rows'
+        - $ref: '#/parameters/page'
+        - $ref: '#/parameters/q'
         - name: orgID
           in: query
           type: integer
           default: 0
           description: Organization ID, if you specify 0 it will list data for all organizations
-        - name: q
-          in: query
-          type: string
-          default: ''
-          description: If set, it will return domains matching '%q%'
-        - name: rows
-          in: query
-          type: integer
-          default: 10
-          description: rows per page, if 0 maximum page size 65535 is set
-        - name: page
-          in: query
-          type: integer
-          default: 1
-          description: If set, it will return rows from a given page
   /affiliation/{projectSlug}/add_domain/{orgName}/{domain}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
@@ -540,16 +464,8 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name to add domain to (URL encoded)
-        - name: domain
-          in: path
-          type: string
-          required: true
-          description: Domain to be added
+        - $ref: '#/parameters/org-name'
+        - $ref: '#/parameters/domain'
         - name: overwrite
           in: query
           type: boolean
@@ -596,16 +512,8 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name to remove domain from (URL encoded)
-        - name: domain
-          in: path
-          type: string
-          required: true
-          description: Domain to be removed
+        - $ref: '#/parameters/org-name'
+        - $ref: '#/parameters/domain'
   /affiliation/{projectSlug}/list_profiles:
     get:
       summary: Get profiles
@@ -634,21 +542,9 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: q
-          in: query
-          type: string
-          default: ''
-          description: If set, it will return profiles matching '%q%' (using name, email, username and source)
-        - name: rows
-          in: query
-          type: integer
-          default: 10
-          description: rows per page, if 0 maximum page size 65535 is set
-        - name: page
-          in: query
-          type: integer
-          default: 1
-          description: If set, it will return rows from a given page
+        - $ref: '#/parameters/rows'
+        - $ref: '#/parameters/page'
+        - $ref: '#/parameters/q'
   /affiliation/{projectSlug}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
@@ -677,11 +573,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID
+        - $ref: '#/parameters/uuid'
   /affiliation/{projectSlug}/delete_profile/{uuid}:
     delete:
       summary: Delete profile with given UUID (it will cascade delete all objects referring to that uuid)
@@ -710,11 +602,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID to be deleted
+        - $ref: '#/parameters/uuid'
         - name: archive
           in: query
           type: boolean
@@ -748,11 +636,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID to be unarchived
+        - $ref: '#/parameters/uuid'
   /affiliation/{projectSlug}/edit_profile/{uuid}:
     put:
       summary: Edit profile
@@ -781,19 +665,12 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID to be edited
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/email'
         - name: name
           in: query
           type: string
           description: Profile name (can be empty, if not set then no update of that parameter is made, applies to all remaining params)
-        - name: email
-          in: query
-          type: string
-          description: Profile email
         - name: gender
           in: query
           type: string
@@ -838,11 +715,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: UUID to be added
+        - $ref: '#/parameters/uuid'
   /affiliation/{projectSlug}/add_identity/{source}:
     post:
       summary: create idenity (unique by source, email, name, username), if uuid is set connect it to that uuid or create new unique identity with that uuid otherwise
@@ -871,6 +744,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/email'
         - name: source
           in: path
           type: string
@@ -880,10 +754,6 @@ paths:
           in: query
           type: string
           description: Identity name (can be empty, if not set then no update of that parameter is made, applies to all remaining params)
-        - name: email
-          in: query
-          type: string
-          description: Identity email
         - name: username
           in: query
           type: string
@@ -1041,11 +911,7 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID
+        - $ref: '#/parameters/uuid'
   /affiliation/{projectSlug}/add_enrollment/{uuid}/{orgName}:
     post:
       summary: Add enrollment to profile
@@ -1074,30 +940,11 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name (must exists)
-        - name: start
-          in: query
-          type: string
-          format: date-time
-          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z]
-        - name: end
-          in: query
-          type: string
-          format: date-time
-          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
-        - name: merge
-          in: query
-          type: boolean
-          description: if set it will merge enrollments for given organization after adding data
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/org-name'
+        - $ref: '#/parameters/start'
+        - $ref: '#/parameters/end'
+        - $ref: '#/parameters/merge'
   /affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}:
     put:
       summary: Edit profile enrollment
@@ -1126,26 +973,11 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name (must exists), if organization is enrolled more than once in profile, start and/or end must be given too
-        - name: start
-          in: query
-          type: string
-          format: date-time
-          description: Optional date from (not used if not specified), must be in format 2015-05-05T15:15[:05Z], this is a start date from the existing enrollment
-        - name: end
-          in: query
-          type: string
-          format: date-time
-          description: Optional date to (not used if not specified), must be in format 2015-05-05T15:15[:05Z], this is an end date from the existing enrollment
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/org-name'
+        - $ref: '#/parameters/start'
+        - $ref: '#/parameters/end'
+        - $ref: '#/parameters/merge'
         - name: new_start
           in: query
           type: string
@@ -1156,10 +988,6 @@ paths:
           type: string
           format: date-time
           description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new end date for the existing enrollment
-        - name: merge
-          in: query
-          type: boolean
-          description: if set it will merge enrollments for given organization after editing data
   /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
@@ -1188,26 +1016,10 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name (must exists)
-        - name: start
-          in: query
-          type: string
-          format: date-time
-          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z]
-        - name: end
-          in: query
-          type: string
-          format: date-time
-          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/org-name'
+        - $ref: '#/parameters/start'
+        - $ref: '#/parameters/end'
   /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
     put:
       summary: Merge overlapping enrollments for UUID/orgName
@@ -1236,16 +1048,8 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slug'
-        - name: uuid
-          in: path
-          type: string
-          required: true
-          description: Profile UUID
-        - name: orgName
-          in: path
-          type: string
-          required: true
-          description: Organization name (must exists)
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/org-name'
   /affiliation/all:
     get:
       summary: Return all affiliations data in human readable format
@@ -1313,6 +1117,12 @@ parameters:
     type: string
     required: true
     description: Project slug URL encoded like 'academy-software-foundation/opencue'
+  uuid:
+    name: uuid
+    in: path
+    type: string
+    required: true
+    description: UUID
   unix-millis-from:
     name: from
     in: query
@@ -1323,6 +1133,24 @@ parameters:
     in: query
     type: integer
     description: the datetime to, e.g 1552790984700, default is now
+  page:
+    name: page
+    in: query
+    type: integer
+    default: 1
+    description: If set, it will return rows from a given page
+  rows:
+    name: rows
+    in: query
+    type: integer
+    default: 10
+    description: rows per page, if 0 maximum page size 65535 is set
+  q:
+    name: q
+    in: query
+    type: string
+    default: ''
+    description: If set, it will return matching '%q%' (possibly using more than one property for that search)
   limit:
     name: limit
     in: query
@@ -1355,6 +1183,52 @@ parameters:
     in: header
     type: string
     required: true
+  required-email:
+    name: email
+    in: path
+    type: string
+    required: true
+    description: email
+  email:
+    name: email
+    in: query
+    type: string
+    description: email
+  org-id:
+    name: orgID
+    in: path
+    type: integer
+    required: true
+    description: Organization ID
+  org-name:
+    name: orgName
+    in: path
+    type: string
+    required: true
+    description: Organization name
+  domain:
+    name: domain
+    in: path
+    type: string
+    required: true
+    description: Domain to be added
+  start:
+    name: start
+    in: query
+    type: string
+    format: date-time
+    description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z]
+  end:
+    name: end
+    in: query
+    type: string
+    format: date-time
+    description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
+  merge:
+    name: merge
+    in: query
+    type: boolean
+    description: if set it will merge enrollments for given organization
 definitions:
   health:
     type: object
