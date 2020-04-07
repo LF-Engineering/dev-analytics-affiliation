@@ -71,6 +71,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetTopContributorsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetTopContributorsCSVHandler = affiliation.GetTopContributorsCSVHandlerFunc(
+		func(params affiliation.GetTopContributorsCSVParams) middleware.Responder {
+			log.Info("GetTopContributorsCSVHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetTopContributorsCSVHandlerFunc: " + info)
+
+			result, err := service.GetTopContributorsCSV(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetTopContributorsCSVHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetTopContributorsCSVHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetTopContributorsCSVOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetUnaffiliatedHandler = affiliation.GetUnaffiliatedHandlerFunc(
 		func(params affiliation.GetUnaffiliatedParams) middleware.Responder {
 			log.Info("GetUnaffiliatedHandlerFunc")

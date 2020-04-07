@@ -3,6 +3,7 @@ package affiliation
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -61,7 +62,9 @@ type Service interface {
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
+	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
+	GetTopContributorsCSV(ctx context.Context, in *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
 	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	SetServiceRequestID(requestID string)
@@ -313,6 +316,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "GetTopContributors"
+	case *affiliation.GetTopContributorsCSVParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "GetTopContributorsCSV"
 	default:
 		err = errors.Wrap(fmt.Errorf("unknown params type"), "checkTokenAndPermission")
 		return
@@ -1853,8 +1860,54 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	return
 }
 
+func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsParams, paramsCSV *affiliation.GetTopContributorsCSVParams) (limit, offset, from, to int64, search, sortField, sortOrder string) {
+	if params == nil {
+		params = &affiliation.GetTopContributorsParams{
+			From:      paramsCSV.From,
+			To:        paramsCSV.To,
+			Limit:     paramsCSV.Limit,
+			Offset:    paramsCSV.Offset,
+			Search:    paramsCSV.Search,
+			SortField: paramsCSV.SortField,
+			SortOrder: paramsCSV.SortOrder,
+		}
+	}
+	if params.From != nil {
+		from = *params.From
+	} else {
+		from = (time.Now().Add(-24 * 90 * time.Hour)).UnixNano() / 1.0e6
+	}
+	if params.To != nil {
+		to = *params.To
+	} else {
+		to = time.Now().UnixNano() / 1.0e6
+	}
+	if params.Limit != nil {
+		limit = *params.Limit
+		if limit < 1 {
+			limit = 1
+		}
+	}
+	if params.Offset != nil {
+		offset = *params.Offset
+		if offset < 0 {
+			offset = 1
+		}
+	}
+	if params.Search != nil {
+		search = strings.ToLower(strings.TrimSpace(*params.Search))
+	}
+	if params.SortField != nil {
+		sortField = strings.TrimSpace(*params.SortField)
+	}
+	if params.SortOrder != nil {
+		sortOrder = strings.ToLower(strings.TrimSpace(*params.SortOrder))
+	}
+	return
+}
+
 // GetTopContributors: API params:
-// /v1/affiliation/{projectSlug}/top_contributors?from=1552790984700&to=1552790984700][&limit=50][&offset=2]
+// /v1/affiliation/{projectSlug}/top_contributors?from=1552790984700&to=1552790984700][&limit=50][&offset=2][&search=john][&sort_field=gerrit_merged_changesets][&sort_order=desc]
 // {projectSlug} - required path parameter: project to get top contributors stats (project slug URL encoded, can be prefixed with "/projects/")
 // from - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data from, default 90 days ago
 // to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
@@ -1864,47 +1917,10 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 // sort_order - optional query parameter: sort order for example desc, asc
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
-	limit := int64(10)
-	if params.Limit != nil {
-		limit = *params.Limit
-		if limit < 1 {
-			limit = 1
-		}
-	}
-	offset := int64(0)
-	if params.Offset != nil {
-		offset = *params.Offset
-		if offset < 0 {
-			offset = 1
-		}
-	}
-	from := int64(0)
-	if params.From != nil {
-		from = *params.From
-	} else {
-		from = (time.Now().Add(-24 * 90 * time.Hour)).UnixNano() / 1.0e6
-	}
-	to := int64(0)
-	if params.To != nil {
-		to = *params.To
-	} else {
-		to = time.Now().UnixNano() / 1.0e6
-	}
+	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(params, nil)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
-	}
-	search := ""
-	if params.Search != nil {
-		search = strings.ToLower(strings.TrimSpace(*params.Search))
-	}
-	sortField := ""
-	if params.SortField != nil {
-		sortField = strings.TrimSpace(*params.SortField)
-	}
-	sortOrder := ""
-	if params.SortOrder != nil {
-		sortOrder = strings.ToLower(strings.TrimSpace(*params.SortOrder))
 	}
 	topContributors = &models.TopContributorsFlatOutput{}
 	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
@@ -1952,6 +1968,62 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.SortOrder = sortOrder
 	topContributors.User = username
 	topContributors.Scope = project
+	return
+}
+
+// GetTopContributorsCSV: API params:
+// /v1/affiliation/{projectSlug}/top_contributors_csv?from=1552790984700&to=1552790984700][&limit=50][&offset=2][&search=john][&sort_field=gerrit_merged_changesets][&sort_order=desc]
+// {projectSlug} - required path parameter: project to get top contributors stats (project slug URL encoded, can be prefixed with "/projects/")
+// from - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data from, default 90 days ago
+// to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
+// limit - optional query parameter: page size, default 10
+// offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
+// search - optional query parameter: for example john
+// sort_field - optional query parameter: sort field for example gerrit_merged_changesets
+// sort_order - optional query parameter: sort order for example desc, asc
+func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
+	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(nil, params)
+	if to < from {
+		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
+		return
+	}
+	topContributors := &models.TopContributorsFlatOutput{}
+	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d err:%v",
+				from,
+				to,
+				limit,
+				offset,
+				search,
+				sortField,
+				sortOrder,
+				apiName,
+				project,
+				username,
+				len(topContributors.Contributors),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	topContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
 	return
 }
 
