@@ -66,7 +66,7 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo "$org $dom $scope $ov $top"
-  echo curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${scope}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
+  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${scope}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
 fi
 
-curl -H 'Accept: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${scope}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
+curl -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${scope}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"

@@ -29,6 +29,43 @@ paths:
           $ref: "#/responses/forbidden"
       tags:
         - health
+  /affiliation/{projectSlug}/top_contributors_csv:
+    get:
+      summary: Get top contributors with their stats
+      operationId: getTopContributorsCSV
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            type: file
+        "400":
+          $ref: "#/responses/invalid-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+      tags:
+        - affiliation
+        - contributors
+        - top
+        - get
+        - csv
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/unix-millis-from'
+        - $ref: '#/parameters/unix-millis-to'
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/search'
+        - $ref: '#/parameters/sort-field'
+        - $ref: '#/parameters/sort-order'
   /affiliation/{projectSlug}/top_contributors:
     get:
       summary: Get top contributors with their stats
@@ -56,45 +93,15 @@ paths:
         - top
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
-        - name: from
-          in: query
-          type: integer
-          description: the datetime from which to search, e.g 1552790984700, default is 90 days ago
-        - name: to
-          in: query
-          type: integer
-          description: the datetime from which to search, e.g 1552790984700, default is now
-        - name: limit
-          in: query
-          type: integer
-          default: 10
-          description: The numbers of contributors to return, default 10
-        - name: offset
-          in: query
-          type: integer
-          default: 0
-          description: the page offset to get something like top 10-20 contributors with offset 1, default 0
-        - name: search
-          in: query
-          type: string
-          description: search string for example john
-        - name: sort_field
-          in: query
-          type: string
-          description: sort field for example gerrit_merged_changesets
-        - name: sort_order
-          in: query
-          type: string
-          description: sort order for example desc
-        - name: Authorization
-          in: header
-          type: string
-          required: true
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/unix-millis-from'
+        - $ref: '#/parameters/unix-millis-to'
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/search'
+        - $ref: '#/parameters/sort-field'
+        - $ref: '#/parameters/sort-order'
   /affiliation/{projectSlug}/unaffiliated:
     get:
       summary: Get top unaffiliated users
@@ -121,11 +128,8 @@ paths:
         - unaffiliated
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: rows
           in: query
           type: integer
@@ -136,10 +140,6 @@ paths:
           type: integer
           default: 1
           description: If set, it will return rows from a given page
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/matching_blacklist:
     get:
       summary: Get blacklisted emails
@@ -166,11 +166,8 @@ paths:
         - matching_blacklist
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: q
           in: query
           type: string
@@ -186,10 +183,6 @@ paths:
           type: integer
           default: 1
           description: If set, it will return rows from a given page
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/matching_blacklist/{email}:
     post:
       summary: Add blacklist email
@@ -216,20 +209,13 @@ paths:
         - matching_blacklist
         - add
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: email
           in: path
           type: string
           required: true
           description: email to be added to blacklist
-        - name: Authorization
-          in: header
-          type: string
-          required: true
     delete:
       summary: Delete blacklist email
       operationId: deleteMatchingBlacklist
@@ -255,20 +241,13 @@ paths:
         - matching_blacklist
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: email
           in: path
           type: string
           required: true
           description: email to be added to blacklist
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/list_organizations:
     get:
       summary: Get organizations
@@ -295,11 +274,8 @@ paths:
         - list_organizations
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: q
           in: query
           type: string
@@ -315,10 +291,6 @@ paths:
           type: integer
           default: 1
           description: If set, it will return rows from a given page
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/add_organization/{orgName}:
     post:
       summary: Add organization
@@ -345,20 +317,13 @@ paths:
         - add_organization
         - post
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgName
           in: path
           type: string
           required: true
           description: Organization name to be added
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/edit_organization/{orgID}/{orgName}:
     put:
       summary: Edit organization
@@ -385,11 +350,8 @@ paths:
         - edit_organization
         - put
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgID
           in: path
           type: integer
@@ -400,10 +362,6 @@ paths:
           type: string
           required: true
           description: Update current organization name to this new name
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/find_organization_by_id/{orgID}:
     get:
       summary: Find organization by ID
@@ -430,20 +388,13 @@ paths:
         - find_organization
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgID
           in: path
           type: integer
           required: true
           description: Organization ID to be found
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/find_organization_by_name/{orgName}:
     get:
       summary: Find organization by Name
@@ -470,20 +421,13 @@ paths:
         - find_organization
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgName
           in: path
           type: string
           required: true
           description: Organization name to be found
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/delete_organization_by_id/{orgID}:
     delete:
       summary: Delete organization by ID
@@ -510,20 +454,13 @@ paths:
         - organization
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgID
           in: path
           type: integer
           required: true
           description: Organization ID to be deleted
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/list_domains:
     get:
       summary: Get organization domains
@@ -550,11 +487,8 @@ paths:
         - list_organization_domains
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgID
           in: query
           type: integer
@@ -575,10 +509,6 @@ paths:
           type: integer
           default: 1
           description: If set, it will return rows from a given page
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/add_domain/{orgName}/{domain}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
@@ -608,6 +538,8 @@ paths:
         - domain
         - add
       parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgName
           in: path
           type: string
@@ -618,11 +550,6 @@ paths:
           type: string
           required: true
           description: Domain to be added
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
         - name: overwrite
           in: query
           type: boolean
@@ -638,10 +565,6 @@ paths:
           type: boolean
           default: false
           description: If set, it will not change/add/remove/touch any enrollments
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/remove_domain/{orgName}/{domain}:
     delete:
       summary: Remove domain from organization
@@ -671,11 +594,8 @@ paths:
         - domain
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: orgName
           in: path
           type: string
@@ -686,10 +606,6 @@ paths:
           type: string
           required: true
           description: Domain to be removed
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/list_profiles:
     get:
       summary: Get profiles
@@ -716,11 +632,8 @@ paths:
         - list_profiles
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: q
           in: query
           type: string
@@ -736,10 +649,6 @@ paths:
           type: integer
           default: 1
           description: If set, it will return rows from a given page
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
@@ -766,20 +675,13 @@ paths:
         - get_profile
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
           required: true
           description: Profile UUID
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/delete_profile/{uuid}:
     delete:
       summary: Delete profile with given UUID (it will cascade delete all objects referring to that uuid)
@@ -806,11 +708,8 @@ paths:
         - delete_profile
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
@@ -821,10 +720,6 @@ paths:
           type: boolean
           default: false
           description: If set, it will archive profile (and all dependend objects, so full restore will be possible)
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/unarchive_profile/{uuid}:
     post:
       summary: Unarchive profile with given UUID
@@ -851,20 +746,13 @@ paths:
         - delete_profile
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
           required: true
           description: Profile UUID to be unarchived
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/edit_profile/{uuid}:
     put:
       summary: Edit profile
@@ -891,11 +779,8 @@ paths:
         - edit_profile
         - put
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
@@ -925,10 +810,6 @@ paths:
           in: query
           type: string
           description: "Profile country code - 2 letters: PL, US, checked against FK constraint 'countries' table"
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/add_unique_identity/{uuid}:
     post:
       summary: create unique identity and empty profile connected with it
@@ -955,20 +836,13 @@ paths:
         - add_unique_identity
         - post
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
           required: true
           description: UUID to be added
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/add_identity/{source}:
     post:
       summary: create idenity (unique by source, email, name, username), if uuid is set connect it to that uuid or create new unique identity with that uuid otherwise
@@ -995,11 +869,8 @@ paths:
         - add_unique_identity
         - post
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: source
           in: path
           type: string
@@ -1021,10 +892,6 @@ paths:
           in: query
           type: string
           description: Identity UUID (uuid it belongs to), can be empty, new unique identity will be added then
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/delete_identity/{id}:
     delete:
       summary: Delete identity with given ID (it will cascade delete all objects referring to that identity)
@@ -1051,20 +918,13 @@ paths:
         - delete_identity
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: id
           in: path
           type: string
           required: true
           description: Identity ID to be deleted
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID
@@ -1092,6 +952,8 @@ paths:
         - affiliation
         - merge
       parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: fromUUID
           in: path
           type: string
@@ -1102,20 +964,11 @@ paths:
           type: string
           required: true
           description: Unique Identity/Profile UUID to merge to
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
         - name: archive
           in: query
           type: boolean
           default: true
           description: If set, it will archive data so it can be unmerged later
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}:
     put:
       summary: Move identity from fromID to unique identity/profile toUUID
@@ -1143,6 +996,8 @@ paths:
         - affiliation
         - merge
       parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: fromID
           in: path
           type: string
@@ -1153,20 +1008,11 @@ paths:
           type: string
           required: true
           description: Unique Identity/Profile UUID to merge to
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
         - name: archive
           in: query
           type: boolean
           default: true
           description: If set, it will attempt to unarchive data
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/enrollments/{uuid}:
     get:
       summary: Get profile's enrollments - profile specified by UUID
@@ -1193,20 +1039,13 @@ paths:
         - get_profile_enrollments
         - get
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
           required: true
           description: Profile UUID
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/add_enrollment/{uuid}/{orgName}:
     post:
       summary: Add enrollment to profile
@@ -1233,11 +1072,8 @@ paths:
         - add_enrollment
         - post
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
@@ -1262,10 +1098,6 @@ paths:
           in: query
           type: boolean
           description: if set it will merge enrollments for given organization after adding data
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}:
     put:
       summary: Edit profile enrollment
@@ -1292,11 +1124,8 @@ paths:
         - add_enrollment
         - post
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
@@ -1331,10 +1160,6 @@ paths:
           in: query
           type: boolean
           description: if set it will merge enrollments for given organization after editing data
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
@@ -1361,11 +1186,8 @@ paths:
         - delete_enrollments
         - delete
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
@@ -1386,10 +1208,6 @@ paths:
           type: string
           format: date-time
           description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z]
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
     put:
       summary: Merge overlapping enrollments for UUID/orgName
@@ -1416,11 +1234,8 @@ paths:
         - merge_enrollments
         - put
       parameters:
-        - name: projectSlug
-          in: path
-          type: string
-          required: true
-          description: Project slug URL encoded like 'academy-software-foundation/opencue'
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
         - name: uuid
           in: path
           type: string
@@ -1431,10 +1246,6 @@ paths:
           type: string
           required: true
           description: Organization name (must exists)
-        - name: Authorization
-          in: header
-          type: string
-          required: true
   /affiliation/all:
     get:
       summary: Return all affiliations data in human readable format
@@ -1495,6 +1306,55 @@ paths:
           description: arrays of profiles to be added and/or deleted
           schema:
             $ref: "#/definitions/db-update"
+parameters:
+  project-slug:
+    name: projectSlug
+    in: path
+    type: string
+    required: true
+    description: Project slug URL encoded like 'academy-software-foundation/opencue'
+  unix-millis-from:
+    name: from
+    in: query
+    type: integer
+    description: the datetime from, e.g 1552790984700, default is 90 days ago
+  unix-millis-to:
+    name: to
+    in: query
+    type: integer
+    description: the datetime to, e.g 1552790984700, default is now
+  limit:
+    name: limit
+    in: query
+    type: integer
+    default: 10
+    description: The numbers of data to return, default 10
+  offset:
+    name: offset
+    in: query
+    type: integer
+    default: 0
+    description: the page offset
+  search:
+    name: search
+    in: query
+    type: string
+    description: search string for example john
+  sort-field:
+    name: sort_field
+    in: query
+    type: string
+    description: sort field for example gerrit_merged_changesets
+  sort-order:
+    name: sort_order
+    in: query
+    type: string
+    description: sort order for example desc
+  auth:
+    name: Authorization
+    in: header
+    type: string
+    required: true
 definitions:
   health:
     type: object
