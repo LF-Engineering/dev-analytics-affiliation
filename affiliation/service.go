@@ -1886,10 +1886,14 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	} else {
 		to = time.Now().UnixNano() / 1.0e6
 	}
+	limit = 10
 	if params.Limit != nil {
 		limit = *params.Limit
 		if limit < 1 {
 			limit = 1
+		}
+		if limit > 9999 {
+			limit = 9999
 		}
 	}
 	if params.Offset != nil {
