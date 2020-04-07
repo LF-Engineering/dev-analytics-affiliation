@@ -1,15 +1,18 @@
 package affiliation
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"encoding/csv"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/dgrijalva/jwt-go"
@@ -2025,8 +2028,64 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	//f = ioutil.NopCloser(bytes.NewReader([]byte("hello world\n")))
-	f = ioutil.NopCloser(strings.NewReader("hello world\n"))
+	hdr := []string{
+		"uuid",
+		"name",
+		"email",
+		"organization",
+		"git_commits",
+		"git_lines_of_code_added",
+		"git_lines_of_code_changed",
+		"git_lines_of_code_removed",
+		"gerrit_merged_changesets",
+		"gerrit_reviews_approved",
+		"jira_issues_created",
+		"jira_issues_assigned",
+		"jira_average_issues_open_days",
+		"confluence_pages_created",
+		"confluence_pages_edited",
+		"confluence_blog_posts",
+		"confluence_comments",
+		"confluence_last_documentation",
+		"confluence_date_since_last_documentation",
+	}
+	buffer := &bytes.Buffer{}
+	writer := csv.NewWriter(buffer)
+	err = writer.Write(hdr)
+	if err != nil {
+		err = errors.Wrap(fmt.Errorf("error writing CSV header row: %+v: %+v", hdr, err), apiName)
+		return
+	}
+	for index, contributor := range topContributors.Contributors {
+		row := []string{
+			contributor.UUID,
+			contributor.Name,
+			contributor.Email,
+			contributor.Organization,
+			strconv.FormatInt(contributor.GitCommits, 10),
+			strconv.FormatInt(contributor.GitLinesOfCodeAdded, 10),
+			strconv.FormatInt(contributor.GitLinesOfCodeChanged, 10),
+			strconv.FormatInt(contributor.GitLinesOfCodeRemoved, 10),
+			strconv.FormatInt(contributor.GerritMergedChangesets, 10),
+			strconv.FormatInt(contributor.GerritReviewsApproved, 10),
+			strconv.FormatInt(contributor.JiraIssuesCreated, 10),
+			strconv.FormatInt(contributor.JiraIssuesAssigned, 10),
+			strconv.FormatFloat(contributor.JiraAverageIssuesOpenDays, 'f', -1, 64),
+			strconv.FormatInt(contributor.ConfluencePagesCreated, 10),
+			strconv.FormatInt(contributor.ConfluencePagesEdited, 10),
+			strconv.FormatInt(contributor.ConfluenceBlogPosts, 10),
+			strconv.FormatInt(contributor.ConfluenceComments, 10),
+			contributor.ConfluenceLastDocumentation,
+			strconv.FormatFloat(contributor.ConfluenceDateSinceLastDocumentation, 'f', -1, 64),
+		}
+		err = writer.Write(row)
+		if err != nil {
+			err = errors.Wrap(fmt.Errorf("error writing #%d/%+v row: %+v", index+1, row, err), apiName)
+			return
+		}
+	}
+	writer.Flush()
+	f = ioutil.NopCloser(bytes.NewReader(buffer.Bytes()))
 	return
 }
 
