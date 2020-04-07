@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -2024,6 +2025,8 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		err = errors.Wrap(err, apiName)
 		return
 	}
+	//f = ioutil.NopCloser(bytes.NewReader([]byte("hello world\n")))
+	f = ioutil.NopCloser(strings.NewReader("hello world\n"))
 	return
 }
 

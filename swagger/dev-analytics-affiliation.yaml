@@ -42,6 +42,12 @@ paths:
             X-REQUEST-ID:
               type: string
               description: Request ID
+            Content-Disposition:
+              type: string
+              pattern: attachment; filename="top_contributors.csv"
+            Content-Type:
+              type: string
+              pattern: application/octet-stream
           schema:
             type: file
         "400":
