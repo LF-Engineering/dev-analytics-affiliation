@@ -6,7 +6,7 @@ fi
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
+  echo curl -s -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
 fi
 
-curl -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
+curl -s -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"

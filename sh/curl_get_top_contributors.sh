@@ -70,7 +70,7 @@ fi
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"
+  echo curl -s -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"
 fi
 
-curl -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"
+curl -s -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"

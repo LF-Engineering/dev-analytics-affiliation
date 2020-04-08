@@ -41,7 +41,7 @@ uuid=$(rawurlencode "${2}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/get_profile/${uuid}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/get_profile/${uuid}"
 fi
 
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/get_profile/${uuid}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/get_profile/${uuid}"

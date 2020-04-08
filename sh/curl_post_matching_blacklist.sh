@@ -41,7 +41,7 @@ email=$(rawurlencode "${2}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XPOST "${API_URL}/v1/affiliation/${project}/matching_blacklist/${email}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XPOST "${API_URL}/v1/affiliation/${project}/matching_blacklist/${email}"
 fi
 
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XPOST "${API_URL}/v1/affiliation/${project}/matching_blacklist/${email}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XPOST "${API_URL}/v1/affiliation/${project}/matching_blacklist/${email}"

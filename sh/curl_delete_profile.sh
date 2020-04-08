@@ -46,7 +46,7 @@ fi
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_profile/${uuid}?archive=${archive}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_profile/${uuid}?archive=${archive}"
 fi
 
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_profile/${uuid}?archive=${archive}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_profile/${uuid}?archive=${archive}"

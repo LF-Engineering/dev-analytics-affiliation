@@ -41,7 +41,7 @@ orgID=$(rawurlencode "${2}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_organization_by_id/${orgID}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_organization_by_id/${orgID}"
 fi
 
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_organization_by_id/${orgID}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XDELETE "${API_URL}/v1/affiliation/${project}/delete_organization_by_id/${orgID}"

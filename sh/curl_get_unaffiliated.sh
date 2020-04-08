@@ -37,7 +37,7 @@ page=$(rawurlencode "${3}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?rows=${rows}&page=${page}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?rows=${rows}&page=${page}"
 fi
 
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?rows=${rows}&page=${page}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/unaffiliated?rows=${rows}&page=${page}"

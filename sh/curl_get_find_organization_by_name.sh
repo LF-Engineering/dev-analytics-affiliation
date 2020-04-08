@@ -41,7 +41,7 @@ orgName=$(rawurlencode "${2}")
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/find_organization_by_name/${orgName}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/find_organization_by_name/${orgName}"
 fi
 
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/find_organization_by_name/${orgName}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/find_organization_by_name/${orgName}"

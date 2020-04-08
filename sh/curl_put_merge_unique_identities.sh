@@ -53,6 +53,6 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo "$project $from_uuid $to_uuid"
-  echo curl -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}?archive=${ar}"
+  echo curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}?archive=${ar}"
 fi
-curl -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}?archive=${ar}"
+curl -s -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/merge_unique_identities/${from_uuid}/${to_uuid}?archive=${ar}"
