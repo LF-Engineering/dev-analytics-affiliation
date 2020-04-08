@@ -20,13 +20,21 @@ if [ -z "${SIZE}" ]
 then
   SIZE=10
 fi
+if [ -z "${SORT_FIELD}" ]
+then
+  SORT_FIELD=git_commits
+fi
+if [ -z "${SORT_ORDER}" ]
+then
+  SORT_ORDER=asc
+fi
 fn=/tmp/top_contributors.json
 function on_exit {
   rm -f "${fn}"
 }
 cp sh/top_contributors.json /tmp/
 trap on_exit EXIT
-vim --not-a-term -c "%s/param_from/${FROM}/g" -c "%s/param_to/${TO}/g" -c "%s/param_size/${SIZE}/g" -c 'wq!' "$fn"
+vim --not-a-term -c "%s/param_from/${FROM}/g" -c "%s/param_to/${TO}/g" -c "%s/param_size/${SIZE}/g" -c "%s/param_sort_field/${SORT_FIELD}/g" -c "%s/param_sort_order/${SORT_ORDER}/g" -c 'wq!' "$fn"
 if [ -z "${RAW}" ]
 then
   curl -s -H "Content-Type: application/json" "${ES_URL}/sds-${1}-*,-*-raw,-*-for-merge/_search" -d "@${fn}" | jq
