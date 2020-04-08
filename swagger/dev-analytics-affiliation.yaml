@@ -657,7 +657,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/profile-data-output"
+            $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
           $ref: "#/responses/invalid-request"
         "401":

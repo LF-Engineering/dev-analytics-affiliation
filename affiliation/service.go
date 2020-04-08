@@ -52,7 +52,7 @@ type Service interface {
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.ProfileDataOutput, error)
+	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
 	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -1056,9 +1056,9 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 // gender_acc - optional query parameter: if set, it will update profile gender probablity to this value: integer 1-100
 // is_bot - optional query parameter: if set, it will update profile bot flag to this value, integer, allowed: 0, 1
 // country_code - optional query parameter: if set, it will update profile country code to this value, 2 letter contry code, validated agains countries table (foreign key), for example: PL
-func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEditProfileParams) (profile *models.ProfileDataOutput, err error) {
+func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEditProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uuid := params.UUID
-	profile = &models.ProfileDataOutput{
+	profile := &models.ProfileDataOutput{
 		UUID:        uuid,
 		Name:        params.Name,
 		Email:       params.Email,
@@ -1067,18 +1067,19 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 		IsBot:       params.IsBot,
 		CountryCode: params.CountryCode,
 	}
-	log.Info(fmt.Sprintf("PutEditProfile: uuid:%s uid:%+v", uuid, s.ToLocalProfile(profile)))
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("PutEditProfile: uuid:%s profile:%+v", uuid, s.ToLocalProfile(profile)))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutEditProfile(exit): uuid:%s apiName:%s project:%s username:%s profile:%+v err:%v",
+				"PutEditProfile(exit): uuid:%s apiName:%s project:%s username:%s uid:%+v err:%v",
 				uuid,
 				apiName,
 				project,
 				username,
-				s.ToLocalProfile(profile),
+				s.ToLocalNestedUniqueIdentity(uid),
 				err,
 			),
 		)
@@ -1087,11 +1088,22 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 		return
 	}
 	// Do the actual API call
-	profile, err = s.shDB.EditProfile(profile, true, nil)
+	_, err = s.shDB.EditProfile(profile, true, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
 		return
 	}
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, nil)
+	if err != nil {
+		err = errors.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
+		return
+	}
+	uid = ary[0]
 	return
 }
 
