@@ -1935,9 +1935,9 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john, can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
-//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name fields, you can specify wildcards see for example '*john'
+//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name, you can specify wildcards see for example '*john'
 //     specify to search on all document fields `all=john` - this uses wildcards by default (ES behaviour) so that will search for john in all document fields.
-//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv'
+//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv', you can use a wildcard in both field name and search param, like '*name*=*john*'
 //     specify multiple fields to search '*name,author*,*org*=*oogle*', 'author_name,committer_name,author_login=lukaszgryglicki'
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 //    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
@@ -2009,9 +2009,9 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
-//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name fields, you can specify wildcards see for example '*john'
+//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name , you can specify wildcards see for example '*john'
 //     specify to search on all document fields `all=john` - this uses wildcards by default (ES behaviour) so that will search for john in all document fields.
-//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv'
+//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv', you can use a wildcard in both field name and search param, like '*name*=*john*'
 //     specify multiple fields to search '*name,author*,*org*=*oogle*', 'author_name,committer_name,author_login=lukaszgryglicki'
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 //    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
