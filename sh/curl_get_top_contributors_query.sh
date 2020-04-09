@@ -32,7 +32,9 @@ if [ -z "${SEARCH}" ]
 then
   SEARCH=''
 else
-  SEARCH=",{\"query_string\":{\"query\":\"${SEARCH}\"}}"
+  # status, *name, *domain, author*, *login, *org_name
+  SEARCH=",{\"query_string\":{\"fields\":[\"status\",\"\*name\",\"\*domain\",\"author\*\",\"\*login\",\"\*org_name\"],\"query\":\"\*${SEARCH}\*\"}}"
+  #SEARCH=",{\"query_string\":{\"query\":\"${SEARCH}\"}}"
 fi
 fn=/tmp/top_contributors.json
 function on_exit {
@@ -41,6 +43,7 @@ function on_exit {
 cp sh/top_contributors.json /tmp/
 trap on_exit EXIT
 vim --not-a-term -c "%s/param_from/${FROM}/g" -c "%s/param_to/${TO}/g" -c "%s/param_size/${SIZE}/g" -c "%s/param_sort_field/${SORT_FIELD}/g" -c "%s/param_sort_order/${SORT_ORDER}/g" -c "%s/param_search/${SEARCH}/g" -c 'wq!' "$fn"
+cat "${fn}"
 if [ -z "${RAW}" ]
 then
   curl -s -H "Content-Type: application/json" "${ES_URL}/sds-${1}-*,-*-raw,-*-for-merge/_search" -d "@${fn}" | jq

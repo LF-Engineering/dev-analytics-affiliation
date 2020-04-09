@@ -164,7 +164,25 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, s
         }
   `
 	if search != "" {
-		jsonStr += `,{"query_string": { "query": "` + search + `" }}`
+		ary := strings.Split(search, "=")
+		if len(ary) > 1 {
+			fields := ary[0]
+			if fields == "all" {
+				jsonStr += `,{"query_string":{"query":"` + s.JSONEscape(ary[1]) + `"}}`
+			} else {
+				fieldsAry := strings.Split(fields, ",")
+				jsonStr += `,{"query_string":{"fields":[`
+				fieldsStr := ""
+				for _, field := range fieldsAry {
+					fieldsStr += "\"" + s.JSONEscape(field) + "\","
+				}
+				fieldsStr = fieldsStr[:len(fieldsStr)-1]
+				jsonStr += fieldsStr + `],"query":"` + s.JSONEscape(ary[1]) + `"}}`
+			}
+		} else {
+			// default: search for 'search' on status, *name, *domain, author*, *login, *org_name fields
+			jsonStr += `,{"query_string":{"fields":["status","*name","*domain","author*","*login","*org_name"],"query":"` + s.JSONEscape(search) + `"}}`
+		}
 	}
 	jsonStr += fmt.Sprintf(`
       ],

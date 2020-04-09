@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"database/sql"
+	"encoding/json"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
@@ -59,6 +60,7 @@ type ServiceInterface interface {
 	// Other utils
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
+	JSONEscape(string) string
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
 	SanitizeShortEnrollment(*models.EnrollmentShortOutput)
@@ -625,6 +627,11 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 	}
 	err := fmt.Errorf("cannot parse datetime: '%s'\n", dtStr)
 	return time.Now(), err
+}
+
+func (s *ServiceStruct) JSONEscape(str string) string {
+	b, _ := json.Marshal(str)
+	return string(b[1 : len(b)-1])
 }
 
 // QueryOut - display DB query

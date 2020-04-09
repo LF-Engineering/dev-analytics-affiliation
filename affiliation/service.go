@@ -1933,7 +1933,12 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 // to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
 // limit - optional query parameter: page size, default 10
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
-// search - optional query parameter: for example john
+// search - optional query parameter: for example john, can be specified in multiple forms (must be urlencoded)
+//     empty - so search filter will be applied
+//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name fields, you can specify wildcards see for example '*john'
+//     specify to search on all document fields `all=john` - this uses wildcards by default (ES behaviour) so that will search for john in all document fields.
+//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv'
+//     specify multiple fields to search '*name,author*,*org*=*oogle*', 'author_name,committer_name,author_login=lukaszgryglicki'
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 //    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
 //      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
@@ -2002,7 +2007,12 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 // to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
 // limit - optional query parameter: page size, default 10
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
-// search - optional query parameter: for example john
+// search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
+//     empty - so search filter will be applied
+//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name fields, you can specify wildcards see for example '*john'
+//     specify to search on all document fields `all=john` - this uses wildcards by default (ES behaviour) so that will search for john in all document fields.
+//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv'
+//     specify multiple fields to search '*name,author*,*org*=*oogle*', 'author_name,committer_name,author_login=lukaszgryglicki'
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 //    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
 //      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
