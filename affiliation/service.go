@@ -1976,10 +1976,12 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
-	if err != nil {
-		err = errors.Wrap(err, apiName)
-		return
+	if len(topContributors.Contributors) > 0 {
+		err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
+		if err != nil {
+			err = errors.Wrap(err, apiName)
+			return
+		}
 	}
 	topContributors.From = from
 	topContributors.To = to
@@ -2043,10 +2045,12 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
-	if err != nil {
-		err = errors.Wrap(err, apiName)
-		return
+	if len(topContributors.Contributors) > 0 {
+		err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
+		if err != nil {
+			err = errors.Wrap(err, apiName)
+			return
+		}
 	}
 	hdr := []string{
 		"uuid",

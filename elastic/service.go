@@ -149,10 +149,10 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
-func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, sortField, sortOrder string) string {
+func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, sortField, sortOrder string) (jsonStr string) {
 	// FIXME: handle limit/offset correctly (currently we always fetch (offset+1)*limit results and then reject records from pages 0 - (offset-1)
 	// FIXME: handle search, sortField, sortOrder params
-	return fmt.Sprintf(`{
+	jsonStr = `{
   "size": 0,
   "query": {
     "bool": {
@@ -162,6 +162,11 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, s
             "field": "author_uuid"
           }
         }
+  `
+	if search != "" {
+		jsonStr += `,{"query_string": { "query": "` + search + `" }}`
+	}
+	jsonStr += fmt.Sprintf(`
       ],
       "must_not": [
         {
@@ -313,6 +318,7 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, s
     }
   }
   }`, from, to, (offset+1)*limit)
+	return
 }
 
 // Investigate via: `jq .aggregations.contributions.buckets[].gerrit` etc.

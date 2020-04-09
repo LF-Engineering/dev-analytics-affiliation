@@ -489,6 +489,9 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			),
 		)
 	}()
+	if len(contributors) == 0 {
+		return
+	}
 	secsSinceEpoch := float64(millisSinceEpoch) / 1000.0
 	sel := "select p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles p left join enrollments e"
 	sel += fmt.Sprintf(

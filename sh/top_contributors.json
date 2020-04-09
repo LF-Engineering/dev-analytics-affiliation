@@ -7,7 +7,7 @@
           "exists": {
             "field": "author_uuid"
           }
-        }
+        }param_search
       ],
       "must_not": [
         {
