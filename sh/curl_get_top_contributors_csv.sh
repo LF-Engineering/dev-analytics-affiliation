@@ -70,7 +70,7 @@ fi
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -i -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"
+  echo curl -i -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
 fi
 
-curl -i -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}"
+curl -i -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"

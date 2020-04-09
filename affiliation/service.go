@@ -1935,6 +1935,8 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
+//    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
+//      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
 // sort_order - optional query parameter: sort order for example desc, asc
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(params, nil)
@@ -2000,6 +2002,8 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
+//    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
+//      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
 // sort_order - optional query parameter: sort order for example desc, asc
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(nil, params)

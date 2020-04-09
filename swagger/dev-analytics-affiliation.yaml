@@ -1613,6 +1613,10 @@ definitions:
         type: string
         example: CNCF
         x-omitempty: false
+      docs:
+        type: integer
+        example: 1000
+        x-omitempty: false
       git_commits:
         type: integer
         example: 123

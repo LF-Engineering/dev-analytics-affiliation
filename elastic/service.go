@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
@@ -253,7 +254,7 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, s
         "jira": {
           "filter": {
             "wildcard": {
-              "_index": "*jira"
+              "_index": "*-jira"
             }
           },
           "aggs": {
@@ -277,7 +278,7 @@ func (s *service) contributorStatsQuery(from, to, limit, offset int64, search, s
         "confluence": {
           "filter": {
             "wildcard": {
-              "_index": "*confluence"
+              "_index": "*-confluence"
             }
           },
           "aggs": {
@@ -387,7 +388,13 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 	pattern := s.projectSlugToIndexPattern(projectSlug)
 	log.Info(fmt.Sprintf("GetTopContributors: projectSlug:%s pattern:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", projectSlug, pattern, from, to, limit, offset, search, sortField, sortOrder))
 	top = &models.TopContributorsFlatOutput{}
-	data := s.contributorStatsQuery(from, to, limit, offset, search, sortField, sortOrder)
+	data := ""
+	if strings.TrimSpace(sortField) == "" {
+		data = s.contributorStatsQuery(from, to, limit, offset, search, sortField, sortOrder)
+	} else {
+		// FIXME: hardcoded 9999 to support special sort
+		data = s.contributorStatsQuery(from, to, 9999, 0, search, sortField, sortOrder)
+	}
 	defer func() {
 		inf := ""
 		nTop := len(top.Contributors)
@@ -441,6 +448,88 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 	}
 	idxFrom := limit * offset
 	idxTo := idxFrom + limit
+	asc := strings.TrimSpace(strings.ToLower(sortOrder)) == "asc"
+	buckets := result.Aggregations.Contributions.Buckets
+	var sortFunc func(int, int) bool
+	switch sortField {
+	case "":
+	case "uuid":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Key > buckets[j].Key
+		}
+	case "docs":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].DocCount > buckets[j].DocCount
+		}
+	case "git_commits":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Git.Commits.Value > buckets[j].Git.Commits.Value
+		}
+	case "git_lines_of_code_added":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Git.LinesAdded.Value > buckets[j].Git.LinesAdded.Value
+		}
+	case "git_lines_of_code_removed":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Git.LinesRemoved.Value > buckets[j].Git.LinesRemoved.Value
+		}
+	case "git_lines_of_code_changed":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Git.LinesChanged.Value > buckets[j].Git.LinesChanged.Value
+		}
+	case "gerrit_merged_changesets":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value > buckets[j].Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value
+		}
+	case "gerrit_reviews_approved":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Gerrit.GerritApprovals.Value > buckets[j].Gerrit.GerritApprovals.Value
+		}
+	case "jira_issues_created":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Jira.IssuesCreated.Value > buckets[j].Jira.IssuesCreated.Value
+		}
+	case "jira_issues_assigned":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Jira.IssuesAssigned.Value > buckets[j].Jira.IssuesAssigned.Value
+		}
+	case "jira_average_issues_open_days":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Jira.AverageIssueOpenDays.Value > buckets[j].Jira.AverageIssueOpenDays.Value
+		}
+	case "confluence_pages_created":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Confluence.PagesCreated.Value > buckets[j].Confluence.PagesCreated.Value
+		}
+	case "confluence_pages_edited":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Confluence.PagesEdited.Value > buckets[j].Confluence.PagesEdited.Value
+		}
+	case "confluence_comments":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Confluence.Comments.Value > buckets[j].Confluence.Comments.Value
+		}
+	case "confluence_blog_posts":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Confluence.BlogPosts.Value > buckets[j].Confluence.BlogPosts.Value
+		}
+	case "confluence_last_documentation":
+		sortFunc = func(i, j int) bool {
+			return buckets[i].Confluence.LastActionDate.ValueAsString > buckets[j].Confluence.LastActionDate.ValueAsString
+		}
+	default:
+		err = fmt.Errorf("unknown sort field: '%s'", sortField)
+		return
+	}
+	if sortFunc != nil {
+		finalSortFunc := sortFunc
+		if asc {
+			finalSortFunc = func(i, j int) bool {
+				return sortFunc(j, i)
+			}
+		}
+		sort.SliceStable(result.Aggregations.Contributions.Buckets, finalSortFunc)
+	}
 	for idx, bucket := range result.Aggregations.Contributions.Buckets {
 		if int64(idx) >= idxFrom && int64(idx) < idxTo {
 			lastActionDateMillis := bucket.Confluence.LastActionDate.Value
@@ -451,6 +540,7 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 			}
 			contributor := &models.ContributorFlatStats{
 				UUID:                      bucket.Key,
+				Docs:                      bucket.DocCount,
 				GitLinesOfCodeAdded:       int64(bucket.Git.LinesAdded.Value),
 				GitLinesOfCodeChanged:     int64(bucket.Git.LinesChanged.Value),
 				GitLinesOfCodeRemoved:     int64(bucket.Git.LinesRemoved.Value),
