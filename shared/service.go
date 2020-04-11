@@ -629,6 +629,7 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 	return time.Now(), err
 }
 
+// JSONEscape - escape string for JSOn to avoid injections
 func (s *ServiceStruct) JSONEscape(str string) string {
 	b, _ := json.Marshal(str)
 	return string(b[1 : len(b)-1])
