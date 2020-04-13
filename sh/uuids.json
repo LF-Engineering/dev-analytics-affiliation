@@ -1,0 +1,30 @@
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "exists": {
+            "field": "author_uuid"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match_phrase": {
+            "author_bot": true
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "contributions": {
+      "terms": {
+        "field": "author_uuid",
+        "missing": "",
+        "size": 10
+      }
+    }
+  }
+}
