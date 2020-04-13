@@ -46,9 +46,9 @@ jobs:
             eval "echo 'export AWS_SECRET_ACCESS_KEY=\$$AWS_SECRET_ACCESS_KEY_ENV_VAR'" >> $BASH_ENV
       - attach_workspace:
           at: ./
-      - run:
-          name: Create the custom domain in API Gateway
-          command: yarn sls -s ${STAGE} -r us-west-2 create_domain
+#       - run:
+#           name: Create the custom domain in API Gateway
+#           command: yarn sls -s ${STAGE} -r us-west-2 create_domain
       - run:
           name: Deploy
           command: yarn sls deploy -s ${STAGE} -r us-west-2 --verbose
