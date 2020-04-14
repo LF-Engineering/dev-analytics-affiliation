@@ -63,8 +63,8 @@ type Service interface {
 	PutEditEnrollment(ctx context.Context, in *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteEnrollments(ctx context.Context, in *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeEnrollments(ctx context.Context, in *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.ProfileDataOutput, error)
-	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.ProfileDataOutput, error)
+	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
 	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
@@ -1687,7 +1687,7 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 // {fromUUID} - required path parameter: uidentity/profile uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
 // archive - optional query parameter: if archive=false it will not archive data to allow unmerge without data loss
-func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliation.PutMergeUniqueIdentitiesParams) (profileData *models.ProfileDataOutput, err error) {
+func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliation.PutMergeUniqueIdentitiesParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	fromUUID := params.FromUUID
 	toUUID := params.ToUUID
 	archive := true
@@ -1700,13 +1700,13 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutMergeUniqueIdentities(exit): fromUUID:%s toUUID:%s apiName:%s project:%s username:%s profileData:%+v err:%v",
+				"PutMergeUniqueIdentities(exit): fromUUID:%s toUUID:%s apiName:%s project:%s username:%s uid:%+v err:%v",
 				fromUUID,
 				toUUID,
 				apiName,
 				project,
 				username,
-				profileData,
+				s.ToLocalNestedUniqueIdentity(uid),
 				err,
 			),
 		)
@@ -1720,9 +1720,14 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	profileData, err = s.shDB.GetProfile(toUUID, true, nil)
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
 	}
 	return
@@ -1746,7 +1751,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 // {fromID} - required path parameter: identity id to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
 // archive - optional query parameter: if archive=false it will not attempt to restore data from archive
-func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMoveIdentityParams) (profileData *models.ProfileDataOutput, err error) {
+func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMoveIdentityParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	fromID := params.FromID
 	toUUID := params.ToUUID
 	archive := true
@@ -1759,13 +1764,13 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutMoveIdentity(exit): fromID:%s toUUID:%s apiName:%s project:%s username:%s profileData:%+v err:%v",
+				"PutMoveIdentity(exit): fromID:%s toUUID:%s apiName:%s project:%s username:%s uid:%+v err:%v",
 				fromID,
 				toUUID,
 				apiName,
 				project,
 				username,
-				profileData,
+				s.ToLocalNestedUniqueIdentity(uid),
 				err,
 			),
 		)
@@ -1779,9 +1784,14 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		err = errors.Wrap(err, apiName)
 		return
 	}
-	profileData, err = s.shDB.GetProfile(toUUID, true, nil)
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, nil)
 	if err != nil {
 		err = errors.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
 	}
 	return
