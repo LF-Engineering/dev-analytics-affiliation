@@ -1730,6 +1730,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
 	}
+	uid = ary[0]
 	return
 }
 
@@ -1794,6 +1795,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
 	}
+	uid = ary[0]
 	return
 }
 
