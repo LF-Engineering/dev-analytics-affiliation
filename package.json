@@ -1,0 +1,15 @@
+{
+  "name": "dev-analytics-affiliation",
+  "version": "1.0.0",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "serverless": "^1.63.0",
+    "serverless-domain-manager": "^3.3.1"
+  },
+  "scripts": {
+    "sls": "./node_modules/serverless/bin/serverless"
+  },
+  "dependencies": {
+    "serverless-pseudo-parameters": "^2.4.0"
+  }
+}
