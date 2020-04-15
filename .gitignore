@@ -35,7 +35,7 @@ vendor
 # ignore all go swagger generated files except the configuration one
 gen/restapi/*
 gen/models/*
-!gen/restapi/configure_dev_analytics_metrics.go
+!gen/restapi/configure_dev_analytics_affiliation.go
 
 node_modules
 

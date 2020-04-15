@@ -35,8 +35,11 @@ fastrun: fmt
 	./main
 
 clean:
+	cp gen/restapi/configure_dev_analytics_affiliation.go .
 	rm -rf ./bin ./gen
 	mkdir gen
+	mkdir gen/restapi
+	mv configure_dev_analytics_affiliation.go gen/restapi
 
 setup: setup_dev setup_deploy
 
