@@ -235,24 +235,26 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 // So this is a good place to plug in a panic handling middleware, logging and metrics
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	//handleCORS := cors.Default().Handler
-	//handleCORS := cors.AllowAll().Handler
-	handleCORS := cors.New(cors.Options{
-		AllowedOrigins: []string{
-			"https://test.lfanalytics.io",
-			"https://lfanalytics.io",
-			//"https://*.lfanalytics.io",
-		},
-		AllowedMethods: []string{
-			http.MethodGet,
-			http.MethodPost,
-			http.MethodPut,
-			http.MethodDelete,
-			http.MethodPatch,
-			http.MethodOptions,
-			http.MethodHead,
-		},
-		AllowCredentials: true,
-		Debug:            true,
-	}).Handler
+	handleCORS := cors.AllowAll().Handler
+	/*
+		handleCORS := cors.New(cors.Options{
+			AllowedOrigins: []string{
+				"https://test.lfanalytics.io",
+				"https://lfanalytics.io",
+				//"https://*.lfanalytics.io",
+			},
+			AllowedMethods: []string{
+				http.MethodGet,
+				http.MethodPost,
+				http.MethodPut,
+				http.MethodDelete,
+				http.MethodPatch,
+				http.MethodOptions,
+				http.MethodHead,
+			},
+			AllowCredentials: true,
+			Debug:            true,
+		}).Handler
+	*/
 	return handleCORS(handler)
 }
