@@ -1,19 +1,28 @@
 {{- $skipAPI := .Values.skipAPI -}}
 {{ if not $skipAPI }}
+{{- $cert := .Files.Get (printf "secrets/CERT.%s.secret" .Values.deployEnv) -}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   namespace: '{{ .Values.namespace }}'
   name: '{{ .Values.apiServiceName }}'
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: {{ $cert }}
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: https
   labels:
     name: da-affiliation
     type: api
 spec:
   ports:
-  - port: 8080
+  - name: http
+    port: 80
     targetPort: 8080
     #protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 8080
   selector:
     name: da-affiliation
     type: api
