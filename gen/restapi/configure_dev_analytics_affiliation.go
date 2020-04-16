@@ -3,6 +3,9 @@
 package restapi
 
 import (
+	"os"
+	"strings"
+
 	"crypto/tls"
 	"net/http"
 
@@ -234,14 +237,18 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 // The middleware configuration happens before anything, this middleware also applies to serving the swagger.json document.
 // So this is a good place to plug in a panic handling middleware, logging and metrics
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
+	corsAllowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsAllowedOrigins == "" {
+		corsAllowedOrigins = "*"
+	}
+	corsAllowedOriginsArray := strings.Split(corsAllowedOrigins, ",")
+	for index, corsAllowedOrigin := range corsAllowedOriginsArray {
+		corsAllowedOriginsArray[index] = strings.TrimSpace(corsAllowedOrigin)
+	}
 	//handleCORS := cors.Default().Handler
 	//handleCORS := cors.AllowAll().Handler
 	handleCORS := cors.New(cors.Options{
-		AllowedOrigins: []string{
-			"https://test.lfanalytics.io",
-			"https://lfanalytics.io",
-			//"https://*.lfanalytics.io",
-		},
+		AllowedOrigins: corsAllowedOriginsArray,
 		AllowedMethods: []string{
 			http.MethodGet,
 			http.MethodPost,

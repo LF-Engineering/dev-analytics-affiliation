@@ -115,6 +115,11 @@ spec:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
               key: AUTH0_USERNAME_CLAIM.secret
+        - name: CORS_ALLOWED_ORIGINS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: CORS_ALLOWED_ORIGINS.secret
       restartPolicy: {{ .Values.apiRestartPolicy }}
       nodeSelector:
 {{- with .Values.nodeSelector -}}
