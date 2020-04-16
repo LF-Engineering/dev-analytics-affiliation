@@ -59,7 +59,7 @@ type Service interface {
 	PostAddIdentity(ctx context.Context, in *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteIdentity(ctx context.Context, in *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
 	GetProfileEnrollments(ctx context.Context, in *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
-	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutputNoDates, error)
 	PutEditEnrollment(ctx context.Context, in *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteEnrollments(ctx context.Context, in *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeEnrollments(ctx context.Context, in *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -78,6 +78,7 @@ type Service interface {
 	getPemCert(*jwt.Token, string) (string, error)
 	checkToken(string) (string, error)
 	checkTokenAndPermission(interface{}) (string, string, string, error)
+	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -343,6 +344,49 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	if !allowed {
 		err = errors.Wrap(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), apiName)
 		return
+	}
+	return
+}
+
+func (s *service) toNoDates(in *models.UniqueIdentityNestedDataOutput) (out *models.UniqueIdentityNestedDataOutputNoDates) {
+	out = &models.UniqueIdentityNestedDataOutputNoDates{
+		UUID:         in.UUID,
+		Profile:      in.Profile,
+		Identities:   in.Identities,
+		LastModified: in.LastModified,
+	}
+	/*
+		emptyStart := false
+		emptyEnd := false
+		if start == nil || (start != nil && time.Time(*start) == shdb.MinPeriodDate) {
+			emptyStart = true
+		}
+		if end == nil || (end != nil && time.Time(*end) == shdb.MaxPeriodDate) {
+			emptyEnd = true
+		}
+	*/
+	for _, enrollment := range in.Enrollments {
+		enrollmentStart := enrollment.Start.String()
+		enrollmentEnd := enrollment.End.String()
+		//if emptyStart && time.Time(enrollment.Start) == shdb.MinPeriodDate {
+		if time.Time(enrollment.Start) == shdb.MinPeriodDate {
+			enrollmentStart = ""
+		}
+		//if emptyEnd && time.Time(enrollment.End) == shdb.MaxPeriodDate {
+		if time.Time(enrollment.End) == shdb.MaxPeriodDate {
+			enrollmentEnd = ""
+		}
+		out.Enrollments = append(
+			out.Enrollments,
+			&models.EnrollmentNestedDataOutputNoDates{
+				ID:             enrollment.ID,
+				UUID:           enrollment.UUID,
+				Start:          enrollmentStart,
+				End:            enrollmentEnd,
+				OrganizationID: enrollment.OrganizationID,
+				Organization:   enrollment.Organization,
+			},
+		)
 	}
 	return
 }
@@ -623,10 +667,11 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 // start - optional query parameter: enrollment start date, 1900-01-01 if not set
 // end - optional query parameter: enrollment end date, 2100-01-01 if not set
 // merge - optional query parameter: if set it will merge enrollment dates for organization added
-func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.PostAddEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.PostAddEnrollmentParams) (uidnd *models.UniqueIdentityNestedDataOutputNoDates, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
-	uid = &models.UniqueIdentityNestedDataOutput{}
+	uid := &models.UniqueIdentityNestedDataOutput{}
+	uidnd = &models.UniqueIdentityNestedDataOutputNoDates{}
 	log.Info(fmt.Sprintf("PostAddEnrollment: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
 	apiName, project, username, err := s.checkTokenAndPermission(params)
@@ -699,6 +744,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		return
 	}
 	uid = ary[0]
+	uidnd = s.toNoDates(uid)
 	return
 }
 

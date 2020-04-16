@@ -932,7 +932,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/unique-identity-nested-data-output"
+            $ref: "#/definitions/unique-identity-nested-data-output-no-dates"
         "400":
           $ref: "#/responses/invalid-request"
         "401":
@@ -1393,6 +1393,29 @@ definitions:
       organization:
         type: object
         $ref: "#/definitions/organization-data-output"
+  enrollment-nested-data-output-no-dates:
+    title: Enrollment data output (only tu support hiding default start/end dates)
+    description: Enrollment data
+    type: object
+    properties:
+      id:
+        type: integer
+        example: 35067
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      organization_id:
+        type: integer
+        example: 33073
+      start:
+        type: string
+        example: '2019-09-02 03:00:33.000000 or empty'
+      end:
+        type: string
+        example: '2019-09-02 03:00:33.000000 or empty'
+      organization:
+        type: object
+        $ref: "#/definitions/organization-data-output"
   enrollment-data-output:
     title: Enrollment data output
     description: Enrollment data
@@ -1737,6 +1760,30 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/enrollment-nested-data-output"
+  unique-identity-nested-data-output-no-dates:
+    title: Unique identity nested data output (only tu support hiding default start/end dates)
+    description: Unique indentity nested data
+    type: object
+    properties:
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      last_modified:
+        type: string
+        format: date-time
+        x-nullable: true
+        example: '2019-09-02 03:00:33.000000'
+      profile:
+        type: object
+        $ref: "#/definitions/profile-data-output"
+      identities:
+        type: array
+        items:
+          $ref: "#/definitions/identity-data-output"
+      enrollments:
+        type: array
+        items:
+          $ref: "#/definitions/enrollment-nested-data-output-no-dates"
   get-list-profiles-output:
     title: List profiles data output
     description: List profiles data
