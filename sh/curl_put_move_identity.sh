@@ -21,6 +21,8 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo "$project $from_id $to_uuid"
-  echo curl -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
+  echo curl -i -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
+  curl -i -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
+else
+  curl -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"
 fi
-curl -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/move_identity/${from_id}/${to_uuid}?archive=${ar}"

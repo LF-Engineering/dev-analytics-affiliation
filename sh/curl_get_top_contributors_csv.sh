@@ -39,7 +39,8 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo curl -s -i -H "Origin: ${ORIGIN}" -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  curl -s -i -H "Origin: ${ORIGIN}" -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+else
+  curl -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
 fi
-
-curl -s -i -H "Origin: ${ORIGIN}" -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
 

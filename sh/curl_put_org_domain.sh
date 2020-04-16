@@ -34,7 +34,8 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo "$project $org $dom $ov $top $skip_enrollments"
-  echo curl -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
+  echo curl -i -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
+  curl -i -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
+else
+  curl -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"
 fi
-
-curl -s -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${JWT_TOKEN}" -XPUT "${API_URL}/v1/affiliation/${project}/add_domain/${org}/${dom}?overwrite=${ov}&is_top_domain=${top}&skip_enrollments=${skip_enrollments}"

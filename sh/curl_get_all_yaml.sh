@@ -12,6 +12,7 @@ fi
 if [ ! -z "$DEBUG" ]
 then
   echo curl -i -s -H "Origin: ${ORIGIN}" -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
+  curl -i -s -H "Origin: ${ORIGIN}" -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
+else
+  curl -s -H "Origin: ${ORIGIN}" -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
 fi
-
-curl -i -s -H "Origin: ${ORIGIN}" -H 'Accept: application/yaml' -XGET "${API_URL}/v1/affiliation/all"
