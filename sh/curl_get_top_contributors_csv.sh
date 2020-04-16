@@ -1,37 +1,5 @@
 #!/bin/bash
-if [ -z "$JWT_TOKEN" ]
-then
-  echo "$0: please sepcify your JWT toen via JWT_TOKEN=..."
-  exit 1
-fi
-if [ -z "$1" ]
-then
-  echo "$0: please specify project slug as a 1st arg"
-  exit 2
-fi
-if [ -z "$API_URL" ]
-then
-  export API_URL="http://127.0.0.1:8080"
-fi
-
-rawurlencode() {
-  local string="${1}"
-  local strlen=${#string}
-  local encoded=""
-  local pos c o
-  for (( pos=0 ; pos<strlen ; pos++ )); do
-     c=${string:$pos:1}
-     case "$c" in
-        [-_.~a-zA-Z0-9] ) o="${c}" ;;
-        * )               printf -v o '%%%02x' "'$c"
-     esac
-     encoded+="${o}"
-  done
-  echo "${encoded}"
-  REPLY="${encoded}"
-}
-
-project=$(rawurlencode "${1}")
+. ./sh/shared.sh
 from=''
 if [ ! -z "$2" ]
 then
@@ -70,7 +38,8 @@ fi
 
 if [ ! -z "$DEBUG" ]
 then
-  echo curl -s -i -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  echo curl -s -i -H "Origin: ${ORIGIN}" -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
 fi
 
-curl -s -i -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+curl -s -i -H "Origin: ${ORIGIN}" -H 'Content-Type: application/octet-streams' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors_csv?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+

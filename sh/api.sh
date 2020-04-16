@@ -26,6 +26,10 @@ then
 fi
 export ELASTIC_USERNAME=''
 export ELASTIC_PASSWORD=''
+if [ -z "$CORS_ALLOWED_ORIGINS" ]
+then
+  export CORS_ALLOWED_ORIGINS='https://test.lfanalytics.io, https://lfanalytics.io, http://127.0.0.1'
+fi
 if [ -z "$ONLYRUN" ]
 then
   make swagger && make build && make run

@@ -35,7 +35,7 @@ Start API server using dockerized MariaDB and Postgres databases:
 
 - Start API server: `` [ONLYRUN=1] ./sh/api.sh ``. Eventually: `` ONLYRUN=1 NOCHECKS=1 ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
 - Call example clients:
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh CNCF cncf.io 'odpi/egeria' 1 1 0 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh 'odpi/egeria' CNCF cncf.io 1 1 0 ``.
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_unique_identities.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a [0] ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_move_identity.sh 'odpi/egeria' aaa8024197795de9b90676592772633c5cfcb35a 16fe424acecf8d614d102fc0ece919a22200481d [0] ``.
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
@@ -45,6 +45,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_post_add_organization.sh odpi/egeria ABC ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_id.sh odpi/egeria 28143 ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_name.sh odpi/egeria CNCF ``.
+  - `` DEBUG=1 ORIGIN=prod API_URL=prod JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_name.sh lfn CNCF ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_edit_organization.sh odpi/egeria 28143 cncf ``.
   - `` DEBUG='' JWT_TOKEN=`cat secret/lgryglicki.token` API_URL='http://127.0.0.1:18080' ./sh/curl_get_list_organizations.sh odpi/egeria 'google' | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 28230 '.' 2 2 | jq ``.
@@ -57,7 +58,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors_csv.sh lfn 0 2552790984700 300 2 john git_commits desc ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors_csv.sh lfn 0 1852790984700 3 0 '*name,author*,*org*=*oogle*' git_commits desc ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_org_domain.sh cncf cloudnative.io odpi/egeria ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_org_domain.sh odpi/egeria cncf cloudnative.io ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_profiles.sh odpi/egeria gerrit 25 | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile.sh lfn 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 | jq ``.
