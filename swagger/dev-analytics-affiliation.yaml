@@ -1410,9 +1410,11 @@ definitions:
       start:
         type: string
         example: '2019-09-02 03:00:33.000000 or empty'
+        x-omitempty: false
       end:
         type: string
         example: '2019-09-02 03:00:33.000000 or empty'
+        x-omitempty: false
       organization:
         type: object
         $ref: "#/definitions/organization-data-output"
