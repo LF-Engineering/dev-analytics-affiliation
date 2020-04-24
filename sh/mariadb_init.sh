@@ -19,7 +19,7 @@ if [ -z "$FULL" ]
 then
   mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}" < sh/sh_structure.sql
 else
-  mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}" < sh/sh_full.sql
+  mysql -h127.0.0.1 -P13306 -p"${PASS}" -u"${USR}" "${SH_DB}" < sh/sh_full.sql
 fi
 if [ ! -z "$UPDATE_STRUCTURE" ]
 then
