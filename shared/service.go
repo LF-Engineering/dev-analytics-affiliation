@@ -13,6 +13,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
@@ -626,6 +627,7 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 		}
 	}
 	err := fmt.Errorf("cannot parse datetime: '%s'\n", dtStr)
+	err = errs.Wrap(errs.New(err, errs.ErrServerError), "TimeParseAny")
 	return time.Now(), err
 }
 
@@ -661,6 +663,7 @@ func (s *ServiceStruct) QueryDB(db *sqlx.DB, query string, args ...interface{}) 
 	rows, err = db.Query(query, args...)
 	if err != nil || GSQLOut {
 		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrServerError), "QueryDB")
 			log.Info("QueryDB failed")
 		}
 		s.QueryOut(query, args...)
@@ -673,6 +676,7 @@ func (s *ServiceStruct) QueryTX(db *sql.Tx, query string, args ...interface{}) (
 	rows, err = db.Query(query, args...)
 	if err != nil || GSQLOut {
 		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrServerError), "QueryTX")
 			log.Info("QueryTX failed")
 		}
 		s.QueryOut(query, args...)
@@ -693,6 +697,7 @@ func (s *ServiceStruct) ExecDB(db *sqlx.DB, query string, args ...interface{}) (
 	res, err = db.Exec(query, args...)
 	if err != nil || GSQLOut {
 		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrServerError), "ExecDB")
 			log.Info("ExecDB failed")
 		}
 		s.QueryOut(query, args...)
@@ -705,6 +710,7 @@ func (s *ServiceStruct) ExecTX(db *sql.Tx, query string, args ...interface{}) (r
 	res, err = db.Exec(query, args...)
 	if err != nil || GSQLOut {
 		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrServerError), "ExecTX")
 			log.Info("ExecTX failed")
 		}
 		s.QueryOut(query, args...)

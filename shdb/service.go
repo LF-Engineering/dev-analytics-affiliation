@@ -17,6 +17,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
@@ -194,6 +195,7 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 	}
 	if !fetched {
 		err = fmt.Errorf("cannot find country by code '%s'", countryCode)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetCountry")
 		return
 	}
 	return
@@ -211,6 +213,7 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	for index, pair := range dates {
 		if len(pair) != 2 {
 			err = fmt.Errorf("datetime start-end pair number #%d doesn't have exactly 2 elements: %+v", index, pair)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeDateRanges")
 			return
 		}
 		newPair := []strfmt.DateTime{}
@@ -237,10 +240,12 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 		en := data[1]
 		if time.Time(st).Before(MinPeriodDate) || time.Time(st).After(MaxPeriodDate) {
 			err = fmt.Errorf("start date %v must be between %v and %v", st, MinPeriodDate, MaxPeriodDate)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeDateRanges")
 			return
 		}
 		if time.Time(en).Before(MinPeriodDate) || time.Time(en).After(MaxPeriodDate) {
 			err = fmt.Errorf("end date %v must be between %v and %v", en, MinPeriodDate, MaxPeriodDate)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeDateRanges")
 			return
 		}
 		// st <= saved[1]
@@ -291,6 +296,7 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 	}
 	if len(disjoint) == 0 {
 		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
 		return
 	}
 	dates := [][]strfmt.DateTime{}
@@ -355,6 +361,7 @@ func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDa
 	}
 	if affected != 1 {
 		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(oldUniqueIdentity), affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveEnrollmentToUniqueIdentity")
 		return
 	}
 	affected, err = s.TouchUniqueIdentity(uniqueIdentity.UUID, tx)
@@ -363,6 +370,7 @@ func (s *service) MoveEnrollmentToUniqueIdentity(enrollment *models.EnrollmentDa
 	}
 	if affected != 1 {
 		err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(uniqueIdentity), affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveEnrollmentToUniqueIdentity")
 		return
 	}
 	return
@@ -413,6 +421,7 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 			return
 		}
 		if affected != 1 {
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveIdentityToUniqueIdentity")
 			err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(oldUniqueIdentity), affected)
 			return
 		}
@@ -421,6 +430,7 @@ func (s *service) MoveIdentityToUniqueIdentity(identity *models.IdentityDataOutp
 			return
 		}
 		if affected != 1 {
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveIdentityToUniqueIdentity")
 			err = fmt.Errorf("'%+v' unique identity update affected %d rows", s.ToLocalUniqueIdentity(uniqueIdentity), affected)
 			return
 		}
@@ -740,6 +750,7 @@ func (s *service) FindUniqueIdentityOrganizations(uuid string, missingFatal bool
 	}
 	if missingFatal && len(organizations) == 0 {
 		err = fmt.Errorf("cannot find organizations for uuid %s", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "FindUniqueIdenityOrganizations")
 		return
 	}
 	return
@@ -804,6 +815,7 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 	}
 	if missingFatal && len(profiles) == 0 {
 		err = fmt.Errorf("cannot find profiles for %+v/%+v", columns, values)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "FindProfiles")
 		return
 	}
 	return
@@ -863,6 +875,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 	}
 	if missingFatal && len(organizations) == 0 {
 		err = fmt.Errorf("cannot find organizations for %+v/%+v", columns, values)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -939,6 +952,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 	}
 	if missingFatal && len(enrollments) == 0 {
 		err = fmt.Errorf("cannot find enrollments for %+v/%+v (nested)", columns, values)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1012,6 +1026,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 	}
 	if missingFatal && len(enrollments) == 0 {
 		err = fmt.Errorf("cannot find enrollments for %+v/%+v", columns, values)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1069,6 +1084,7 @@ func (s *service) GetArchiveUniqueIdentityIdentities(uuid string, tm time.Time, 
 	}
 	if missingFatal && len(identities) == 0 {
 		err = fmt.Errorf("cannot find archived identities for uuid '%s'/%v", uuid, tm)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1123,6 +1139,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 	}
 	if missingFatal && len(enrollments) == 0 {
 		err = fmt.Errorf("cannot find archive enrollments for uuid '%s'/%v", uuid, tm)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1177,6 +1194,7 @@ func (s *service) GetUniqueIdentityIdentities(uuid string, missingFatal bool, tx
 	}
 	if missingFatal && len(identities) == 0 {
 		err = fmt.Errorf("cannot find identities for uuid '%s'", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1229,6 +1247,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 	}
 	if missingFatal && len(enrollments) == 0 {
 		err = fmt.Errorf("cannot find enrollments for uuid '%s'", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1282,6 +1301,7 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find enrollment id '%d'", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1334,6 +1354,7 @@ func (s *service) FetchMatchingBlacklist(email string, missingFatal bool, tx *sq
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find matching blacklist email '%s'", email)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1387,6 +1408,7 @@ func (s *service) GetOrganization(id int64, missingFatal bool, tx *sql.Tx) (orga
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find organization id %d", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1440,6 +1462,7 @@ func (s *service) GetOrganizationByName(orgName string, missingFatal bool, tx *s
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find organization name '%s'", orgName)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1493,6 +1516,7 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find unique identity uuid '%s'", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1551,6 +1575,7 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identit
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find identity id '%s'", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1609,6 +1634,7 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find profile uuid '%s'", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !fetched {
@@ -1671,6 +1697,7 @@ func (s *service) DeleteUniqueIdentityArchive(uuid string, missingFatal, onlyLas
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting archived unique identity uuid '%s' had no effect", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1709,6 +1736,7 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Ti
 	}
 	if affected == 0 {
 		err = fmt.Errorf("unachiving unique identity uuid '%s' created no data", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	err = s.DeleteUniqueIdentityArchive(uuid, true, tm == nil, tm, tx)
@@ -1740,6 +1768,7 @@ func (s *service) ArchiveUniqueIdentity(uuid string, tm *time.Time, tx *sql.Tx) 
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving unique identity uuid '%s' created no data", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1761,6 +1790,7 @@ func (s *service) DropOrganization(id int64, missingFatal bool, tx *sql.Tx) (err
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting organization id %d had no effect", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1783,6 +1813,7 @@ func (s *service) DropOrgDomain(organization, domain string, missingFatal bool, 
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting organization '%s' domain '%s' had no effect", organization, domain)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1804,6 +1835,7 @@ func (s *service) DropMatchingBlacklist(email string, missingFatal bool, tx *sql
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting matching blacklist email '%s' had no effect", email)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1831,6 +1863,7 @@ func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, 
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting unique identity uuid '%s' had no effect", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1864,6 +1897,7 @@ func (s *service) DeleteEnrollmentArchive(id int64, missingFatal, onlyLast bool,
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting archived enrollment id '%d' had no effect", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1901,6 +1935,7 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx 
 	}
 	if affected == 0 {
 		err = fmt.Errorf("unachiving enrollment id '%d' created no data", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	err = s.DeleteEnrollmentArchive(id, true, tm == nil, tm, tx)
@@ -1931,6 +1966,7 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving enrollment id '%d' created no data", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1962,6 +1998,7 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting enrollment id '%+v' had no effect", enrollment)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -1989,6 +2026,7 @@ func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tm *tim
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting enrollment id '%d' had no effect", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2022,6 +2060,7 @@ func (s *service) DeleteIdentityArchive(id string, missingFatal, onlyLast bool, 
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting archived identity id '%s' had no effect", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2059,6 +2098,7 @@ func (s *service) UnarchiveIdentity(id string, replace bool, tm *time.Time, tx *
 	}
 	if affected == 0 {
 		err = fmt.Errorf("unachiving identity id '%s' created no data", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	err = s.DeleteIdentityArchive(id, true, tm == nil, tm, tx)
@@ -2089,6 +2129,7 @@ func (s *service) ArchiveIdentity(id string, tm *time.Time, tx *sql.Tx) (err err
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving identity id '%s' created no data", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2116,6 +2157,7 @@ func (s *service) DeleteIdentity(id string, archive, missingFatal bool, tm *time
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting identity id '%s' had no effect", id)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2149,6 +2191,7 @@ func (s *service) DeleteProfileArchive(uuid string, missingFatal, onlyLast bool,
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting archived profile uuid '%s' had no effect", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2187,6 +2230,7 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	}
 	if affected == 0 {
 		err = fmt.Errorf("unachiving profile uuid '%s' created no data", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	err = s.DeleteProfileArchive(uuid, true, tm == nil, tm, tx)
@@ -2218,6 +2262,7 @@ func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (err er
 	}
 	if affected == 0 {
 		err = fmt.Errorf("archiving profile uuid '%s' created no data", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2245,6 +2290,7 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tm *tim
 	}
 	if missingFatal && affected == 0 {
 		err = fmt.Errorf("deleting profile uuid '%s' had no effect", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2257,11 +2303,13 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 	}()
 	if profileData.UUID == "" {
 		err = fmt.Errorf("profile '%+v' uuid is empty", s.ToLocalProfile(profileData))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		profileData = nil
 		return
 	}
 	if profileData.IsBot != nil && (*profileData.IsBot != 0 && *profileData.IsBot != 1) {
 		err = fmt.Errorf("profile '%+v' is_bot should be '0' or '1'", s.ToLocalProfile(profileData))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if profileData.CountryCode != nil && *profileData.CountryCode != "" {
@@ -2273,15 +2321,18 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 	if profileData.Gender != nil {
 		if *profileData.Gender != "male" && *profileData.Gender != "female" {
 			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.ToLocalProfile(profileData))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
 			err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.ToLocalProfile(profileData))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 	}
 	if profileData.Gender == nil && profileData.GenderAcc != nil {
 		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.ToLocalProfile(profileData))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2294,10 +2345,12 @@ func (s *service) ValidateOrganization(organizationData *models.OrganizationData
 	}()
 	if forUpdate && organizationData.ID < 1 {
 		err = fmt.Errorf("organization '%+v' missing id", organizationData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if organizationData.Name == "" {
 		err = fmt.Errorf("organization '%+v' missing name", organizationData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2310,22 +2363,27 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 	}()
 	if forUpdate && enrollmentData.ID < 1 {
 		err = fmt.Errorf("enrollment '%+v' missing id", enrollmentData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if enrollmentData.UUID == "" || enrollmentData.OrganizationID < 1 {
 		err = fmt.Errorf("enrollment '%+v' missing uuid or organization_id", enrollmentData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if time.Time(enrollmentData.Start).Before(MinPeriodDate) || time.Time(enrollmentData.Start).After(MaxPeriodDate) {
 		err = fmt.Errorf("enrollment '%+v' start date must be between %v and %v", enrollmentData, MinPeriodDate, MaxPeriodDate)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if time.Time(enrollmentData.End).Before(MinPeriodDate) || time.Time(enrollmentData.End).After(MaxPeriodDate) {
 		err = fmt.Errorf("enrollment '%+v' end date must be between %v and %v", enrollmentData, MinPeriodDate, MaxPeriodDate)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if time.Time(enrollmentData.End).Before(time.Time(enrollmentData.Start)) {
 		err = fmt.Errorf("enrollment '%+v' end date must be after start date", enrollmentData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2338,17 +2396,20 @@ func (s *service) ValidateIdentity(identityData *models.IdentityDataOutput, forU
 	}()
 	if forUpdate && identityData.ID == "" {
 		err = fmt.Errorf("identity '%+v' missing id", s.ToLocalIdentity(identityData))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	if !forUpdate {
 		if identityData.Source == "" {
 			err = fmt.Errorf("identity '%+v' missing source", s.ToLocalIdentity(identityData))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		if (identityData.Name == nil || (identityData.Name != nil && *(identityData.Name) == "")) &&
 			(identityData.Email == nil || (identityData.Email != nil && *(identityData.Email) == "")) &&
 			(identityData.Username == nil || (identityData.Username != nil && *(identityData.Username) == "")) {
 			err = fmt.Errorf("identity '%+v' you need to set at leats one of (name, email, username)", s.ToLocalIdentity(identityData))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		return
@@ -2503,6 +2564,7 @@ func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *m
 	}
 	if len(identities) > 0 {
 		err = fmt.Errorf("Identity (source, email, name, username) = (%s, %s, %s, %s) already exists", identity.Source, email, name, username)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		uid = nil
 		return
 	}
@@ -2624,6 +2686,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 	}
 	if affected > 1 {
 		err = fmt.Errorf("identity '%+v' insert affected %d rows", s.ToLocalIdentity(identityData), affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		identityData = nil
 		return
 	} else if affected == 1 {
@@ -2637,6 +2700,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 			}
 			if affected2 != 1 {
 				err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.ToLocalIdentity(identityData), affected2)
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 				identityData = nil
 				return
 			}
@@ -2644,6 +2708,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 	} else {
 		if !ignore {
 			err = fmt.Errorf("adding identity '%+v' didn't affected any rows", s.ToLocalIdentity(identityData))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			identityData = nil
 			return
 		}
@@ -2737,6 +2802,7 @@ func (s *service) FindIdentities(columns []string, values []interface{}, isDate 
 	}
 	if missingFatal && len(identities) == 0 {
 		err = fmt.Errorf("cannot find identities for %+v/%+v", columns, values)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	return
@@ -2843,6 +2909,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 	}
 	if affected > 1 {
 		err = fmt.Errorf("profile '%+v' insert affected %d rows", s.ToLocalProfile(profileData), affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		profileData = nil
 		return
 	} else if affected == 1 {
@@ -2855,11 +2922,13 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		}
 		if affected2 != 1 {
 			err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.ToLocalProfile(profileData), affected2)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			profileData = nil
 			return
 		}
 	} else {
 		err = fmt.Errorf("adding profile '%+v' didn't affected any rows", s.ToLocalProfile(profileData))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		profileData = nil
 		return
 	}
@@ -2923,6 +2992,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 	}
 	if affected > 1 {
 		err = fmt.Errorf("enrollment '%+v' insert affected %d rows", enrollmentData, affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		enrollmentData = nil
 		return
 	} else if affected == 1 {
@@ -2935,12 +3005,14 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 		}
 		if affected2 != 1 {
 			err = fmt.Errorf("enrollment '%+v' unique identity update affected %d rows", enrollmentData, affected2)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			enrollmentData = nil
 			return
 		}
 	} else {
 		if !ignore {
 			err = fmt.Errorf("adding enrollment '%+v' didn't affected any rows", enrollmentData)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			enrollmentData = nil
 			return
 		}
@@ -2981,6 +3053,7 @@ func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOu
 	err = s.ValidateOrganization(organizationData, true)
 	if err != nil {
 		err = fmt.Errorf("organization '%+v' didn't pass update validation", organizationData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		organizationData = nil
 		return
 	}
@@ -3034,6 +3107,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 	err = s.ValidateEnrollment(enrollmentData, true)
 	if err != nil {
 		err = fmt.Errorf("enrollment '%+v' didn't pass update validation", enrollmentData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		enrollmentData = nil
 		return
 	}
@@ -3063,6 +3137,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 	}
 	if affected > 1 {
 		err = fmt.Errorf("enrollment '%+v' update affected %d rows", enrollmentData, affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		enrollmentData = nil
 		return
 	} else if affected == 1 {
@@ -3075,6 +3150,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		}
 		if affected2 != 1 {
 			err = fmt.Errorf("enrollment '%+v' unique identity update affected %d rows", enrollmentData, affected2)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			enrollmentData = nil
 			return
 		}
@@ -3109,6 +3185,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	s.SanitizeIdentity(identityData)
 	if identityData.ID == "" || identityData.Source == "" {
 		err = fmt.Errorf("identity '%+v' missing id or source", s.ToLocalIdentity(identityData))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		identityData = nil
 		return
 	}
@@ -3151,6 +3228,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	}
 	if affected > 1 {
 		err = fmt.Errorf("identity '%+v' update affected %d rows", s.ToLocalIdentity(identityData), affected)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		identityData = nil
 		return
 	} else if affected == 1 {
@@ -3164,6 +3242,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 			}
 			if affected2 != 1 {
 				err = fmt.Errorf("identity '%+v' unique identity update affected %d rows", s.ToLocalIdentity(identityData), affected2)
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 				identityData = nil
 				return
 			}
@@ -3257,6 +3336,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		}
 		if affected > 1 {
 			err = fmt.Errorf("profile '%+v' update affected %d rows", s.ToLocalProfile(profileData), affected)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			profileData = nil
 			return
 		} else if affected == 1 {
@@ -3269,6 +3349,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 			}
 			if affected2 != 1 {
 				err = fmt.Errorf("profile '%+v' unique identity update affected %d rows", s.ToLocalProfile(profileData), affected2)
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 				profileData = nil
 				return
 			}
@@ -3295,6 +3376,7 @@ func (s *service) UnarchiveUUID(uuid string, tm time.Time, tx *sql.Tx) (err erro
 	}()
 	if uuid == "" {
 		err = fmt.Errorf("cannot unarchive empty uuid")
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	err = s.UnarchiveUniqueIdentity(uuid, true, &tm, tx)
@@ -3335,6 +3417,7 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	}()
 	if uuid == "" {
 		err = fmt.Errorf("cannot archive empty uuid")
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	tm = itm
@@ -3638,6 +3721,7 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	}
 	if to == nil && fromID != toUUID {
 		err = fmt.Errorf("unique identity uuid '%s' is not found and identity id is different: '%+v'", toUUID, s.ToLocalIdentity(from))
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	tx, err := s.db.Begin()
@@ -4457,6 +4541,7 @@ func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentit
 	}
 	if !fetched {
 		err = fmt.Errorf("uuid '%s' no archive(s) found", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	tx, err := s.db.Begin()
@@ -4479,6 +4564,7 @@ func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentit
 	}
 	if len(ary) == 0 {
 		err = fmt.Errorf("Unarchived profile with UUID '%s' not found", uuid)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	err = tx.Commit()
@@ -4774,6 +4860,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	}
 	if !fetched {
 		err = fmt.Errorf("cannot find organization '%s'", org)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	rows, err = s.Query(s.db, nil, "select 1 from domains_organizations where organization_id = ? and domain = ?", orgID, dom)
@@ -4797,6 +4884,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	}
 	if dummy == 1 {
 		err = fmt.Errorf("domain '%s' is already assigned to organization '%s'", dom, org)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 		return
 	}
 	tx, err := s.db.Begin()
@@ -4974,6 +5062,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				lobj.SortKey(true),
 				key,
 			)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		mAddProf[key] = obj
@@ -4990,6 +5079,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				lobj.SortKey(true),
 				key,
 			)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		mDelProf[key] = obj
@@ -5043,6 +5133,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		if len(columns) == 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
 			err = fmt.Errorf("profile to delete must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		if prof.Gender != nil {
@@ -5085,6 +5176,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					obj.SortKey(true),
 					s.ToLocalProfiles(foundProfs),
 				)
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 				return
 			}
 			uuids := make(map[string]struct{})
@@ -5204,6 +5296,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		if len(columns) == 0 {
 			obj := &shared.LocalAllOutput{AllOutput: prof}
 			err = fmt.Errorf("profile to add must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			return
 		}
 		if prof.Gender != nil {
@@ -5247,6 +5340,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						s.ToLocalIdentities(identities),
 						s.ToLocalEnrollments(enrollments),
 					)
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 					return
 				}
 				log.Info(fmt.Sprintf(
@@ -5319,6 +5413,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			_, ok := mAddProf[k]
 			if !ok {
 				err = fmt.Errorf("add profile map '%+v' doesn't have key '%s'", mAddProf, k)
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 			}
 			delete(mAddProf, k)
 			continue
@@ -5432,6 +5527,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			if len(columns) == 0 {
 				obj := &shared.LocalAllOutput{AllOutput: prof}
 				err = fmt.Errorf("profile to add must have at least one profile data property set: (name, email), profile: '%s'", obj.SortKey(true))
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "")
 				return
 			}
 			if prof.Gender != nil {

@@ -10,6 +10,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
@@ -127,19 +128,23 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	var res *esapi.Response
 	res, err = s.search(indexPattern, payloadBody)
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.request")
 		return
 	}
 	defer res.Body.Close()
 	if res.IsError() {
 		var e map[string]interface{}
 		if err = json.NewDecoder(res.Body).Decode(&e); err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result.decode")
 			return
 		}
 		err = fmt.Errorf("[%s] %s: %s", res.Status(), e["error"].(map[string]interface{})["type"], e["error"].(map[string]interface{})["reason"])
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result")
 		return
 	}
 	var result aggsUnaffiliatedResult
 	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.aggs.decode")
 		return
 	}
 	for _, bucket := range result.Aggregations.Unaffiliated.Unaffiliated.Buckets {
@@ -450,15 +455,18 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 	var res *esapi.Response
 	res, err = s.search(pattern, payloadBody)
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.request")
 		return
 	}
 	defer res.Body.Close()
 	if res.IsError() {
 		var e map[string]interface{}
 		if err = json.NewDecoder(res.Body).Decode(&e); err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result.decode")
 			return
 		}
 		err = fmt.Errorf("[%s] %s: %s", res.Status(), e["error"].(map[string]interface{})["type"], e["error"].(map[string]interface{})["reason"])
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result")
 		return
 	}
 	//body, err := ioutil.ReadAll(res.Body)
@@ -468,6 +476,7 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 	//fmt.Printf("====================>\n%s\n", string(body))
 	var result topContributorsResult
 	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.aggs.decode")
 		return
 	}
 	idxFrom := limit * offset
@@ -543,6 +552,7 @@ func (s *service) GetTopContributors(projectSlug string, from, to, limit, offset
 		}
 	default:
 		err = fmt.Errorf("unknown sort field: '%s'", sortField)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetTopContributors")
 		return
 	}
 	if sortFunc != nil {

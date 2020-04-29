@@ -17,7 +17,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-openapi/strfmt"
-	"github.com/pkg/errors"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
@@ -128,12 +127,14 @@ func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, erro
 	cert := ""
 	resp, err := http.Get(auth0Domain + ".well-known/jwks.json")
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "getPemCert")
 		return cert, err
 	}
 	defer resp.Body.Close()
 	var jwks = Jwks{}
 	err = json.NewDecoder(resp.Body).Decode(&jwks)
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "getPemCert")
 		return cert, err
 	}
 	for k := range jwks.Keys {
@@ -142,7 +143,7 @@ func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, erro
 		}
 	}
 	if cert == "" {
-		err := errors.New("Unable to find appropriate key.")
+		err := errs.Wrap(errs.New(fmt.Errorf("Unable to find appropriate key."), errs.ErrServerError), "getPemCert")
 		return cert, err
 	}
 	return cert, nil
@@ -151,6 +152,7 @@ func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, erro
 func (s *service) checkToken(tokenStr string) (username string, err error) {
 	if !strings.HasPrefix(tokenStr, "Bearer ") {
 		err = fmt.Errorf("Authorization header should start with 'Bearer '")
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	auth0Domain := os.Getenv("AUTH0_DOMAIN")
@@ -163,38 +165,49 @@ func (s *service) checkToken(tokenStr string) (username string, err error) {
 	token, err := jwt.ParseWithClaims(tokenStr[7:], jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
 		certStr, err := s.getPemCert(t, auth0Domain)
 		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "jwt.ParseWithClaims")
 			return nil, err
 		}
 		cert, err := jwt.ParseRSAPublicKeyFromPEM([]byte(certStr))
-		return cert, err
+		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "jwt.ParseRSAPublicKeyFromPEM")
+			return nil, err
+		}
+		return cert, nil
 	})
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	if !token.Valid {
 		err = fmt.Errorf("invalid token")
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(auth0Domain, true)
 	if !checkIss {
 		err = fmt.Errorf("invalid issuer: '%s' != '%s'", token.Claims.(jwt.MapClaims)["iss"], auth0Domain)
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	aud := os.Getenv("AUTH0_CLIENT_ID")
 	checkAud := token.Claims.(jwt.MapClaims).VerifyAudience(aud, true)
 	if !checkAud {
 		err = fmt.Errorf("invalid audience: '%s' != '%s'", token.Claims.(jwt.MapClaims)["aud"], aud)
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	ucl := os.Getenv("AUTH0_USERNAME_CLAIM")
 	iusername, ok := token.Claims.(jwt.MapClaims)[ucl]
 	if !ok {
 		err = fmt.Errorf("invalid user name claim: '%s', not present in %+v", ucl, token.Claims.(jwt.MapClaims))
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	username, ok = iusername.(string)
 	if !ok {
 		err = fmt.Errorf("invalid user name: '%+v': is not string", iusername)
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
 	return
@@ -333,17 +346,17 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	// Validate JWT token, final outcome is the LFID of current authorized user
 	username, err = s.checkToken(auth)
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName)
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
 	// Check if that user can manage identities for given project/scope
 	allowed, err := s.apiDB.CheckIdentityManagePermission(username, project, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
 	if !allowed {
-		err = errors.Wrap(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), apiName)
+		err = errs.Wrap(errs.New(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
 	return
@@ -492,7 +505,7 @@ func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.P
 		nil,
 	)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -537,7 +550,7 @@ func (s *service) PutEditOrganization(ctx context.Context, params *affiliation.P
 		nil,
 	)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -572,7 +585,7 @@ func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation
 	// Do the actual API call
 	uniqueIdentity, err = s.shDB.AddNestedUniqueIdentity(uuid)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -607,7 +620,7 @@ func (s *service) DeleteIdentity(ctx context.Context, params *affiliation.Delete
 	// Do the actual API call
 	err = s.shDB.DeleteIdentity(id, false, true, nil, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	status.Text = "Deleted identity id '" + id + "'"
@@ -654,7 +667,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 	// Do the actual API call
 	uid, err = s.shDB.AddNestedIdentity(identity)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -696,19 +709,19 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	}
 	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	enrollment.OrganizationID = organization.ID
 	uniqueIdentity := &models.UniqueIdentityDataOutput{}
 	uniqueIdentity, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	_, err = s.shDB.GetProfile(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if params.Start != nil {
@@ -724,24 +737,24 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	// Do the actual API call
 	_, err = s.shDB.AddEnrollment(enrollment, false, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if params.Merge != nil && *(params.Merge) {
 		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
 		if err != nil {
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
 		return
 	}
 	uid = ary[0]
@@ -786,19 +799,19 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 	}
 	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	enrollment.OrganizationID = organization.ID
 	uniqueIdentity := &models.UniqueIdentityDataOutput{}
 	uniqueIdentity, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	_, err = s.shDB.GetProfile(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	columns := []string{"uuid", "organization_id"}
@@ -820,7 +833,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		return
 	}
 	if len(rols) > 1 {
-		err = errors.Wrap(
+		err = errs.Wrap(
 			fmt.Errorf(
 				"multiple enrollments found for columns %+v values %+v: %+v",
 				columns,
@@ -844,24 +857,24 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 	}
 	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if params.Merge != nil && *(params.Merge) {
 		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
 		if err != nil {
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
 		return
 	}
 	uid = ary[0]
@@ -902,18 +915,18 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	}
 	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	enrollment.OrganizationID = organization.ID
 	_, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	_, err = s.shDB.GetProfile(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if params.Start != nil {
@@ -929,17 +942,17 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	// Do the actual API call
 	err = s.shDB.WithdrawEnrollment(enrollment, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
 		return
 	}
 	uid = ary[0]
@@ -988,35 +1001,35 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 	}
 	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	enrollment.OrganizationID = organization.ID
 	uniqueIdentity := &models.UniqueIdentityDataOutput{}
 	uniqueIdentity, err = s.shDB.GetUniqueIdentity(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	_, err = s.shDB.GetProfile(params.UUID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	// Do the actual API call
 	err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
 		return
 	}
 	uid = ary[0]
@@ -1052,7 +1065,7 @@ func (s *service) GetFindOrganizationByID(ctx context.Context, params *affiliati
 	// Do the actual API call
 	organization, err = s.shDB.GetOrganization(orgID, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1087,7 +1100,7 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 	// Do the actual API call
 	organization, err = s.shDB.GetOrganizationByName(orgName, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1137,17 +1150,17 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 	// Do the actual API call
 	_, err = s.shDB.EditProfile(profile, true, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
 		return
 	}
 	uid = ary[0]
@@ -1188,7 +1201,7 @@ func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteP
 	// Do the actual API call
 	status, err = s.shDB.DeleteProfileNested(uuid, archive)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1223,7 +1236,7 @@ func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.
 	// Do the actual API call
 	uid, err = s.shDB.UnarchiveProfileNested(uuid)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1257,7 +1270,7 @@ func (s *service) DeleteOrganization(ctx context.Context, params *affiliation.De
 	// Do the actual API call
 	status, err = s.shDB.DeleteOrganization(orgID)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1319,7 +1332,7 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 	// Do the actual API call
 	getMatchingBlacklist, err = s.shDB.GetMatchingBlacklist(q, rows, page)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	getMatchingBlacklist.User = username
@@ -1355,7 +1368,7 @@ func (s *service) PostMatchingBlacklist(ctx context.Context, params *affiliation
 	// Do the actual API call
 	postMatchingBlacklist, err = s.shDB.PostMatchingBlacklist(email)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1389,7 +1402,7 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 	// Do the actual API call
 	status, err = s.shDB.DeleteMatchingBlacklist(email)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1452,7 +1465,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	// Do the actual API call
 	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	getListProfiles.User = username
@@ -1490,11 +1503,11 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
 		return
 	}
 	uid = ary[0]
@@ -1531,13 +1544,13 @@ func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation
 	var enrollments []*models.EnrollmentNestedDataOutput
 	enrollments, err = s.shDB.FindEnrollmentsNested([]string{"e.uuid"}, []interface{}{uuid}, []bool{false}, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(enrollments) == 0 {
 		_, err = s.shDB.GetUniqueIdentity(uuid, true, nil)
 		if err != nil {
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
@@ -1598,7 +1611,7 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	// Do the actual API call
 	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	putOrgDomain.User = username
@@ -1636,7 +1649,7 @@ func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.Delet
 	// Do the actual API call
 	status, err = s.shDB.DeleteOrgDomain(org, dom)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	return
@@ -1705,7 +1718,7 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 	// Do the actual API call
 	getListOrganizationsDomains, err = s.shDB.GetListOrganizationsDomains(orgID, q, rows, page)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	getListOrganizationsDomains.User = username
@@ -1764,17 +1777,17 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 	// Do the actual API call
 	err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
 	}
 	uid = ary[0]
@@ -1829,17 +1842,17 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 	// Do the actual API call
 	err = s.shDB.MoveIdentity(fromID, toUUID, archive)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
 	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, nil)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(ary) == 0 {
-		err = errors.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
 	}
 	uid = ary[0]
@@ -1894,13 +1907,13 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	for {
 		getUnaffiliated, err = s.es.GetUnaffiliated(project, more)
 		if err != nil {
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 		getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, nil)
 		if err != nil {
 			getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 		n := int64(len(getUnaffiliated.Unaffiliated))
@@ -2037,13 +2050,13 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	// Do the actual API call
 	topContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(topContributors.Contributors) > 0 {
 		err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
 		if err != nil {
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
@@ -2111,13 +2124,13 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	// Do the actual API call
 	topContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(topContributors.Contributors) > 0 {
 		err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
 		if err != nil {
-			err = errors.Wrap(err, apiName)
+			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
@@ -2146,7 +2159,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	writer := csv.NewWriter(buffer)
 	err = writer.Write(hdr)
 	if err != nil {
-		err = errors.Wrap(fmt.Errorf("error writing CSV header row: %+v: %+v", hdr, err), apiName)
+		err = errs.Wrap(fmt.Errorf("error writing CSV header row: %+v: %+v", hdr, err), apiName)
 		return
 	}
 	for index, contributor := range topContributors.Contributors {
@@ -2173,7 +2186,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		}
 		err = writer.Write(row)
 		if err != nil {
-			err = errors.Wrap(fmt.Errorf("error writing #%d/%+v row: %+v", index+1, row, err), apiName)
+			err = errs.Wrap(fmt.Errorf("error writing #%d/%+v row: %+v", index+1, row, err), apiName)
 			return
 		}
 	}

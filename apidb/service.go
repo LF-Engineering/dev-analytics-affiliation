@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
@@ -50,6 +51,7 @@ func (s *service) CheckIdentityManagePermission(username, scope string, tx *sql.
 		"manage",
 	)
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission")
 		return
 	}
 	var dummy int
@@ -62,10 +64,12 @@ func (s *service) CheckIdentityManagePermission(username, scope string, tx *sql.
 	}
 	err = rows.Err()
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission")
 		return
 	}
 	err = rows.Close()
 	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission")
 		return
 	}
 	return
