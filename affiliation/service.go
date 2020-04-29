@@ -21,6 +21,7 @@ import (
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
+	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 
@@ -326,13 +327,13 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		project = params.ProjectSlug
 		apiName = "GetTopContributorsCSV"
 	default:
-		err = errors.Wrap(fmt.Errorf("unknown params type"), "checkTokenAndPermission")
+		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
 	}
 	// Validate JWT token, final outcome is the LFID of current authorized user
 	username, err = s.checkToken(auth)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName)
 		return
 	}
 	// Check if that user can manage identities for given project/scope
@@ -448,7 +449,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	// Do the actual API call
 	getListOrganizations, err = s.shDB.GetListOrganizations(q, rows, page)
 	if err != nil {
-		err = errors.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName)
 		return
 	}
 	getListOrganizations.User = username

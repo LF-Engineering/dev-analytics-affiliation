@@ -22,11 +22,15 @@ paths:
           schema:
             $ref: "#/definitions/health"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - health
   /affiliation/{projectSlug}/top_contributors_csv:
@@ -51,11 +55,15 @@ paths:
           schema:
             type: file
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - contributors
@@ -88,11 +96,15 @@ paths:
           schema:
             $ref: "#/definitions/top-contributors-flat-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - contributors
@@ -124,11 +136,15 @@ paths:
           schema:
             $ref: "#/definitions/get-unaffiliated-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - unaffiliated
@@ -154,11 +170,15 @@ paths:
           schema:
             $ref: "#/definitions/get-matching-blacklist-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - matching_blacklist
@@ -185,11 +205,15 @@ paths:
           schema:
             $ref: "#/definitions/matching-blacklist-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - matching_blacklist
@@ -213,11 +237,15 @@ paths:
           schema:
             $ref: "#/definitions/text-status-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - matching_blacklist
@@ -242,11 +270,15 @@ paths:
           schema:
             $ref: "#/definitions/get-list-organizations-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - list_organizations
@@ -273,11 +305,15 @@ paths:
           schema:
             $ref: "#/definitions/organization-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - add_organization
@@ -302,11 +338,15 @@ paths:
           schema:
             $ref: "#/definitions/organization-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - edit_organization
@@ -332,11 +372,15 @@ paths:
           schema:
             $ref: "#/definitions/organization-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - find_organization
@@ -361,11 +405,15 @@ paths:
           schema:
             $ref: "#/definitions/organization-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - find_organization
@@ -390,11 +438,15 @@ paths:
           schema:
             $ref: "#/definitions/text-status-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - organization
@@ -419,11 +471,15 @@ paths:
           schema:
             $ref: "#/definitions/get-list-organizations-domains-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - list_organization_domains
@@ -455,9 +511,11 @@ paths:
           schema:
             $ref: "#/definitions/put-org-domain-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
         "500":
@@ -503,9 +561,11 @@ paths:
           schema:
             $ref: "#/definitions/text-status-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
         "500":
@@ -536,11 +596,15 @@ paths:
           schema:
             $ref: "#/definitions/get-list-profiles-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - list_profiles
@@ -567,11 +631,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - get_profile
@@ -596,11 +664,15 @@ paths:
           schema:
             $ref: "#/definitions/text-status-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - delete_profile
@@ -630,11 +702,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - delete_profile
@@ -659,11 +735,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - edit_profile
@@ -709,11 +789,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - add_unique_identity
@@ -738,11 +822,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - add_unique_identity
@@ -784,11 +872,15 @@ paths:
           schema:
             $ref: "#/definitions/text-status-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - delete_identity
@@ -817,9 +909,11 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
         "500":
@@ -861,9 +955,11 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
         "500":
@@ -905,11 +1001,15 @@ paths:
           schema:
             $ref: "#/definitions/get-profile-enrollments-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - get_profile_enrollments
@@ -934,11 +1034,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output-no-dates"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - add_enrollment
@@ -967,11 +1071,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - add_enrollment
@@ -1010,11 +1118,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - delete_enrollments
@@ -1042,11 +1154,15 @@ paths:
           schema:
             $ref: "#/definitions/unique-identity-nested-data-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - merge_enrollments
@@ -1072,11 +1188,15 @@ paths:
           schema:
             $ref: "#/definitions/all-array-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - all
@@ -1100,11 +1220,15 @@ paths:
           schema:
             $ref: "#/definitions/text-status-output"
         "400":
-          $ref: "#/responses/invalid-request"
+          $ref: "#/responses/bad-request"
         "401":
           $ref: "#/responses/unauthorized"
         "403":
           $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
         - bulk_update
@@ -1968,7 +2092,7 @@ responses:
     description: Unauthorized
     schema:
       $ref: "#/definitions/error-response"
-  invalid-request:
+  bad-request:
     description: Invalid request
     schema:
       $ref: "#/definitions/error-response"
@@ -1977,7 +2101,7 @@ responses:
     schema:
       $ref: "#/definitions/error-response"
   not-found:
-    description: Not found.
+    description: Not Found.
     schema:
       $ref: "#/definitions/error-response"
   conflict:
