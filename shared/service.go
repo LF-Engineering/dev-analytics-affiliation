@@ -2,7 +2,9 @@ package shared
 
 import (
 	"fmt"
+	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +61,7 @@ type ServiceInterface interface {
 	ExecTX(*sql.Tx, string, ...interface{}) (sql.Result, error)
 	Exec(*sqlx.DB, *sql.Tx, string, ...interface{}) (sql.Result, error)
 	// Other utils
+	GetThreadsNum() int
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
 	JSONEscape(string) string
@@ -601,6 +604,29 @@ func (s *ServiceStruct) ToLocalOrganization(i *models.OrganizationDataOutput) (o
 	}
 	o = &LocalOrganization{i}
 	return
+}
+
+func (s *ServiceStruct) GetThreadsNum() int {
+	nCPUsStr := os.Getenv("N_CPUS")
+	nCPUs := 0
+	if nCPUsStr != "" {
+		var err error
+		nCPUs, err = strconv.Atoi(nCPUsStr)
+		if err != nil || nCPUs < 0 {
+			nCPUs = 0
+		}
+	}
+	if nCPUs > 0 {
+		n := runtime.NumCPU()
+		if nCPUs > n {
+			nCPUs = n
+		}
+		runtime.GOMAXPROCS(nCPUs)
+		return nCPUs
+	}
+	thrN := runtime.NumCPU()
+	runtime.GOMAXPROCS(thrN)
+	return thrN
 }
 
 // Now - return date  now

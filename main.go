@@ -78,9 +78,10 @@ func initSHDB() *sqlx.DB {
 	return d
 }
 
-func initES() *elasticsearch.Client {
+func initES() (*elasticsearch.Client, string) {
+	esURL := os.Getenv("ELASTIC_URL")
 	config := elasticsearch.Config{
-		Addresses: []string{os.Getenv("ELASTIC_URL")},
+		Addresses: []string{esURL},
 		Username:  os.Getenv("ELASTIC_USERNAME"),
 		Password:  os.Getenv("ELASTIC_PASSWORD"),
 	}
@@ -94,7 +95,7 @@ func initES() *elasticsearch.Client {
 	}
 	log.Println(fmt.Sprintf("%+v", info))
 	log.Println("Initialized", "ElasticSearch", host)
-	return client
+	return client, esURL
 }
 
 func setupEnv() {

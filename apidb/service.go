@@ -20,6 +20,7 @@ import (
 type Service interface {
 	shared.ServiceInterface
 	CheckIdentityManagePermission(string, string, *sql.Tx) (bool, error)
+	GetDataSourceTypes(string) ([]string, error)
 }
 
 type service struct {
@@ -32,6 +33,44 @@ func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
+}
+
+func (s *service) GetDataSourceTypes(projectSlug string) (dataSourceTypes []string, err error) {
+	log.Info(fmt.Sprintf("GetDataSourceTypes: projectSlug:%s", projectSlug))
+	defer func() {
+		log.Info(fmt.Sprintf("GetDataSourceTypes(exit): projectSlug:%s dataSourceTypes:%+v", projectSlug, dataSourceTypes))
+	}()
+	rows, err := s.Query(
+		s.db,
+		nil,
+		"select distinct ds.name from projects p, data_sources ds, data_source_instances dsi "+
+			"where p.slug in ($1, $2) and p.id = dsi.project_id and dsi.data_source_id = ds.id",
+		projectSlug,
+		"/projects/"+projectSlug,
+	)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
+		return
+	}
+	dataSourceType := ""
+	for rows.Next() {
+		err = rows.Scan(&dataSourceType)
+		if err != nil {
+			return
+		}
+		dataSourceTypes = append(dataSourceTypes, dataSourceType)
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
+		return
+	}
+	return
 }
 
 func (s *service) CheckIdentityManagePermission(username, scope string, tx *sql.Tx) (allowed bool, err error) {

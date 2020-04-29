@@ -1762,10 +1762,6 @@ definitions:
         type: string
         example: CNCF
         x-omitempty: false
-      docs:
-        type: integer
-        example: 1000
-        x-omitempty: false
       git_commits:
         type: integer
         example: 123
@@ -1826,6 +1822,19 @@ definitions:
         type: string
         example: 2020-03-23T14:09:04.000Z
         x-omitempty: false
+  data-source-type-fields:
+    title: Data source type data
+    description: Data source type name + list of its columns returned by Top Contributors API
+    type: object
+    properties:
+      name:
+        type: string
+        example: github/pull_request
+      fields:
+        type: array
+        items:
+          type: string
+          example: git_commits
   top-contributors-flat-output:
     title: Top contributors output
     description: Top contributors output
@@ -1858,6 +1867,10 @@ definitions:
       sort_order:
         type: string
         example: desc
+      data_source_types:
+        type: array
+        items:
+          $ref: "#/definitions/data-source-type-fields"
       contributors:
         type: array
         items:

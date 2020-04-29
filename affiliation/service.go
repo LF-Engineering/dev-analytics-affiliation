@@ -2007,10 +2007,9 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john, can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
-//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name, you can specify wildcards see for example '*john'
-//     specify to search on all document fields `all=john` - this uses wildcards by default (ES behaviour) so that will search for john in all document fields.
-//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv', you can use a wildcard in both field name and search param, like '*name*=*john*'
-//     specify multiple fields to search '*name,author*,*org*=*oogle*', 'author_name,committer_name,author_login=lukaszgryglicki'
+//     john - will search using like '%john%' on author_org_name, author_name and author_uuids columns
+//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them using like '%john%'
+//     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using colI like '%valJ%' - so it will create N x M conditions
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 //    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
 //      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
@@ -2047,8 +2046,13 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	if err != nil {
 		return
 	}
-	// Do the actual API call
-	topContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
+	var dataSourceTypes []string
+	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(project)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	topContributors, err = s.es.GetTopContributors(project, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -2081,10 +2085,9 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
-//     simplest 'john' - it will search default fields: status, *name, *domain, author*, *login, *org_name , you can specify wildcards see for example '*john'
-//     specify to search on all document fields `all=john` - this uses wildcards by default (ES behaviour) so that will search for john in all document fields.
-//     specify field name to search for example 'author_uuid=*fdc0*' or author_name=adjohn or 'channel=*opnfv', you can use a wildcard in both field name and search param, like '*name*=*john*'
-//     specify multiple fields to search '*name,author*,*org*=*oogle*', 'author_name,committer_name,author_login=lukaszgryglicki'
+//     john - will search using like '%john%' on author_org_name, author_name and author_uuids columns
+//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them using like '%john%'
+//     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using colI like '%valJ%' - so it will create N x M conditions
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
 //    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
 //      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
@@ -2121,8 +2124,13 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	if err != nil {
 		return
 	}
-	// Do the actual API call
-	topContributors, err = s.es.GetTopContributors(project, from, to, limit, offset, search, sortField, sortOrder)
+	var dataSourceTypes []string
+	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(project)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	topContributors, err = s.es.GetTopContributors(project, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
