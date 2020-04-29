@@ -37,10 +37,10 @@ type Service interface {
 	dataSourceTypeFields(string) (string, []string, error)
 	searchCondition(string, string) (string, error)
 	getAllStringFields(string) ([]string, error)
-	additionalWhere(string) (string, error)
-	having(string) (string, error)
-	orderBy(string, string) (string, error)
-	dataSourceQuery(string, string) ([][]string, error)
+	additionalWhere(string, string) (string, error)
+	having(string, string) (string, error)
+	orderBy(string, string, string) (string, error)
+	dataSourceQuery(string, string) (map[string][]string, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -179,374 +179,7 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
-func (s *service) getAllStringFields(indexPattern string) (fieldsAry []string, err error) {
-	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s", indexPattern))
-	defer func() {
-		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s fieldsAry:%s err:%v", indexPattern, fieldsAry, err))
-	}()
-	data := fmt.Sprintf(`{"query":"show columns in \"%s\""}`, s.JSONEscape(indexPattern))
-	payloadBytes := []byte(data)
-	payloadBody := bytes.NewReader(payloadBytes)
-	method := "POST"
-	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
-	req, err := http.NewRequest(method, url, payloadBody)
-	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s\n", err, method, url)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		return
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != 200 {
-		var body []byte
-		body, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s\n", err, method, url)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-			return
-		}
-		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		return
-	}
-	reader := csv.NewReader(resp.Body)
-	row := []string{}
-	n := 0
-	for {
-		row, err = reader.Read()
-		if err == io.EOF {
-			err = nil
-			break
-		} else if err != nil {
-			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		}
-		n++
-		// hash_short,VARCHAR,keyword
-		if row[1] == "VARCHAR" && row[2] == "keyword" {
-			fieldsAry = append(fieldsAry, row[0])
-		}
-	}
-	return
-}
-
-func (s *service) dataSourceQuery(dataSourceType, query string) (result [][]string, err error) {
-	payloadBytes := []byte(query)
-	payloadBody := bytes.NewReader(payloadBytes)
-	method := "POST"
-	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
-	req, err := http.NewRequest(method, url, payloadBody)
-	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, quer: %s\n", err, method, url, query)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s\n", err, method, url)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		return
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != 200 {
-		var body []byte
-		body, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s\n", err, method, url)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-			return
-		}
-		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		fmt.Printf("\n>>>>>>>>>>>>>>>>>>>>>>>>> (%s)\n%s\n>>>>>>>>>>>>>>>>>>>>>>>>>\n", dataSourceType, query)
-		return
-	}
-	fmt.Printf("\n+++++++++++++++++++++++++ (%s)\n%s\n+++++++++++++++++++++++++\n", dataSourceType, query)
-	// FIXME: continue
-	return
-}
-
-func (s *service) searchCondition(indexPattern, search string) (condition string, err error) {
-	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s", indexPattern, search))
-	defer func() {
-		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s condition:%s err:%v", indexPattern, search, condition, err))
-	}()
-	if search == "" {
-		return
-	}
-	ary := strings.Split(search, "=")
-	if len(ary) > 1 {
-		fields := ary[0]
-		fieldsAry := strings.Split(fields, ",")
-		if strings.TrimSpace(fieldsAry[0]) == "" {
-			return
-		}
-		values := ary[1]
-		valuesAry := strings.Split(values, ",")
-		if strings.TrimSpace(valuesAry[0]) == "" {
-			return
-		}
-		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
-			fieldsAry, err = s.getAllStringFields(indexPattern)
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchCondition")
-				return
-			}
-		}
-		for _, value := range valuesAry {
-			value := "'%" + s.JSONEscape(value) + "%'"
-			for _, field := range fieldsAry {
-				field = `\"` + s.JSONEscape(field) + `\"`
-				if condition == "" {
-					condition = "and (" + field + " like " + value
-				} else {
-					condition += " or " + field + " like " + value
-				}
-			}
-		}
-		if condition != "" {
-			condition += ")"
-		}
-	} else {
-		escaped := "'%" + s.JSONEscape(search) + "%'"
-		condition = fmt.Sprintf(`
-      and (\"author_name\" like %[1]s
-			or \"author_org_name\" like %[1]s
-			or \"author_uuid\" like %[1]s)
-      `,
-			escaped,
-		)
-	}
-	return
-}
-
-func (s *service) dataSourceTypeFields(dataSourceType string) (fieldsStr string, fieldsAry []string, err error) {
-	log.Info(fmt.Sprintf("dataSourceTypeFields: dataSourceType:%s", dataSourceType))
-	defer func() {
-		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fieldsStr:%s fieldsAry:%+v err:%v", dataSourceType, fieldsStr, fieldsAry, err))
-	}()
-	// FIXME: use correct fields
-	switch dataSourceType {
-	case "git":
-		fieldsStr = "count(*) as cnt, sum(lines_added) as git_lines_added, sum(lines_removed) as git_lines_removed, sum(lines_changed) as git_lines_changed, count(distinct hash) as git_commits"
-		fieldsAry = []string{"git_lines_added", "git_lines_removed", "git_lines_changed", "git_commits"}
-	default:
-		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
-	}
-	return
-}
-
-func (s *service) additionalWhere(sortField string) (string, error) {
-	switch sortField {
-	case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
-		sortField := sortField[4:]
-		return fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField)), nil
-		//return "", nil
-	}
-	return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortField: %s", sortField), errs.ErrBadRequest), "additionalWhere")
-}
-
-func (s *service) having(sortField string) (string, error) {
-	switch sortField {
-	case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
-		return fmt.Sprintf(`having \"%s\" is not null`, s.JSONEscape(sortField)), nil
-		//return "", nil
-	}
-	return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortField: %s", sortField), errs.ErrBadRequest), "having")
-}
-
-func (s *service) orderBy(sortField, sortOrder string) (string, error) {
-	dir := ""
-	if sortOrder == "" || strings.ToLower(sortOrder) == "desc" {
-		dir = "desc"
-	} else if strings.ToLower(sortOrder) == "asc" {
-		dir = "asc"
-	} else {
-		return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
-	}
-	switch sortField {
-	case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
-		return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
-	}
-	return `order by \"cnt\" desc`, nil
-}
-
-func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, from, to, limit, offset int64, search, sortField, sortOrder string) (jsonStr string, fieldsAry []string, err error) {
-	fieldsStr := ""
-	fieldsStr, fieldsAry, err = s.dataSourceTypeFields(dataSourceType)
-	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "contributorStatsQuery")
-		return
-	}
-	additionalWhereStr := ""
-	havingStr := ""
-	orderByClause := ""
-	additionalWhereStr, err = s.additionalWhere(sortField)
-	if err != nil {
-		err = errs.Wrap(err, "contributorStatsQuery")
-		return
-	}
-	havingStr, err = s.having(sortField)
-	if err != nil {
-		err = errs.Wrap(err, "contributorStatsQuery")
-		return
-	}
-	orderByClause, err = s.orderBy(sortField, sortOrder)
-	if err != nil {
-		err = errs.Wrap(err, "contributorStatsQuery")
-		return
-	}
-	data := fmt.Sprintf(`
-    select
-      \"author_uuid\", %s
-    from
-      \"%s\"
-    where
-      \"author_uuid\" is not null
-      and not (\"author_bot\" = true)
-      and cast(\"grimoire_creation_date\" as long) >= %d
-      and cast(\"grimoire_creation_date\" as long) < %d
-      %s
-      %s
-    group by
-      \"author_uuid\"
-      %s
-      %s
-    limit %d
-    `,
-		fieldsStr,
-		s.JSONEscape(indexPattern),
-		from,
-		to,
-		search,
-		additionalWhereStr,
-		havingStr,
-		orderByClause,
-		(offset+1)*limit,
-	)
-	re1 := regexp.MustCompile(`\r?\n`)
-	re2 := regexp.MustCompile(`\s+`)
-	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
-	jsonStr = `{"query":"` + data + `"}`
-	/*
-	  "aggs": {
-	    "contributions": {
-	      "terms": {
-	        "field": "author_uuid",
-	        "missing": "",
-	        "size": %d
-	      },
-	      "aggs": {
-	        "gerrit": {
-	          "filter": {
-	            "wildcard": {
-	              "_index": "*-gerrit"
-	            }
-	          },
-	          "aggs": {
-	            "gerrit_approvals": {
-	              "sum": {
-	                "field": "is_gerrit_approval"
-	              }
-	            },
-	            "gerrit-merged-changesets": {
-	              "filters": {
-	                "filters": {
-	                  "merged": {
-	                    "query_string": {
-	                      "query": "status:\"MERGED\"",
-	                      "analyze_wildcard": true,
-	                      "default_field": "*"
-	                    }
-	                  }
-	                }
-	              },
-	              "aggs": {
-	                "changesets": {
-	                  "sum": {
-	                    "field": "is_gerrit_changeset"
-	                  }
-	                }
-	              }
-	            }
-	          }
-	        },
-	        "jira": {
-	          "filter": {
-	            "wildcard": {
-	              "_index": "*-jira"
-	            }
-	          },
-	          "aggs": {
-	            "jira_issues_created": {
-	              "cardinality": {
-	                "field": "issue_key"
-	              }
-	            },
-	            "jira_issues_assigned": {
-	              "cardinality": {
-	                "field": "assignee_uuid"
-	              }
-	            },
-	            "jira_average_issue_open_days": {
-	              "avg": {
-	                "field": "time_to_close_days"
-	              }
-	            }
-	          }
-	        },
-	        "confluence": {
-	          "filter": {
-	            "wildcard": {
-	              "_index": "*-confluence"
-	            }
-	          },
-	          "aggs": {
-	            "confluence_pages_created": {
-	              "sum": {
-	                "field": "is_new_page"
-	              }
-	            },
-	            "confluence_pages_edited": {
-	              "sum": {
-	                "field": "is_page"
-	              }
-	            },
-	            "confluence_comments": {
-	              "sum": {
-	                "field": "is_comment"
-	              }
-	            },
-	            "confluence_blog_posts": {
-	              "sum": {
-	                "field": "is_blogpost"
-	              }
-	            },
-	            "confluence_last_action_date": {
-	              "max": {
-	                "field": "grimoire_creation_date"
-	              }
-	            }
-	          }
-	        }
-	      }
-	    }
-	  }
-	*/
-	return
-}
-
+/*
 // Investigate via: `jq .aggregations.contributions.buckets[].gerrit` etc.
 type topContributorsResult struct {
 	Aggregations struct {
@@ -615,10 +248,439 @@ type topContributorsResult struct {
 		} `json:"contributions"`
 	} `json:"aggregations"`
 }
+*/
+
+func (s *service) getAllStringFields(indexPattern string) (fieldsAry []string, err error) {
+	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s", indexPattern))
+	defer func() {
+		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s fieldsAry:%s err:%v", indexPattern, fieldsAry, err))
+	}()
+	data := fmt.Sprintf(`{"query":"show columns in \"%s\""}`, s.JSONEscape(indexPattern))
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("do request error: %+v for %s url: %s\n", err, method, url)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != 200 {
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s\n", err, method, url)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+			return
+		}
+		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		return
+	}
+	reader := csv.NewReader(resp.Body)
+	row := []string{}
+	n := 0
+	for {
+		row, err = reader.Read()
+		if err == io.EOF {
+			err = nil
+			break
+		} else if err != nil {
+			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		}
+		n++
+		// hash_short,VARCHAR,keyword
+		if row[1] == "VARCHAR" && row[2] == "keyword" {
+			fieldsAry = append(fieldsAry, row[0])
+		}
+	}
+	return
+}
+
+func (s *service) dataSourceQuery(dataSourceType, query string) (result map[string][]string, err error) {
+	payloadBytes := []byte(query)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		err = fmt.Errorf("new request error: %+v for %s url: %s, quer: %s\n", err, method, url, query)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("do request error: %+v for %s url: %s\n", err, method, url)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != 200 {
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s\n", err, method, url)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+			return
+		}
+		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		fmt.Printf("\n>>>>>>>>>>>>>>>>>>>>>>>>> (%s)\n%s\n>>>>>>>>>>>>>>>>>>>>>>>>>\n", dataSourceType, query)
+		return
+	}
+	fmt.Printf("\n+++++++++++++++++++++++++ (%s)\n%s\n+++++++++++++++++++++++++\n", dataSourceType, query)
+	reader := csv.NewReader(resp.Body)
+	row := []string{}
+	n := 0
+	i2n := make(map[int]string)
+	for {
+		row, err = reader.Read()
+		if err == io.EOF {
+			err = nil
+			break
+		} else if err != nil {
+			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		}
+		n++
+		// FIXME: remove this
+		fmt.Printf("row #%d --> %+v\n", n, row)
+		if n == 1 {
+			result = make(map[string][]string)
+			for i, col := range row {
+				i2n[i] = col
+				result[col] = []string{}
+			}
+			continue
+		}
+		for i, val := range row {
+			col := i2n[i]
+			ary := result[col]
+			ary = append(ary, val)
+			result[col] = ary
+
+		}
+	}
+	return
+}
+
+func (s *service) searchCondition(indexPattern, search string) (condition string, err error) {
+	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s", indexPattern, search))
+	defer func() {
+		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s condition:%s err:%v", indexPattern, search, condition, err))
+	}()
+	if search == "" {
+		return
+	}
+	ary := strings.Split(search, "=")
+	if len(ary) > 1 {
+		fields := ary[0]
+		fieldsAry := strings.Split(fields, ",")
+		if strings.TrimSpace(fieldsAry[0]) == "" {
+			return
+		}
+		values := ary[1]
+		valuesAry := strings.Split(values, ",")
+		if strings.TrimSpace(valuesAry[0]) == "" {
+			return
+		}
+		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
+			fieldsAry, err = s.getAllStringFields(indexPattern)
+			if err != nil {
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchCondition")
+				return
+			}
+		}
+		for _, value := range valuesAry {
+			value := "'%" + s.JSONEscape(value) + "%'"
+			for _, field := range fieldsAry {
+				field = `\"` + s.JSONEscape(field) + `\"`
+				if condition == "" {
+					condition = "and (" + field + " like " + value
+				} else {
+					condition += " or " + field + " like " + value
+				}
+			}
+		}
+		if condition != "" {
+			condition += ")"
+		}
+	} else {
+		escaped := "'%" + s.JSONEscape(search) + "%'"
+		condition = fmt.Sprintf(`
+      and (\"author_name\" like %[1]s
+			or \"author_org_name\" like %[1]s
+			or \"author_uuid\" like %[1]s)
+      `,
+			escaped,
+		)
+	}
+	return
+}
+
+func (s *service) dataSourceTypeFields(dataSourceType string) (fieldsStr string, fieldsAry []string, err error) {
+	log.Info(fmt.Sprintf("dataSourceTypeFields: dataSourceType:%s", dataSourceType))
+	defer func() {
+		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fieldsStr:%s fieldsAry:%+v err:%v", dataSourceType, fieldsStr, fieldsAry, err))
+	}()
+	// FIXME: use correct fields: figure out gerrit merged-changesets
+	switch dataSourceType {
+	case "git":
+		fieldsStr = "count(*) as cnt, sum(lines_added) as git_lines_added, sum(lines_removed) as git_lines_removed, sum(lines_changed) as git_lines_changed, count(distinct hash) as git_commits"
+		fieldsAry = []string{"git_lines_added", "git_lines_removed", "git_lines_changed", "git_commits"}
+	case "gerrit":
+		fieldsStr = "count(*) as cnt, sum(is_gerrit_approval) as gerrit_approvals, sum(is_gerrit_changeset) as gerrit_changesets"
+		fieldsAry = []string{"gerrit_approvals", "gerrit_changesets"}
+	default:
+		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
+	}
+	return
+	/*
+	       "gerrit-merged-changesets": {
+	         "filters": {
+	           "filters": {
+	             "merged": {
+	               "query_string": {
+	                 "query": "status:\"MERGED\"",
+	                 "analyze_wildcard": true,
+	                 "default_field": "*"
+	               }
+	             }
+	           }
+	         },
+	       }
+	     }
+	   },
+	*/
+}
+
+func (s *service) additionalWhere(dataSourceType, sortField string) (string, error) {
+	if sortField == "cnt" {
+		return "", nil
+	}
+	switch dataSourceType {
+	case "git":
+		if len(sortField) > 4 && sortField[:4] != "git_" {
+			return "", nil
+		}
+		switch sortField {
+		case "git_commits":
+			return "", nil
+		case "git_lines_added", "git_lines_removed", "git_lines_changed":
+			sortField := sortField[4:]
+			return fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField)), nil
+		}
+	case "gerrit":
+		if len(sortField) > 7 && sortField[:7] != "gerrit_" {
+			return "", nil
+		}
+		switch sortField {
+		case "gerrit_approvals":
+			return `and \"is_gerrit_approval\" is not null`, nil
+		case "gerrit_changesets":
+			return `and \"is_gerrit_changeset\" is not null`, nil
+		}
+	}
+	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
+}
+
+func (s *service) having(dataSourceType, sortField string) (string, error) {
+	if sortField == "cnt" {
+		return "", nil
+	}
+	switch dataSourceType {
+	case "git":
+		if len(sortField) > 4 && sortField[:4] != "git_" {
+			return "", nil
+		}
+		switch sortField {
+		case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
+			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+		}
+	case "gerrit":
+		if len(sortField) > 7 && sortField[:7] != "gerrit_" {
+			return "", nil
+		}
+		switch sortField {
+		case "gerrit_approvals", "gerrit_changesets":
+			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+		}
+	}
+	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
+}
+
+func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, error) {
+	dir := ""
+	if sortOrder == "" || strings.ToLower(sortOrder) == "desc" {
+		dir = "desc"
+	} else if strings.ToLower(sortOrder) == "asc" {
+		dir = "asc"
+	} else {
+		return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
+	}
+	switch dataSourceType {
+	case "git":
+		switch sortField {
+		case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
+	case "gerrit":
+		switch sortField {
+		case "gerrit_approvals", "gerrit_changesets":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
+	}
+	return `order by \"cnt\" desc`, nil
+}
+
+func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, from, to, limit, offset int64, search, sortField, sortOrder string) (jsonStr string, fieldsAry []string, err error) {
+	fieldsStr := ""
+	fieldsStr, fieldsAry, err = s.dataSourceTypeFields(dataSourceType)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "contributorStatsQuery")
+		return
+	}
+	additionalWhereStr := ""
+	havingStr := ""
+	orderByClause := ""
+	additionalWhereStr, err = s.additionalWhere(dataSourceType, sortField)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsQuery")
+		return
+	}
+	havingStr, err = s.having(dataSourceType, sortField)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsQuery")
+		return
+	}
+	orderByClause, err = s.orderBy(dataSourceType, sortField, sortOrder)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsQuery")
+		return
+	}
+	data := fmt.Sprintf(`
+    select
+      \"author_uuid\", %s
+    from
+      \"%s\"
+    where
+      \"author_uuid\" is not null
+      and not (\"author_bot\" = true)
+      and cast(\"grimoire_creation_date\" as long) >= %d
+      and cast(\"grimoire_creation_date\" as long) < %d
+      %s
+      %s
+    group by
+      \"author_uuid\"
+      %s
+      %s
+    limit %d
+    `,
+		fieldsStr,
+		s.JSONEscape(indexPattern),
+		from,
+		to,
+		search,
+		additionalWhereStr,
+		havingStr,
+		orderByClause,
+		(offset+1)*limit,
+	)
+	re1 := regexp.MustCompile(`\r?\n`)
+	re2 := regexp.MustCompile(`\s+`)
+	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
+	jsonStr = `{"query":"` + data + `"}`
+	/*
+	  "aggs": {
+	    "contributions": {
+	      "terms": {
+	        "field": "author_uuid",
+	        "missing": "",
+	        "size": %d
+	      },
+	        "jira": {
+	          "filter": {
+	            "wildcard": {
+	              "_index": "*-jira"
+	            }
+	          },
+	          "aggs": {
+	            "jira_issues_created": {
+	              "cardinality": {
+	                "field": "issue_key"
+	              }
+	            },
+	            "jira_issues_assigned": {
+	              "cardinality": {
+	                "field": "assignee_uuid"
+	              }
+	            },
+	            "jira_average_issue_open_days": {
+	              "avg": {
+	                "field": "time_to_close_days"
+	              }
+	            }
+	          }
+	        },
+	        "confluence": {
+	          "filter": {
+	            "wildcard": {
+	              "_index": "*-confluence"
+	            }
+	          },
+	          "aggs": {
+	            "confluence_pages_created": {
+	              "sum": {
+	                "field": "is_new_page"
+	              }
+	            },
+	            "confluence_pages_edited": {
+	              "sum": {
+	                "field": "is_page"
+	              }
+	            },
+	            "confluence_comments": {
+	              "sum": {
+	                "field": "is_comment"
+	              }
+	            },
+	            "confluence_blog_posts": {
+	              "sum": {
+	                "field": "is_blogpost"
+	              }
+	            },
+	            "confluence_last_action_date": {
+	              "max": {
+	                "field": "grimoire_creation_date"
+	              }
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }
+	*/
+	return
+}
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
-  // FIXME: remove hardcoded data source type(s)
-	dataSourceTypes = []string{"git"}
+	// FIXME: remove hardcoded data source type(s)
+	dataSourceTypes = []string{"git", "gerrit"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Info(
 		fmt.Sprintf(
@@ -733,7 +795,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			},
 		)
 	}
-	results := make(map[string][][]string)
+	results := make(map[string]map[string][]string)
 	if thrN > 1 {
 		ch := make(chan error)
 		nThreads := 0
@@ -743,7 +805,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 				defer func() {
 					ch <- err
 				}()
-				var res [][]string
+				var res map[string][]string
 				res, err = s.dataSourceQuery(dataSourceType, query)
 				if err != nil {
 					return
@@ -780,6 +842,12 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	}
+	fmt.Printf("results:\n\n%+v\n\n", results)
+	// FIXME: take contributors who come from current sortField and merge with other data sources
+	// query that applies sort params should be main, others houdl only query for uuids returned from the main query
+	// if no sort params are given we should use "cnt" special field and get Top N from all subqueries by cnt
+	// so if git returns 10 objects and gerrit 10 objects, but there are 15 distinct UUIDs in general, choose
+	// top 10 by cnt from both git and gerrit
 	/*
 		payloadBytes := []byte(data)
 		payloadBody := bytes.NewReader(payloadBytes)
