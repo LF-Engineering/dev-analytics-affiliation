@@ -37,7 +37,9 @@ type Service interface {
 	dataSourceTypeFields(string) (string, []string, error)
 	searchCondition(string, string) (string, error)
 	getAllStringFields(string) ([]string, error)
-	conditionForSort(string) string
+	additionalWhere(string) (string, error)
+	having(string) (string, error)
+	orderBy(string, string) (string, error)
 	dataSourceQuery(string, string) ([][]string, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
@@ -270,6 +272,8 @@ func (s *service) dataSourceQuery(dataSourceType, query string) (result [][]stri
 		fmt.Printf("\n>>>>>>>>>>>>>>>>>>>>>>>>> (%s)\n%s\n>>>>>>>>>>>>>>>>>>>>>>>>>\n", dataSourceType, query)
 		return
 	}
+	fmt.Printf("\n+++++++++++++++++++++++++ (%s)\n%s\n+++++++++++++++++++++++++\n", dataSourceType, query)
+	// FIXME: continue
 	return
 }
 
@@ -334,20 +338,48 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fieldsStr string,
 	}()
 	// FIXME: use correct fields
 	switch dataSourceType {
-	case "git", "jira", "jenkins", "gerrit", "confluence", "groupsio":
-		fieldsStr = "count(*) as cnt, sum(lines_added) as lines_added, sum(lines_removed) as lines_removed, sum(lines_changed) as lines_changed, count(distinct hash) as commits"
-		fieldsAry = []string{"lines_added", "lines_removed", "lines_changed", "commits"}
+	case "git":
+		fieldsStr = "count(*) as cnt, sum(lines_added) as git_lines_added, sum(lines_removed) as git_lines_removed, sum(lines_changed) as git_lines_changed, count(distinct hash) as git_commits"
+		fieldsAry = []string{"git_lines_added", "git_lines_removed", "git_lines_changed", "git_commits"}
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
 	}
 	return
 }
 
-func (s *service) conditionForSort(sortField string) (condition string) {
-	if sortField == "" {
-		return ""
+func (s *service) additionalWhere(sortField string) (string, error) {
+	switch sortField {
+	case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
+		sortField := sortField[4:]
+		return fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField)), nil
+		//return "", nil
 	}
-	return fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField))
+	return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortField: %s", sortField), errs.ErrBadRequest), "additionalWhere")
+}
+
+func (s *service) having(sortField string) (string, error) {
+	switch sortField {
+	case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
+		return fmt.Sprintf(`having \"%s\" is not null`, s.JSONEscape(sortField)), nil
+		//return "", nil
+	}
+	return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortField: %s", sortField), errs.ErrBadRequest), "having")
+}
+
+func (s *service) orderBy(sortField, sortOrder string) (string, error) {
+	dir := ""
+	if sortOrder == "" || strings.ToLower(sortOrder) == "desc" {
+		dir = "desc"
+	} else if strings.ToLower(sortOrder) == "asc" {
+		dir = "asc"
+	} else {
+		return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
+	}
+	switch sortField {
+	case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
+		return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+	}
+	return `order by \"cnt\" desc`, nil
 }
 
 func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, from, to, limit, offset int64, search, sortField, sortOrder string) (jsonStr string, fieldsAry []string, err error) {
@@ -357,7 +389,24 @@ func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, fro
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "contributorStatsQuery")
 		return
 	}
-	sortCondition := s.conditionForSort(sortField)
+	additionalWhereStr := ""
+	havingStr := ""
+	orderByClause := ""
+	additionalWhereStr, err = s.additionalWhere(sortField)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsQuery")
+		return
+	}
+	havingStr, err = s.having(sortField)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsQuery")
+		return
+	}
+	orderByClause, err = s.orderBy(sortField, sortOrder)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsQuery")
+		return
+	}
 	data := fmt.Sprintf(`
     select
       \"author_uuid\", %s
@@ -372,6 +421,8 @@ func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, fro
       %s
     group by
       \"author_uuid\"
+      %s
+      %s
     limit %d
     `,
 		fieldsStr,
@@ -379,7 +430,9 @@ func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, fro
 		from,
 		to,
 		search,
-		sortCondition,
+		additionalWhereStr,
+		havingStr,
+		orderByClause,
 		(offset+1)*limit,
 	)
 	re1 := regexp.MustCompile(`\r?\n`)
@@ -564,7 +617,7 @@ type topContributorsResult struct {
 }
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
-	// FIXME
+  // FIXME: remove hardcoded data source type(s)
 	dataSourceTypes = []string{"git"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Info(
