@@ -385,6 +385,12 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"gerrit_changesets":        "sum(is_gerrit_changeset) as gerrit_changesets",
 			"gerrit_merged_changesets": "count(status) as gerrit_merged_changesets",
 		}
+	case "jira":
+		fields = map[string]string{
+			"jira_issues_created":          "count(distinct issue_key) as jira_issues_created",
+			"jira_issues_assigned":         "count(distinct assignee_uuid) as jira_issues_assigned",
+			"jira_average_issue_open_days": "avg(time_to_close_days) as jira_average_issue_open_days",
+		}
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
 	}
@@ -424,6 +430,18 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 		case "gerrit_merged_changesets":
 			return `and \"status\" = 'MERGED'`, nil
 		}
+	case "jira":
+		if len(sortField) > 5 && sortField[:5] != "jira_" {
+			return "", nil
+		}
+		switch sortField {
+		case "jira_issues_created":
+			return `and \"issue_key\" is not null`, nil
+		case "jira_issues_assigned":
+			return `and \"assignee_uuid\" is not null`, nil
+		case "jira_average_issue_open_days":
+			return `and \"time_to_close_days\" is not null`, nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
 }
@@ -454,6 +472,14 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
+	case "jira":
+		if len(sortField) > 5 && sortField[:5] != "jira_" {
+			return "", nil
+		}
+		switch sortField {
+		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days":
+			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
 }
@@ -476,6 +502,11 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 	case "gerrit":
 		switch sortField {
 		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
+	case "jira":
+		switch sortField {
+		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	}
@@ -587,37 +618,6 @@ func (s *service) contributorStatsMainQuery(
 	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
 	jsonStr = `{"query":"` + data + `"}`
 	/*
-	  "aggs": {
-	    "contributions": {
-	      "terms": {
-	        "field": "author_uuid",
-	        "missing": "",
-	        "size": %d
-	      },
-	        "jira": {
-	          "filter": {
-	            "wildcard": {
-	              "_index": "*-jira"
-	            }
-	          },
-	          "aggs": {
-	            "jira_issues_created": {
-	              "cardinality": {
-	                "field": "issue_key"
-	              }
-	            },
-	            "jira_issues_assigned": {
-	              "cardinality": {
-	                "field": "assignee_uuid"
-	              }
-	            },
-	            "jira_average_issue_open_days": {
-	              "avg": {
-	                "field": "time_to_close_days"
-	              }
-	            }
-	          }
-	        },
 	        "confluence": {
 	          "filter": {
 	            "wildcard": {
@@ -661,7 +661,7 @@ func (s *service) contributorStatsMainQuery(
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
 	// FIXME: remove hardcoded data source type(s)
-	dataSourceTypes = []string{"git", "gerrit"}
+	dataSourceTypes = []string{"git", "gerrit", "jira"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Info(
 		fmt.Sprintf(
@@ -983,16 +983,30 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 		return int64(floatValue)
 	}
+	getFloat := func(uuid, column string) float64 {
+		strVal, ok := results[uuid][column]
+		if !ok {
+			return 0
+		}
+		floatValue, err := strconv.ParseFloat(strVal, 64)
+		if err != nil {
+			return 0
+		}
+		return floatValue
+	}
 	for _, uuid := range uuids {
 		contributor := &models.ContributorFlatStats{
-			UUID:                   uuid,
-			GitLinesOfCodeAdded:    getInt(uuid, "git_lines_added"),
-			GitLinesOfCodeChanged:  getInt(uuid, "git_lines_changed"),
-			GitLinesOfCodeRemoved:  getInt(uuid, "git_lines_removed"),
-			GitCommits:             getInt(uuid, "git_commits"),
-			GerritReviewsApproved:  getInt(uuid, "gerrit_approvals"),
-			GerritMergedChangesets: getInt(uuid, "gerrit_merged_changesets"),
-			GerritChangesets:       getInt(uuid, "gerrit_changesets"),
+			UUID:                      uuid,
+			GitLinesOfCodeAdded:       getInt(uuid, "git_lines_added"),
+			GitLinesOfCodeChanged:     getInt(uuid, "git_lines_changed"),
+			GitLinesOfCodeRemoved:     getInt(uuid, "git_lines_removed"),
+			GitCommits:                getInt(uuid, "git_commits"),
+			GerritReviewsApproved:     getInt(uuid, "gerrit_approvals"),
+			GerritMergedChangesets:    getInt(uuid, "gerrit_merged_changesets"),
+			GerritChangesets:          getInt(uuid, "gerrit_changesets"),
+			JiraIssuesCreated:         getInt(uuid, "jira_issues_created"),
+			JiraIssuesAssigned:        getInt(uuid, "jira_issues_assigned"),
+			JiraAverageIssuesOpenDays: getFloat(uuid, "jira_average_issue_open_days"),
 		}
 		top.Contributors = append(top.Contributors, contributor)
 	}
@@ -1006,16 +1020,6 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 					daysAgo = (nowMillis - lastActionDateMillis) / 86400000.0
 				}
 				contributor := &models.ContributorFlatStats{
-					UUID:                      bucket.Key,
-					GitLinesOfCodeAdded:       int64(bucket.Git.LinesAdded.Value),
-					GitLinesOfCodeChanged:     int64(bucket.Git.LinesChanged.Value),
-					GitLinesOfCodeRemoved:     int64(bucket.Git.LinesRemoved.Value),
-					GitCommits:                int64(bucket.Git.Commits.Value),
-					GerritReviewsApproved:     int64(bucket.Gerrit.GerritApprovals.Value),
-					GerritMergedChangesets:    int64(bucket.Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value),
-					JiraAverageIssuesOpenDays: bucket.Jira.AverageIssueOpenDays.Value,
-					JiraIssuesAssigned:        int64(bucket.Jira.IssuesAssigned.Value),
-					JiraIssuesCreated:         int64(bucket.Jira.IssuesCreated.Value),
 					ConfluencePagesCreated:    int64(bucket.Confluence.PagesCreated.Value),
 					ConfluencePagesEdited:     int64(bucket.Confluence.PagesEdited.Value),
 					ConfluenceBlogPosts:       int64(bucket.Confluence.BlogPosts.Value),
