@@ -277,7 +277,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
-	fmt.Printf("\n+++++++++++++++++++++++++\n%s\n+++++++++++++++++++++++++\n", query)
+	//fmt.Printf("\n+++++++++++++++++++++++++\n%s\n+++++++++++++++++++++++++\n", query)
 	reader := csv.NewReader(resp.Body)
 	row := []string{}
 	n := 0
@@ -293,7 +293,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 			return
 		}
 		n++
-		fmt.Printf("row #%d --> %+v\n", n, row)
+		//fmt.Printf("row #%d --> %+v\n", n, row)
 		if n == 1 {
 			result = make(map[string][]string)
 			for i, col := range row {
