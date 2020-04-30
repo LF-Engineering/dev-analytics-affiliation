@@ -2005,12 +2005,13 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 // to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
 // limit - optional query parameter: page size, default 10
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
-// search - optional query parameter: for example john, can be specified in multiple forms (must be urlencoded)
+// search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
-//     john - will search using like '%john%' on author_org_name, author_name and author_uuids columns
-//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them using like '%john%'
-//     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using colI like '%valJ%' - so it will create N x M conditions
-// sort_field - optional query parameter: sort field for example gerrit_merged_changesets
+//     john - will search using like '.*john.*' no case sensitive regexp pattern on author_org_name, author_name and author_uuids columns
+//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them
+//     all=john,pamela,../josh - will search for multiple values on all columns
+//     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using N x M or conditions
+// sort_field - optional query parameter: sort field for example gerrit_merged_changesets, can be fetched from "data_source_types" object returned per given project slug
 // sort_order - optional query parameter: sort order for example desc, asc, default is desc
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(params, nil)
@@ -2083,10 +2084,11 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 // offset - optional query parameter: offset in pages, specifying limit=10 and offset=2, you will get 20-30)
 // search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
-//     john - will search using like '%john%' on author_org_name, author_name and author_uuids columns
-//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them using like '%john%'
-//     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using colI like '%valJ%' - so it will create N x M conditions
-// sort_field - optional query parameter: sort field for example gerrit_merged_changesets
+//     john - will search using like '.*john.*' no case sensitive regexp pattern on author_org_name, author_name and author_uuids columns
+//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them
+//     all=john,pamela,../josh - will search for multiple values on all columns
+//     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using N x M or conditions
+// sort_field - optional query parameter: sort field for example gerrit_merged_changesets, can be fetched from "data_source_types" object returned per given project slug
 // sort_order - optional query parameter: sort order for example desc, asc, default is desc
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(nil, params)
