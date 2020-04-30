@@ -376,10 +376,10 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 	switch dataSourceType {
 	case "git":
 		fields = map[string]string{
+			"git_commits":       "count(distinct hash) as git_commits",
 			"git_lines_added":   "sum(lines_added) as git_lines_added",
 			"git_lines_removed": "sum(lines_removed) as git_lines_removed",
 			"git_lines_changed": "sum(lines_changed) as git_lines_changed",
-			"git_commits":       "count(distinct hash) as git_commits",
 		}
 	case "gerrit":
 		fields = map[string]string{
@@ -391,9 +391,9 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		fields = map[string]string{
 			"jira_issues_created":          "count(distinct issue_key) as jira_issues_created",
 			"jira_issues_assigned":         "count(distinct assignee_uuid) as jira_issues_assigned",
-			"jira_average_issue_open_days": "avg(time_to_close_days) as jira_average_issue_open_days",
-			"jira_comments":                "count(distinct comment_id) as jira_comments",
 			"jira_issues_closed":           "count(distinct assignee_uuid) as jira_issues_closed",
+			"jira_comments":                "count(distinct comment_id) as jira_comments",
+			"jira_average_issue_open_days": "avg(time_to_close_days) as jira_average_issue_open_days",
 		}
 	case "confluence":
 		fields = map[string]string{
@@ -406,15 +406,15 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 	case "github/issue":
 		fields = map[string]string{
 			"github_issue_issues_created":         "count(distinct id) as github_issue_issues_created",
-			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
 			"github_issue_issues_assigned":        "count(distinct assignee_data_uuid) as github_issue_issues_assigned",
+			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
 		}
 	case "github/pull_request":
 		fields = map[string]string{
 			"github_pull_request_prs_created": "count(distinct id) as github_pull_request_prs_created",
 			"github_pull_request_prs_merged":  "count(distinct id) as github_pull_request_prs_merged",
-			"github_pull_request_prs_open": 	"count(distinct id) as github_pull_request_prs_open",
-			"github_pull_request_prs_closed": 	"count(distinct id) as github_pull_request_prs_closed",
+			"github_pull_request_prs_open":    "count(distinct id) as github_pull_request_prs_open",
+			"github_pull_request_prs_closed":  "count(distinct id) as github_pull_request_prs_closed",
 		}
 	case "bugzilla", "bugzillarest":
 		fields = map[string]string{
@@ -1129,6 +1129,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			JiraComments:                         getInt(uuid, "jira_comments"),
 			JiraIssuesCreated:                    getInt(uuid, "jira_issues_created"),
 			JiraIssuesAssigned:                   getInt(uuid, "jira_issues_assigned"),
+			JiraIssuesClosed:                     getInt(uuid, "jira_issues_closed"),
 			JiraAverageIssuesOpenDays:            getFloat(uuid, "jira_average_issue_open_days"),
 			ConfluencePagesCreated:               getInt(uuid, "confluence_pages_created"),
 			ConfluencePagesEdited:                getInt(uuid, "confluence_pages_edited"),
@@ -1137,8 +1138,12 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			ConfluenceLastDocumentation:          confluenceLastActionDate,
 			ConfluenceDateSinceLastDocumentation: daysAgo,
 			GithubIssuesCreated:                  getInt(uuid, "github_issue_issues_created"),
+			GithubIssuesAssigned:                 getInt(uuid, "github_issue_issues_assigned"),
+			GithubIssuesAverageTimeOpenDays:      getFloat(uuid, "github_issue_average_time_open_days"),
 			GithubPullRequestsCreated:            getInt(uuid, "github_pull_request_prs_created"),
 			GithubPullRequestsMerged:             getInt(uuid, "github_pull_request_prs_merged"),
+			GithubPullRequestsOpen:               getInt(uuid, "github_pull_request_prs_open"),
+			GithubPullRequestsClosed:             getInt(uuid, "github_pull_request_prs_closed"),
 			BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
 		}
 		top.Contributors = append(top.Contributors, contributor)

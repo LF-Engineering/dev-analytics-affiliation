@@ -1801,13 +1801,13 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
-      jira_average_issues_open_days:
-        type: number
-        example: 123.5
-        x-omitempty: false
       jira_issues_closed:
         type: integer
         example: 123
+        x-omitempty: false
+      jira_average_issues_open_days:
+        type: number
+        example: 123.5
         x-omitempty: false
       confluence_pages_created:
         type: integer
@@ -1837,13 +1837,13 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
-      github_issues_average_time_open_days:
-        type: number
-        example: 123.5
-        x-omitempty: false
       github_issues_assigned:
         type: integer
         example: 123
+        x-omitempty: false
+      github_issues_average_time_open_days:
+        type: number
+        example: 123.5
         x-omitempty: false
       github_pull_requests_created:
         type: integer
