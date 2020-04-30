@@ -2161,6 +2161,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"confluence_last_documentation",
 		"confluence_date_since_last_documentation",
 		"github_issue_issues_created",
+		"github_pull_request_prs_created",
 	}
 	buffer := &bytes.Buffer{}
 	writer := csv.NewWriter(buffer)
@@ -2193,6 +2194,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			contributor.ConfluenceLastDocumentation,
 			strconv.FormatFloat(contributor.ConfluenceDateSinceLastDocumentation, 'f', -1, 64),
 			strconv.FormatInt(contributor.GithubIssuesCreated, 10),
+			strconv.FormatInt(contributor.GithubPullRequestsCreated, 10),
 		}
 		err = writer.Write(row)
 		if err != nil {

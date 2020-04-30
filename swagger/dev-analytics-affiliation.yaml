@@ -1833,6 +1833,10 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
+      github_pull_requests_created:
+        type: integer
+        example: 123
+        x-omitempty: false
   data-source-type-fields:
     title: Data source type data
     description: Data source type name + list of its columns returned by Top Contributors API

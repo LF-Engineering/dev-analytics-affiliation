@@ -406,6 +406,10 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		fields = map[string]string{
 			"github_issue_issues_created": "count(distinct id) as github_issue_issues_created",
 		}
+	case "github/pull_request":
+		fields = map[string]string{
+			"github_pull_request_prs_created": "count(distinct id) as github_pull_request_prs_created",
+		}
 	default:
 		// FIXME: change to error when all known data sources are handled
 		log.Info(fmt.Sprintf("WARNING: unknown data source type: %s", dataSourceType))
@@ -485,6 +489,14 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 		case "github_issue_issues_created":
 			return `and \"id\" is not null and \"pull_request\" = false`, nil
 		}
+	case "github/pull_request":
+		if len(sortField) > 20 && sortField[:20] != "github_pull_request_" {
+			return "", nil
+		}
+		switch sortField {
+		case "github_pull_request_prs_created":
+			return `and \"id\" is not null and \"pull_request\" = true`, nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
 }
@@ -541,6 +553,14 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 		case "github_issue_issues_created":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
+	case "github/pull_request":
+		if len(sortField) > 20 && sortField[:20] != "github_pull_request_" {
+			return "", nil
+		}
+		switch sortField {
+		case "github_pull_request_prs_created":
+			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
 }
@@ -583,6 +603,11 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 	case "github/issue":
 		switch sortField {
 		case "github_issue_issues_created":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
+	case "github/pull_request":
+		switch sortField {
+		case "github_pull_request_prs_created":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	}
@@ -699,7 +724,7 @@ func (s *service) contributorStatsMainQuery(
 }
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
-	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue"}
+	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Info(
 		fmt.Sprintf(
@@ -1071,6 +1096,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			ConfluenceLastDocumentation:          confluenceLastActionDate,
 			ConfluenceDateSinceLastDocumentation: daysAgo,
 			GithubIssuesCreated:                  getInt(uuid, "github_issue_issues_created"),
+			GithubPullRequestsCreated:            getInt(uuid, "github_pull_request_prs_created"),
 		}
 		top.Contributors = append(top.Contributors, contributor)
 	}
