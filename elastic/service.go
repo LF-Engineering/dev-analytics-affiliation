@@ -91,6 +91,7 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	}
 	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	for _, dataSourceType := range dataSourceTypes {
+		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
 		patterns = append(patterns, patternRoot+dataSourceType+"*,-*raw,-*for-merge")
 	}
 	return
@@ -401,6 +402,10 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"confluence_blog_posts":       "sum(is_blogpost) as confluence_blog_posts",
 			"confluence_last_action_date": "max(grimoire_creation_date) as confluence_last_action_date",
 		}
+	case "github/issue":
+		fields = map[string]string{
+			"github_issue_issues_created": "count(distinct id) as github_issue_issues_created",
+		}
 	default:
 		// FIXME: change to error when all known data sources are handled
 		log.Info(fmt.Sprintf("WARNING: unknown data source type: %s", dataSourceType))
@@ -472,6 +477,14 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 		case "confluence_last_action_date":
 			return `and \"grimoire_creation_date\" is not null`, nil
 		}
+	case "github/issue":
+		if len(sortField) > 13 && sortField[:13] != "github_issue_" {
+			return "", nil
+		}
+		switch sortField {
+		case "github_issue_issues_created":
+			return `and \"id\" is not null and \"pull_request\" = false`, nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
 }
@@ -520,6 +533,14 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 		case "confluence_last_action_date":
 			return `having \"confluence_last_action_date\" > '1900-01-01'::timestamp`, nil
 		}
+	case "github/issue":
+		if len(sortField) > 13 && sortField[:13] != "github_issue_" {
+			return "", nil
+		}
+		switch sortField {
+		case "github_issue_issues_created":
+			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
 }
@@ -557,6 +578,11 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 	case "confluence":
 		switch sortField {
 		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts", "confluence_last_action_date":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
+	case "github/issue":
+		switch sortField {
+		case "github_issue_issues_created":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	}
@@ -673,7 +699,7 @@ func (s *service) contributorStatsMainQuery(
 }
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
-	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence"}
+	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Info(
 		fmt.Sprintf(
@@ -1044,6 +1070,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			ConfluenceComments:                   getInt(uuid, "confluence_comments"),
 			ConfluenceLastDocumentation:          confluenceLastActionDate,
 			ConfluenceDateSinceLastDocumentation: daysAgo,
+			GithubIssuesCreated:                  getInt(uuid, "github_issue_issues_created"),
 		}
 		top.Contributors = append(top.Contributors, contributor)
 	}

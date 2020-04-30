@@ -43,7 +43,9 @@ func (s *service) GetDataSourceTypes(projectSlug string) (dataSourceTypes []stri
 	rows, err := s.Query(
 		s.db,
 		nil,
-		"select distinct ds.name from projects p, data_sources ds, data_source_instances dsi "+
+		"select distinct coalesce(dsp.name || '/' || ds.name, ds.name) "+
+			"from projects p, data_source_instances dsi, data_sources ds "+
+			"left join data_sources dsp on dsp.id = ds.parent_id "+
 			"where p.slug in ($1, $2) and p.id = dsi.project_id and dsi.data_source_id = ds.id",
 		projectSlug,
 		"/projects/"+projectSlug,
