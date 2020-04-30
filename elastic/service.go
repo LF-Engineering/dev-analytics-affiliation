@@ -34,7 +34,7 @@ type Service interface {
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
 	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
-	contributorStatsMergeQuery(string, string, string, string, string, []string) (string, error)
+	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string) (string, error)
 	getAllStringFields(string) ([]string, error)
@@ -483,8 +483,52 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 	return `order by \"cnt\" desc`, nil
 }
 
-func (s *service) contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, searchCond string, uuids []string) (jsonStr string, err error) {
-	// FIXME: construct merge query
+func (s *service) contributorStatsMergeQuery(
+	dataSourceType, indexPattern, column, columnStr, search, uuids string,
+	from, to int64,
+) (jsonStr string, err error) {
+	additionalWhereStr := ""
+	havingStr := ""
+	additionalWhereStr, err = s.additionalWhere(dataSourceType, column)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsMainQuery")
+		return
+	}
+	havingStr, err = s.having(dataSourceType, column)
+	if err != nil {
+		err = errs.Wrap(err, "contributorStatsMainQuery")
+		return
+	}
+	data := fmt.Sprintf(`
+    select
+      \"author_uuid\", %s
+    from
+      \"%s\"
+    where
+      \"author_uuid\" is not null
+      and not (\"author_bot\" = true)
+      and cast(\"grimoire_creation_date\" as long) >= %d
+      and cast(\"grimoire_creation_date\" as long) < %d
+      %s
+      %s
+      %s
+    group by
+      \"author_uuid\"
+      %s
+    `,
+		columnStr,
+		s.JSONEscape(indexPattern),
+		from,
+		to,
+		search,
+		additionalWhereStr,
+		uuids,
+		havingStr,
+	)
+	re1 := regexp.MustCompile(`\r?\n`)
+	re2 := regexp.MustCompile(`\s+`)
+	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
+	jsonStr = `{"query":"` + data + `"}`
 	return
 }
 
@@ -493,10 +537,6 @@ func (s *service) contributorStatsMainQuery(
 	from, to, limit, offset int64,
 	search, sortField, sortOrder string,
 ) (jsonStr string, err error) {
-	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "contributorStatsMainQuery")
-		return
-	}
 	additionalWhereStr := ""
 	havingStr := ""
 	orderByClause := ""
@@ -714,7 +754,6 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			},
 		)
 	}
-	fmt.Printf("mainPattern: %s\n", mainPattern)
 	searchCond := ""
 	searchCondMap := make(map[string]string)
 	searchCond, err = s.searchCondition(mainPattern, search)
@@ -735,11 +774,41 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
-	fmt.Printf("res:\n\n%+v\n\n", res)
-	if 1 == 1 {
+	results := make(map[string]map[string]string)
+	fromIdx := offset * limit
+	toIdx := fromIdx + limit
+	nResults := int64(len(res["author_uuid"]))
+	if fromIdx > nResults {
+		fromIdx = nResults
+	}
+	if toIdx > nResults {
+		toIdx = nResults
+	}
+	if fromIdx == toIdx {
+		// FIXME: what with empty result?
 		return
 	}
 	var uuids []string
+	for i := fromIdx; i < toIdx; i++ {
+		uuid := res["author_uuid"][i]
+		rec, ok := results[uuid]
+		if !ok {
+			rec = make(map[string]string)
+		}
+		for column, values := range res {
+			if column == "author_uuid" || column == "cnt" {
+				continue
+			}
+			rec[column] = values[i]
+		}
+		results[uuid] = rec
+		uuids = append(uuids, uuid)
+	}
+	uuidsCond := `and \"author_uuid\" in (`
+	for _, uuid := range uuids {
+		uuidsCond += "'" + uuid + "',"
+	}
+	uuidsCond = uuidsCond[:len(uuidsCond)-1] + ")"
 	thrN := s.GetThreadsNum()
 	queries := make(map[string]map[string]string)
 	if thrN > 1 {
@@ -748,7 +817,11 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		ch := make(chan error)
 		nThreads := 0
 		for i, dataSourceType := range dataSourceTypes {
+			queries[dataSourceType] = make(map[string]string)
 			for column, columnStr := range fields[dataSourceType] {
+				if column == sortField {
+					continue
+				}
 				go func(ch chan error, dataSourceType, pattern, column, columnStr string) (err error) {
 					defer func() {
 						ch <- err
@@ -767,7 +840,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 						return
 					}
 					query := ""
-					query, err = s.contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, searchCond, uuids)
+					query, err = s.contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, searchCond, uuidsCond, from, to)
 					if err != nil {
 						return
 					}
@@ -797,6 +870,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 	} else {
 		for i, dataSourceType := range dataSourceTypes {
+			queries[dataSourceType] = make(map[string]string)
 			var ok bool
 			searchCond, ok = searchCondMap[patterns[i]]
 			if !ok {
@@ -808,7 +882,10 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 				searchCondMap[patterns[i]] = searchCond
 			}
 			for column, columnStr := range fields[dataSourceType] {
-				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(dataSourceType, patterns[i], column, columnStr, searchCond, uuids)
+				if column == sortField {
+					continue
+				}
+				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(dataSourceType, patterns[i], column, columnStr, searchCond, uuidsCond, from, to)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return
@@ -816,8 +893,12 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	}
+	for dataSourceType, data := range queries {
+		for column, query := range data {
+			fmt.Printf("%s/%s >>>>>>>>>>>>>>>>>>\n%s\n", dataSourceType, column, query)
+		}
+	}
 	/*
-		results := make(map[string]map[string][]string)
 		if thrN > 1 {
 			ch := make(chan error)
 			nThreads := 0
