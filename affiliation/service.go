@@ -2163,6 +2163,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_issue_issues_created",
 		"github_pull_request_prs_created",
 		"github_pull_request_prs_merged",
+		"bugzilla_issues_created",
 	}
 	buffer := &bytes.Buffer{}
 	writer := csv.NewWriter(buffer)
@@ -2197,6 +2198,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatInt(contributor.GithubIssuesCreated, 10),
 			strconv.FormatInt(contributor.GithubPullRequestsCreated, 10),
 			strconv.FormatInt(contributor.GithubPullRequestsMerged, 10),
+			strconv.FormatInt(contributor.BugzillaIssuesCreated, 10),
 		}
 		err = writer.Write(row)
 		if err != nil {
