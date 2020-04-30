@@ -371,7 +371,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 	defer func() {
 		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fieldsAry:%+v err:%v", dataSourceType, fields, err))
 	}()
-	// FIXME: use correct fields: figure out gerrit merged-changesets
+	// FIXME: use correct fields
 	switch dataSourceType {
 	case "git":
 		fields = map[string]string{
@@ -893,17 +893,34 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	}
-	for dataSourceType, data := range queries {
-		for column, query := range data {
-			fmt.Printf("%s/%s >>>>>>>>>>>>>>>>>>\n%s\n", dataSourceType, column, query)
+	mergeResults := func(res map[string][]string) (err error) {
+		l := len(res["author_uuid"])
+		for i := 0; i < l; i++ {
+			uuid := res["author_uuid"][i]
+			rec, ok := results[uuid]
+			if !ok {
+				err = errs.Wrap(errs.New(fmt.Errorf("merge query returned uuid %s which is not present in main query results"), errs.ErrBadRequest), "mergeResults")
+				return
+			}
+			for column, values := range res {
+				if column == "author_uuid" {
+					continue
+				}
+				rec[column] = values[i]
+			}
+			results[uuid] = rec
 		}
+		return
 	}
-	/*
-		if thrN > 1 {
-			ch := make(chan error)
-			nThreads := 0
-			mtx := &sync.Mutex{}
-			for dataSourceType, query := range queries {
+	if thrN > 1 {
+		ch := make(chan error)
+		nThreads := 0
+		mtx := &sync.Mutex{}
+		for dataSourceType, data := range queries {
+			for column, query := range data {
+				if column == sortField {
+					continue
+				}
 				go func(ch chan error, dataSourceType, query string) (err error) {
 					defer func() {
 						ch <- err
@@ -914,7 +931,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 						return
 					}
 					mtx.Lock()
-					results[dataSourceType] = res
+					err = mergeResults(res)
 					mtx.Unlock()
 					return
 				}(ch, dataSourceType, query)
@@ -928,145 +945,39 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 					}
 				}
 			}
-			for nThreads > 0 {
-				err = <-ch
-				nThreads--
-				if err != nil {
-					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-					return
-				}
-			}
-		} else {
-			for dataSourceType, query := range queries {
-				results[dataSourceType], err = s.dataSourceQuery(dataSourceType, query)
-				if err != nil {
-					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-					return
-				}
-			}
 		}
-		fmt.Printf("results:\n\n%+v\n\n", results)
-	*/
-	// FIXME: take contributors who come from current sortField and merge with other data sources
-	// query that applies sort params should be main, others houdl only query for uuids returned from the main query
-	// if no sort params are given we should use "cnt" special field and get Top N from all subqueries by cnt
-	// so if git returns 10 objects and gerrit 10 objects, but there are 15 distinct UUIDs in general, choose
-	// top 10 by cnt from both git and gerrit
-	/*
-		payloadBytes := []byte(data)
-		payloadBody := bytes.NewReader(payloadBytes)
-		var res *esapi.Response
-		res, err = s.search(patterns[0], payloadBody)
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.request")
-			return
-		}
-		defer res.Body.Close()
-		if res.IsError() {
-			var e map[string]interface{}
-			if err = json.NewDecoder(res.Body).Decode(&e); err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result.decode")
+		for nThreads > 0 {
+			err = <-ch
+			nThreads--
+			if err != nil {
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 				return
 			}
-			err = fmt.Errorf("[%s] %s: %s", res.Status(), e["error"].(map[string]interface{})["type"], e["error"].(map[string]interface{})["reason"])
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result")
-			return
 		}
-		//body, err := ioutil.ReadAll(res.Body)
-		//if err != nil {
-		//	return
-		//}
-		//fmt.Printf("====================>\n%s\n", string(body))
-		var result topContributorsResult
-		if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.aggs.decode")
-			return
-		}
-		idxFrom := limit * offset
-		idxTo := idxFrom + limit
-		asc := strings.TrimSpace(strings.ToLower(sortOrder)) == "asc"
-		buckets := result.Aggregations.Contributions.Buckets
-		var sortFunc func(int, int) bool
-		switch sortField {
-		case "":
-		case "uuid":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Key > buckets[j].Key
-			}
-		case "docs":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].DocCount > buckets[j].DocCount
-			}
-		case "git_commits":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Git.Commits.Value > buckets[j].Git.Commits.Value
-			}
-		case "git_lines_of_code_added":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Git.LinesAdded.Value > buckets[j].Git.LinesAdded.Value
-			}
-		case "git_lines_of_code_removed":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Git.LinesRemoved.Value > buckets[j].Git.LinesRemoved.Value
-			}
-		case "git_lines_of_code_changed":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Git.LinesChanged.Value > buckets[j].Git.LinesChanged.Value
-			}
-		case "gerrit_merged_changesets":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value > buckets[j].Gerrit.GerritMergedChangesets.Buckets.Merged.Changesets.Value
-			}
-		case "gerrit_reviews_approved":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Gerrit.GerritApprovals.Value > buckets[j].Gerrit.GerritApprovals.Value
-			}
-		case "jira_issues_created":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Jira.IssuesCreated.Value > buckets[j].Jira.IssuesCreated.Value
-			}
-		case "jira_issues_assigned":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Jira.IssuesAssigned.Value > buckets[j].Jira.IssuesAssigned.Value
-			}
-		case "jira_average_issues_open_days":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Jira.AverageIssueOpenDays.Value > buckets[j].Jira.AverageIssueOpenDays.Value
-			}
-		case "confluence_pages_created":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Confluence.PagesCreated.Value > buckets[j].Confluence.PagesCreated.Value
-			}
-		case "confluence_pages_edited":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Confluence.PagesEdited.Value > buckets[j].Confluence.PagesEdited.Value
-			}
-		case "confluence_comments":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Confluence.Comments.Value > buckets[j].Confluence.Comments.Value
-			}
-		case "confluence_blog_posts":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Confluence.BlogPosts.Value > buckets[j].Confluence.BlogPosts.Value
-			}
-		case "confluence_last_documentation":
-			sortFunc = func(i, j int) bool {
-				return buckets[i].Confluence.LastActionDate.ValueAsString > buckets[j].Confluence.LastActionDate.ValueAsString
-			}
-		default:
-			err = fmt.Errorf("unknown sort field: '%s'", sortField)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetTopContributors")
-			return
-		}
-		if sortFunc != nil {
-			finalSortFunc := sortFunc
-			if asc {
-				finalSortFunc = func(i, j int) bool {
-					return sortFunc(j, i)
+	} else {
+		for dataSourceType, data := range queries {
+			for column, query := range data {
+				if column == sortField {
+					continue
+				}
+				var res map[string][]string
+				res, err = s.dataSourceQuery(dataSourceType, query)
+				if err != nil {
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					return
+				}
+				err = mergeResults(res)
+				if err != nil {
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					return
 				}
 			}
-			sort.SliceStable(result.Aggregations.Contributions.Buckets, finalSortFunc)
 		}
+	}
+	for i, uuid := range uuids {
+		fmt.Printf("#%d %s ---> %+v\n", i, uuid, results[uuid])
+	}
+	/*
 		for idx, bucket := range result.Aggregations.Contributions.Buckets {
 			if int64(idx) >= idxFrom && int64(idx) < idxTo {
 				lastActionDateMillis := bucket.Confluence.LastActionDate.Value
