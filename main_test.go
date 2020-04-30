@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-openapi/strfmt"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 )
 
@@ -30,6 +31,40 @@ func equalDates(a1, a2 [][]strfmt.DateTime) bool {
 		}
 	}
 	return true
+}
+
+func TestToCaseInsensitiveRegexp(t *testing.T) {
+	var testCases = []struct {
+		from string
+		to   string
+	}{
+		{
+			from: "aABcDeZz",
+			to:   "'.*[aA][aA][bB][cC][dD][eE][zZ][zZ].*'",
+		},
+		{
+			from: "123",
+			to:   "'.*123.*'",
+		},
+		{
+			from: "Łukasz",
+			to:   "'.*Ł[uU][kK][aA][sS][zZ].*'",
+		},
+		{
+			from: "ą ę jest ż",
+			to:   `'.*ą\s+ę\s+[jJ][eE][sS][tT]\s+ż.*'`,
+		},
+	}
+	s := &shared.ServiceStruct{}
+	for index, test := range testCases {
+		got := s.ToCaseInsensitiveRegexp(test.from)
+		if got != test.to {
+			t.Errorf(
+				"test number %d (%s -> %s), expected '%v', got '%s'",
+				index+1, test.from, test.to, test.to, got,
+			)
+		}
+	}
 }
 
 func TestMergeDateRanges(t *testing.T) {

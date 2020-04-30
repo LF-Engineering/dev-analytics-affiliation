@@ -65,6 +65,7 @@ type ServiceInterface interface {
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
 	JSONEscape(string) string
+	ToCaseInsensitiveRegexp(string) string
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
 	SanitizeShortEnrollment(*models.EnrollmentShortOutput)
@@ -656,6 +657,23 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 	err := fmt.Errorf("cannot parse datetime: '%s'\n", dtStr)
 	err = errs.Wrap(errs.New(err, errs.ErrServerError), "TimeParseAny")
 	return time.Now(), err
+}
+
+// ToCaseInsensitiveRegexp - transform string say "abc" to ".*[aA][bB][cC].*"
+func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
+	ret := "'.*"
+	for _, b := range str {
+		if b >= 0x41 && b <= 0x5a {
+			ret += "[" + string(b+0x20) + string(b) + "]"
+		} else if b >= 0x61 && b <= 0x7a {
+			ret += "[" + string(b) + string(b-0x20) + "]"
+		} else if b == 0x20 {
+			ret += `\s+`
+		} else {
+			ret += string(b)
+		}
+	}
+	return ret + ".*'"
 }
 
 // JSONEscape - escape string for JSOn to avoid injections

@@ -292,7 +292,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 			return
 		}
 		n++
-		//fmt.Printf("row #%d --> %+v\n", n, row)
+		fmt.Printf("row #%d --> %+v\n", n, row)
 		if n == 1 {
 			result = make(map[string][]string)
 			for i, col := range row {
@@ -340,13 +340,13 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			}
 		}
 		for _, value := range valuesAry {
-			value := "'%" + s.JSONEscape(value) + "%'"
+			value := s.JSONEscape(s.ToCaseInsensitiveRegexp(value))
 			for _, field := range fieldsAry {
 				field = `\"` + s.JSONEscape(field) + `\"`
 				if condition == "" {
-					condition = "and (" + field + " like " + value
+					condition = "and (" + field + " rlike " + value
 				} else {
-					condition += " or " + field + " like " + value
+					condition += " or " + field + " rlike " + value
 				}
 			}
 		}
@@ -354,11 +354,11 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			condition += ")"
 		}
 	} else {
-		escaped := "'%" + s.JSONEscape(search) + "%'"
+		escaped := s.JSONEscape(s.ToCaseInsensitiveRegexp(search))
 		condition = fmt.Sprintf(`
-      and (\"author_name\" like %[1]s
-			or \"author_org_name\" like %[1]s
-			or \"author_uuid\" like %[1]s)
+      and (\"author_name\" rlike %[1]s
+			or \"author_org_name\" rlike %[1]s
+			or \"author_uuid\" rlike %[1]s)
       `,
 			escaped,
 		)
