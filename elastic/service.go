@@ -33,8 +33,9 @@ type Service interface {
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
-	contributorStatsQuery(string, string, int64, int64, int64, int64, string, string, string) (string, []string, error)
-	dataSourceTypeFields(string) (string, []string, error)
+	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
+	contributorStatsMergeQuery(string, string, string, string, string, []string) (string, error)
+	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string) (string, error)
 	getAllStringFields(string) ([]string, error)
 	additionalWhere(string, string) (string, error)
@@ -179,81 +180,11 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
-/*
-// Investigate via: `jq .aggregations.contributions.buckets[].gerrit` etc.
-type topContributorsResult struct {
-	Aggregations struct {
-		Contributions struct {
-			Buckets []struct {
-				Key      string `json:"key"`
-				DocCount int64  `json:"doc_count"`
-				Git      struct {
-					LinesAdded struct {
-						Value float64 `json:"value"`
-					} `json:"lines_added"`
-					LinesChanged struct {
-						Value float64 `json:"value"`
-					} `json:"lines_changed"`
-					LinesRemoved struct {
-						Value float64 `json:"value"`
-					} `json:"lines_removed"`
-					Commits struct {
-						Value float64 `json:"value"`
-					} `json:"commits"`
-				} `json:"git"`
-				Gerrit struct {
-					GerritApprovals struct {
-						Value float64 `json:"value"`
-					} `json:"gerrit_approvals"`
-					GerritMergedChangesets struct {
-						Buckets struct {
-							Merged struct {
-								Changesets struct {
-									Value float64 `json:"value"`
-								} `json:"changesets"`
-							} `json:"merged"`
-						} `json:"buckets"`
-					} `json:"gerrit-merged-changesets"`
-				} `json:"gerrit"`
-				Jira struct {
-					IssuesCreated struct {
-						Value float64 `json:"value"`
-					} `json:"jira_issues_created"`
-					IssuesAssigned struct {
-						Value float64 `json:"value"`
-					} `json:"jira_issues_assigned"`
-					AverageIssueOpenDays struct {
-						Value float64 `json:"value"`
-					} `json:"jira_average_issue_open_days"`
-				} `json:"jira"`
-				Confluence struct {
-					PagesCreated struct {
-						Value float64 `json:"value"`
-					} `json:"confluence_pages_created"`
-					PagesEdited struct {
-						Value float64 `json:"value"`
-					} `json:"confluence_pages_edited"`
-					BlogPosts struct {
-						Value float64 `json:"value"`
-					} `json:"confluence_blog_posts"`
-					Comments struct {
-						Value float64 `json:"value"`
-					} `json:"confluence_comments"`
-					LastActionDate struct {
-						Value         float64 `json:"value"`
-						ValueAsString string  `json:"value_as_string"`
-					} `json:"confluence_last_action_date"`
-				} `json:"confluence"`
-			} `json:"buckets"`
-		} `json:"contributions"`
-	} `json:"aggregations"`
-}
-*/
-
-func (s *service) getAllStringFields(indexPattern string) (fieldsAry []string, err error) {
+// Top contributor functions
+func (s *service) getAllStringFields(indexPattern string) (fields []string, err error) {
 	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s", indexPattern))
 	defer func() {
-		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s fieldsAry:%s err:%v", indexPattern, fieldsAry, err))
+		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s fields:%+v err:%v", indexPattern, fields, err))
 	}()
 	data := fmt.Sprintf(`{"query":"show columns in \"%s\""}`, s.JSONEscape(indexPattern))
 	payloadBytes := []byte(data)
@@ -299,11 +230,12 @@ func (s *service) getAllStringFields(indexPattern string) (fieldsAry []string, e
 		} else if err != nil {
 			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+			return
 		}
 		n++
 		// hash_short,VARCHAR,keyword
 		if row[1] == "VARCHAR" && row[2] == "keyword" {
-			fieldsAry = append(fieldsAry, row[0])
+			fields = append(fields, row[0])
 		}
 	}
 	return
@@ -356,6 +288,7 @@ func (s *service) dataSourceQuery(dataSourceType, query string) (result map[stri
 		} else if err != nil {
 			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+			return
 		}
 		n++
 		// FIXME: remove this
@@ -433,40 +366,30 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 	return
 }
 
-func (s *service) dataSourceTypeFields(dataSourceType string) (fieldsStr string, fieldsAry []string, err error) {
+func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string]string, err error) {
 	log.Info(fmt.Sprintf("dataSourceTypeFields: dataSourceType:%s", dataSourceType))
 	defer func() {
-		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fieldsStr:%s fieldsAry:%+v err:%v", dataSourceType, fieldsStr, fieldsAry, err))
+		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fieldsAry:%+v err:%v", dataSourceType, fields, err))
 	}()
 	// FIXME: use correct fields: figure out gerrit merged-changesets
 	switch dataSourceType {
 	case "git":
-		fieldsStr = "count(*) as cnt, sum(lines_added) as git_lines_added, sum(lines_removed) as git_lines_removed, sum(lines_changed) as git_lines_changed, count(distinct hash) as git_commits"
-		fieldsAry = []string{"git_lines_added", "git_lines_removed", "git_lines_changed", "git_commits"}
+		fields = map[string]string{
+			"git_lines_added":   "sum(lines_added) as git_lines_added",
+			"git_lines_removed": "sum(lines_removed) as git_lines_removed",
+			"git_lines_changed": "sum(lines_changed) as git_lines_changed",
+			"git_commits":       "count(distinct hash) as git_commits",
+		}
 	case "gerrit":
-		fieldsStr = "count(*) as cnt, sum(is_gerrit_approval) as gerrit_approvals, sum(is_gerrit_changeset) as gerrit_changesets"
-		fieldsAry = []string{"gerrit_approvals", "gerrit_changesets"}
+		fields = map[string]string{
+			"gerrit_approvals":         "sum(is_gerrit_approval) as gerrit_approvals",
+			"gerrit_changesets":        "sum(is_gerrit_changeset) as gerrit_changesets",
+			"gerrit_merged_changesets": "count(status) as gerrit_merged_changesets",
+		}
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
 	}
 	return
-	/*
-	       "gerrit-merged-changesets": {
-	         "filters": {
-	           "filters": {
-	             "merged": {
-	               "query_string": {
-	                 "query": "status:\"MERGED\"",
-	                 "analyze_wildcard": true,
-	                 "default_field": "*"
-	               }
-	             }
-	           }
-	         },
-	       }
-	     }
-	   },
-	*/
 }
 
 func (s *service) additionalWhere(dataSourceType, sortField string) (string, error) {
@@ -474,13 +397,18 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 		return "", nil
 	}
 	switch dataSourceType {
+	case "all":
+		switch sortField {
+		case "cnt":
+			return "", nil
+		}
 	case "git":
 		if len(sortField) > 4 && sortField[:4] != "git_" {
 			return "", nil
 		}
 		switch sortField {
 		case "git_commits":
-			return "", nil
+			return `and \"hash\" is not null`, nil
 		case "git_lines_added", "git_lines_removed", "git_lines_changed":
 			sortField := sortField[4:]
 			return fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField)), nil
@@ -494,6 +422,8 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 			return `and \"is_gerrit_approval\" is not null`, nil
 		case "gerrit_changesets":
 			return `and \"is_gerrit_changeset\" is not null`, nil
+		case "gerrit_merged_changesets":
+			return `and \"status\" = 'MERGED'`, nil
 		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
@@ -504,6 +434,11 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 		return "", nil
 	}
 	switch dataSourceType {
+	case "all":
+		switch sortField {
+		case "cnt":
+			return "", nil
+		}
 	case "git":
 		if len(sortField) > 4 && sortField[:4] != "git_" {
 			return "", nil
@@ -517,7 +452,7 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 			return "", nil
 		}
 		switch sortField {
-		case "gerrit_approvals", "gerrit_changesets":
+		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
 	}
@@ -541,18 +476,25 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 		}
 	case "gerrit":
 		switch sortField {
-		case "gerrit_approvals", "gerrit_changesets":
+		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	}
 	return `order by \"cnt\" desc`, nil
 }
 
-func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, from, to, limit, offset int64, search, sortField, sortOrder string) (jsonStr string, fieldsAry []string, err error) {
-	fieldsStr := ""
-	fieldsStr, fieldsAry, err = s.dataSourceTypeFields(dataSourceType)
+func (s *service) contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, searchCond string, uuids []string) (jsonStr string, err error) {
+	// FIXME: construct merge query
+	return
+}
+
+func (s *service) contributorStatsMainQuery(
+	dataSourceType, indexPattern, column string,
+	from, to, limit, offset int64,
+	search, sortField, sortOrder string,
+) (jsonStr string, err error) {
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "contributorStatsQuery")
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "contributorStatsMainQuery")
 		return
 	}
 	additionalWhereStr := ""
@@ -560,17 +502,17 @@ func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, fro
 	orderByClause := ""
 	additionalWhereStr, err = s.additionalWhere(dataSourceType, sortField)
 	if err != nil {
-		err = errs.Wrap(err, "contributorStatsQuery")
+		err = errs.Wrap(err, "contributorStatsMainQuery")
 		return
 	}
 	havingStr, err = s.having(dataSourceType, sortField)
 	if err != nil {
-		err = errs.Wrap(err, "contributorStatsQuery")
+		err = errs.Wrap(err, "contributorStatsMainQuery")
 		return
 	}
 	orderByClause, err = s.orderBy(dataSourceType, sortField, sortOrder)
 	if err != nil {
-		err = errs.Wrap(err, "contributorStatsQuery")
+		err = errs.Wrap(err, "contributorStatsMainQuery")
 		return
 	}
 	data := fmt.Sprintf(`
@@ -591,7 +533,7 @@ func (s *service) contributorStatsQuery(dataSourceType, indexPattern string, fro
       %s
     limit %d
     `,
-		fieldsStr,
+		column,
 		s.JSONEscape(indexPattern),
 		from,
 		to,
@@ -724,104 +666,124 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			),
 		)
 	}()
-	thrN := s.GetThreadsNum()
-	queries := make(map[string]string)
-	fields := make(map[string][]string)
-	searchCond := ""
-	if thrN > 1 {
-		mtx := &sync.Mutex{}
-		ch := make(chan error)
-		nThreads := 0
-		for i, dataSourceType := range dataSourceTypes {
-			go func(ch chan error, dataSourceType, pattern string) (err error) {
-				defer func() {
-					ch <- err
-				}()
-				searchCond, err = s.searchCondition(pattern, search)
-				if err != nil {
-					return
-				}
-				query := ""
-				fieldsAry := []string{}
-				query, fieldsAry, err = s.contributorStatsQuery(dataSourceType, pattern, from, to, limit, offset, searchCond, sortField, sortOrder)
-				if err != nil {
-					return
-				}
-				mtx.Lock()
-				queries[dataSourceType] = query
-				fields[dataSourceType] = fieldsAry
-				mtx.Unlock()
-				return
-			}(ch, dataSourceType, patterns[i])
-			nThreads++
-			if nThreads == thrN {
-				err = <-ch
-				nThreads--
-				if err != nil {
-					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-					return
-				}
-			}
+	var dsFields map[string]string
+	fields := make(map[string]map[string]string)
+	mainPattern := ""
+	mainDataSourceType := "all"
+	mainColumn := "count(*) as cnt"
+	mainSortField := "cnt"
+	mainSortOrder := "desc"
+	for i, dataSourceType := range dataSourceTypes {
+		dsFields, err = s.dataSourceTypeFields(dataSourceType)
+		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+			return
 		}
-		for nThreads > 0 {
-			err = <-ch
-			nThreads--
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-				return
-			}
-		}
-	} else {
-		for i, dataSourceType := range dataSourceTypes {
-			searchCond, err = s.searchCondition(patterns[i], search)
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-				return
-			}
-			queries[dataSourceType], fields[dataSourceType], err = s.contributorStatsQuery(dataSourceType, patterns[i], from, to, limit, offset, searchCond, sortField, sortOrder)
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-				return
+		fields[dataSourceType] = dsFields
+		if mainPattern == "" {
+			for column, columnStr := range dsFields {
+				if column == sortField {
+					mainPattern = patterns[i]
+					mainDataSourceType = dataSourceType
+					mainColumn = columnStr
+					mainSortField = sortField
+					mainSortOrder = sortOrder
+					break
+				}
 			}
 		}
 	}
+	if mainPattern == "" {
+		if sortField != "" {
+			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
+			return
+		}
+		mainPattern = s.projectSlugToIndexPattern(projectSlug)
+	}
 	top.DataSourceTypes = []*models.DataSourceTypeFields{}
 	for dataSourceType, dataSourceFields := range fields {
+		dsFields := []string{}
+		for field := range dataSourceFields {
+			dsFields = append(dsFields, field)
+		}
 		top.DataSourceTypes = append(
 			top.DataSourceTypes,
 			&models.DataSourceTypeFields{
 				Name:   dataSourceType,
-				Fields: dataSourceFields,
+				Fields: dsFields,
 			},
 		)
 	}
-	results := make(map[string]map[string][]string)
+	fmt.Printf("mainPattern: %s\n", mainPattern)
+	searchCond := ""
+	searchCondMap := make(map[string]string)
+	searchCond, err = s.searchCondition(mainPattern, search)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
+	}
+	searchCondMap[mainPattern] = searchCond
+	query := ""
+	query, err = s.contributorStatsMainQuery(mainDataSourceType, mainPattern, mainColumn, from, to, limit, offset, searchCond, mainSortField, mainSortOrder)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
+	}
+	var res map[string][]string
+	res, err = s.dataSourceQuery(mainDataSourceType, query)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
+	}
+	fmt.Printf("res:\n\n%+v\n\n", res)
+	if 1 == 1 {
+		return
+	}
+	var uuids []string
+	thrN := s.GetThreadsNum()
+	queries := make(map[string]map[string]string)
 	if thrN > 1 {
+		mtx := &sync.Mutex{}
+		condMtx := &sync.Mutex{}
 		ch := make(chan error)
 		nThreads := 0
-		mtx := &sync.Mutex{}
-		for dataSourceType, query := range queries {
-			go func(ch chan error, dataSourceType, query string) (err error) {
-				defer func() {
-					ch <- err
-				}()
-				var res map[string][]string
-				res, err = s.dataSourceQuery(dataSourceType, query)
-				if err != nil {
+		for i, dataSourceType := range dataSourceTypes {
+			for column, columnStr := range fields[dataSourceType] {
+				go func(ch chan error, dataSourceType, pattern, column, columnStr string) (err error) {
+					defer func() {
+						ch <- err
+					}()
+					var ok bool
+					condMtx.Lock()
+					searchCond, ok = searchCondMap[pattern]
+					if !ok {
+						searchCond, err = s.searchCondition(pattern, search)
+						if err == nil {
+							searchCondMap[pattern] = searchCond
+						}
+					}
+					condMtx.Unlock()
+					if err != nil {
+						return
+					}
+					query := ""
+					query, err = s.contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, searchCond, uuids)
+					if err != nil {
+						return
+					}
+					mtx.Lock()
+					queries[dataSourceType][column] = query
+					mtx.Unlock()
 					return
-				}
-				mtx.Lock()
-				results[dataSourceType] = res
-				mtx.Unlock()
-				return
-			}(ch, dataSourceType, query)
-			nThreads++
-			if nThreads == thrN {
-				err = <-ch
-				nThreads--
-				if err != nil {
-					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-					return
+				}(ch, dataSourceType, patterns[i], column, columnStr)
+				nThreads++
+				if nThreads == thrN {
+					err = <-ch
+					nThreads--
+					if err != nil {
+						err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+						return
+					}
 				}
 			}
 		}
@@ -834,15 +796,76 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	} else {
-		for dataSourceType, query := range queries {
-			results[dataSourceType], err = s.dataSourceQuery(dataSourceType, query)
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-				return
+		for i, dataSourceType := range dataSourceTypes {
+			var ok bool
+			searchCond, ok = searchCondMap[patterns[i]]
+			if !ok {
+				searchCond, err = s.searchCondition(patterns[i], search)
+				if err != nil {
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					return
+				}
+				searchCondMap[patterns[i]] = searchCond
+			}
+			for column, columnStr := range fields[dataSourceType] {
+				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(dataSourceType, patterns[i], column, columnStr, searchCond, uuids)
+				if err != nil {
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					return
+				}
 			}
 		}
 	}
-	fmt.Printf("results:\n\n%+v\n\n", results)
+	/*
+		results := make(map[string]map[string][]string)
+		if thrN > 1 {
+			ch := make(chan error)
+			nThreads := 0
+			mtx := &sync.Mutex{}
+			for dataSourceType, query := range queries {
+				go func(ch chan error, dataSourceType, query string) (err error) {
+					defer func() {
+						ch <- err
+					}()
+					var res map[string][]string
+					res, err = s.dataSourceQuery(dataSourceType, query)
+					if err != nil {
+						return
+					}
+					mtx.Lock()
+					results[dataSourceType] = res
+					mtx.Unlock()
+					return
+				}(ch, dataSourceType, query)
+				nThreads++
+				if nThreads == thrN {
+					err = <-ch
+					nThreads--
+					if err != nil {
+						err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+						return
+					}
+				}
+			}
+			for nThreads > 0 {
+				err = <-ch
+				nThreads--
+				if err != nil {
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					return
+				}
+			}
+		} else {
+			for dataSourceType, query := range queries {
+				results[dataSourceType], err = s.dataSourceQuery(dataSourceType, query)
+				if err != nil {
+					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					return
+				}
+			}
+		}
+		fmt.Printf("results:\n\n%+v\n\n", results)
+	*/
 	// FIXME: take contributors who come from current sortField and merge with other data sources
 	// query that applies sort params should be main, others houdl only query for uuids returned from the main query
 	// if no sort params are given we should use "cnt" special field and get Top N from all subqueries by cnt

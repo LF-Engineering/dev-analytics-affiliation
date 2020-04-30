@@ -52,4 +52,5 @@ sh/*.sql
 *.client_id
 *.username_claim
 *.secret
+data.json
 secret/
