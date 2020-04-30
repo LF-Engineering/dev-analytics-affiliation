@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -272,10 +273,9 @@ func (s *service) dataSourceQuery(dataSourceType, query string) (result map[stri
 		}
 		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
-		fmt.Printf("\n>>>>>>>>>>>>>>>>>>>>>>>>> (%s)\n%s\n>>>>>>>>>>>>>>>>>>>>>>>>>\n", dataSourceType, query)
 		return
 	}
-	fmt.Printf("\n+++++++++++++++++++++++++ (%s)\n%s\n+++++++++++++++++++++++++\n", dataSourceType, query)
+	//fmt.Printf("\n+++++++++++++++++++++++++ (%s)\n%s\n+++++++++++++++++++++++++\n", dataSourceType, query)
 	reader := csv.NewReader(resp.Body)
 	row := []string{}
 	n := 0
@@ -291,8 +291,7 @@ func (s *service) dataSourceQuery(dataSourceType, query string) (result map[stri
 			return
 		}
 		n++
-		// FIXME: remove this
-		fmt.Printf("row #%d --> %+v\n", n, row)
+		//fmt.Printf("row #%d --> %+v\n", n, row)
 		if n == 1 {
 			result = make(map[string][]string)
 			for i, col := range row {
@@ -785,7 +784,6 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		toIdx = nResults
 	}
 	if fromIdx == toIdx {
-		// FIXME: what with empty result?
 		return
 	}
 	var uuids []string
@@ -974,8 +972,29 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	}
-	for i, uuid := range uuids {
-		fmt.Printf("#%d %s ---> %+v\n", i, uuid, results[uuid])
+	getInt := func(uuid, column string) int64 {
+		strVal, ok := results[uuid][column]
+		if !ok {
+			return 0
+		}
+		floatValue, err := strconv.ParseFloat(strVal, 64)
+		if err != nil {
+			return 0
+		}
+		return int64(floatValue)
+	}
+	for _, uuid := range uuids {
+		contributor := &models.ContributorFlatStats{
+			UUID:                   uuid,
+			GitLinesOfCodeAdded:    getInt(uuid, "git_lines_added"),
+			GitLinesOfCodeChanged:  getInt(uuid, "git_lines_changed"),
+			GitLinesOfCodeRemoved:  getInt(uuid, "git_lines_removed"),
+			GitCommits:             getInt(uuid, "git_commits"),
+			GerritReviewsApproved:  getInt(uuid, "gerrit_approvals"),
+			GerritMergedChangesets: getInt(uuid, "gerrit_merged_changesets"),
+			GerritChangesets:       getInt(uuid, "gerrit_changesets"),
+		}
+		top.Contributors = append(top.Contributors, contributor)
 	}
 	/*
 		for idx, bucket := range result.Aggregations.Contributions.Buckets {
