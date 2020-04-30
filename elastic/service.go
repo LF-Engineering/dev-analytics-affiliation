@@ -393,6 +393,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"jira_issues_assigned":         "count(distinct assignee_uuid) as jira_issues_assigned",
 			"jira_average_issue_open_days": "avg(time_to_close_days) as jira_average_issue_open_days",
 			"jira_comments":                "count(distinct comment_id) as jira_comments",
+			"jira_issues_closed":           "count(distinct assignee_uuid) as jira_issues_closed",
 		}
 	case "confluence":
 		fields = map[string]string{
@@ -404,12 +405,16 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "github/issue":
 		fields = map[string]string{
-			"github_issue_issues_created": "count(distinct id) as github_issue_issues_created",
+			"github_issue_issues_created":         "count(distinct id) as github_issue_issues_created",
+			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
+			"github_issue_issues_assigned":        "count(distinct assignee_data_uuid) as github_issue_issues_assigned",
 		}
 	case "github/pull_request":
 		fields = map[string]string{
 			"github_pull_request_prs_created": "count(distinct id) as github_pull_request_prs_created",
 			"github_pull_request_prs_merged":  "count(distinct id) as github_pull_request_prs_merged",
+			"github_pull_request_prs_open": 	"count(distinct id) as github_pull_request_prs_open",
+			"github_pull_request_prs_closed": 	"count(distinct id) as github_pull_request_prs_closed",
 		}
 	case "bugzilla", "bugzillarest":
 		fields = map[string]string{
@@ -469,6 +474,8 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 			return `and \"time_to_close_days\" is not null`, nil
 		case "jira_comments":
 			return `and \"comment_id\" is not null and \"type\" = 'comment'`, nil
+		case "jira_issues_closed":
+			return `and \"assignee_uuid\" is not null and \"status\" in ('Closed', 'Resolved', 'Done')`, nil
 		}
 	case "confluence":
 		if len(sortField) > 11 && sortField[:11] != "confluence_" {
@@ -491,8 +498,10 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 			return "", nil
 		}
 		switch sortField {
-		case "github_issue_issues_created":
+		case "github_issue_issues_created", "github_issue_average_time_open_days":
 			return `and \"id\" is not null and \"pull_request\" = false`, nil
+		case "github_issue_issues_assigned":
+			return `and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`, nil
 		}
 	case "github/pull_request":
 		if len(sortField) > 20 && sortField[:20] != "github_pull_request_" {
@@ -503,6 +512,10 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 			return `and \"id\" is not null and \"pull_request\" = true`, nil
 		case "github_pull_request_prs_merged":
 			return `and \"id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`, nil
+		case "github_pull_request_prs_open":
+			return `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'open'`, nil
+		case "github_pull_request_prs_closed":
+			return `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`, nil
 		}
 	case "bugzilla", "bugzillarest":
 		if len(sortField) > 9 && sortField[:9] != "bugzilla_" {
@@ -547,7 +560,7 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 			return "", nil
 		}
 		switch sortField {
-		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments":
+		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments", "jira_issues_closed":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
 	case "confluence":
@@ -565,7 +578,7 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 			return "", nil
 		}
 		switch sortField {
-		case "github_issue_issues_created":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
 	case "github/pull_request":
@@ -573,7 +586,7 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 			return "", nil
 		}
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
 	case "bugzilla", "bugzillarest":
@@ -615,7 +628,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 		}
 	case "jira":
 		switch sortField {
-		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments":
+		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments", "jira_issues_closed":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	case "confluence":
@@ -625,12 +638,12 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 		}
 	case "github/issue":
 		switch sortField {
-		case "github_issue_issues_created":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	case "github/pull_request":
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	case "bugzilla", "bugzillarest":

@@ -2156,6 +2156,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"jira_issues_created",
 		"jira_issues_assigned",
 		"jira_average_issues_open_days",
+		"jira_issues_closed",
 		"confluence_pages_created",
 		"confluence_pages_edited",
 		"confluence_blog_posts",
@@ -2163,8 +2164,12 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"confluence_last_documentation",
 		"confluence_date_since_last_documentation",
 		"github_issue_issues_created",
+		"github_issue_average_time_open_days",
+		"github_issue_issues_assigned",
 		"github_pull_request_prs_created",
 		"github_pull_request_prs_merged",
+		"github_pull_request_prs_open",
+		"github_pull_request_prs_closed",
 		"bugzilla_issues_created",
 	}
 	buffer := &bytes.Buffer{}
@@ -2190,6 +2195,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatInt(contributor.JiraComments, 10),
 			strconv.FormatInt(contributor.JiraIssuesCreated, 10),
 			strconv.FormatInt(contributor.JiraIssuesAssigned, 10),
+			strconv.FormatInt(contributor.JiraIssuesClosed, 10),
 			strconv.FormatFloat(contributor.JiraAverageIssuesOpenDays, 'f', -1, 64),
 			strconv.FormatInt(contributor.ConfluencePagesCreated, 10),
 			strconv.FormatInt(contributor.ConfluencePagesEdited, 10),
@@ -2198,8 +2204,12 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			contributor.ConfluenceLastDocumentation,
 			strconv.FormatFloat(contributor.ConfluenceDateSinceLastDocumentation, 'f', -1, 64),
 			strconv.FormatInt(contributor.GithubIssuesCreated, 10),
+			strconv.FormatFloat(contributor.GithubIssuesAverageTimeOpenDays, 'f', -1, 64),
+			strconv.FormatInt(contributor.GithubIssuesAssigned, 10),
 			strconv.FormatInt(contributor.GithubPullRequestsCreated, 10),
 			strconv.FormatInt(contributor.GithubPullRequestsMerged, 10),
+			strconv.FormatInt(contributor.GithubPullRequestsOpen, 10),
+			strconv.FormatInt(contributor.GithubPullRequestsClosed, 10),
 			strconv.FormatInt(contributor.BugzillaIssuesCreated, 10),
 		}
 		err = writer.Write(row)
