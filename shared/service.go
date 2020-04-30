@@ -606,6 +606,7 @@ func (s *ServiceStruct) ToLocalOrganization(i *models.OrganizationDataOutput) (o
 	return
 }
 
+// GetThreadsNum - returns number of available threads
 func (s *ServiceStruct) GetThreadsNum() int {
 	nCPUsStr := os.Getenv("N_CPUS")
 	nCPUs := 0

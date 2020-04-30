@@ -42,7 +42,7 @@ type Service interface {
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
-	dataSourceQuery(string, string) (map[string][]string, error)
+	dataSourceQuery(string) (map[string][]string, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -242,7 +242,7 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	return
 }
 
-func (s *service) dataSourceQuery(dataSourceType, query string) (result map[string][]string, err error) {
+func (s *service) dataSourceQuery(query string) (result map[string][]string, err error) {
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
@@ -275,7 +275,7 @@ func (s *service) dataSourceQuery(dataSourceType, query string) (result map[stri
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
-	//fmt.Printf("\n+++++++++++++++++++++++++ (%s)\n%s\n+++++++++++++++++++++++++\n", dataSourceType, query)
+	fmt.Printf("\n+++++++++++++++++++++++++\n%s\n+++++++++++++++++++++++++\n", query)
 	reader := csv.NewReader(resp.Body)
 	row := []string{}
 	n := 0
@@ -390,6 +390,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"jira_issues_created":          "count(distinct issue_key) as jira_issues_created",
 			"jira_issues_assigned":         "count(distinct assignee_uuid) as jira_issues_assigned",
 			"jira_average_issue_open_days": "avg(time_to_close_days) as jira_average_issue_open_days",
+			"jira_comments":                "count(distinct comment_id) as jira_comments",
 		}
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
@@ -404,7 +405,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 	switch dataSourceType {
 	case "all":
 		switch sortField {
-		case "cnt":
+		case "cnt", "author_uuid":
 			return "", nil
 		}
 	case "git":
@@ -441,6 +442,8 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 			return `and \"assignee_uuid\" is not null`, nil
 		case "jira_average_issue_open_days":
 			return `and \"time_to_close_days\" is not null`, nil
+		case "jira_comments":
+			return `and \"comment_id\" is not null and \"type\" = 'comment'`, nil
 		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
@@ -453,7 +456,7 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 	switch dataSourceType {
 	case "all":
 		switch sortField {
-		case "cnt":
+		case "cnt", "author_uuid":
 			return "", nil
 		}
 	case "git":
@@ -477,7 +480,7 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 			return "", nil
 		}
 		switch sortField {
-		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days":
+		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
 	}
@@ -494,6 +497,11 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 		return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
 	}
 	switch dataSourceType {
+	case "all":
+		switch sortField {
+		case "author_uuid":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
 	case "git":
 		switch sortField {
 		case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
@@ -506,7 +514,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 		}
 	case "jira":
 		switch sortField {
-		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days":
+		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	}
@@ -521,12 +529,12 @@ func (s *service) contributorStatsMergeQuery(
 	havingStr := ""
 	additionalWhereStr, err = s.additionalWhere(dataSourceType, column)
 	if err != nil {
-		err = errs.Wrap(err, "contributorStatsMainQuery")
+		err = errs.Wrap(err, "contributorStatsMergeQuery")
 		return
 	}
 	havingStr, err = s.having(dataSourceType, column)
 	if err != nil {
-		err = errs.Wrap(err, "contributorStatsMainQuery")
+		err = errs.Wrap(err, "contributorStatsMergeQuery")
 		return
 	}
 	data := fmt.Sprintf(`
@@ -536,6 +544,7 @@ func (s *service) contributorStatsMergeQuery(
       \"%s\"
     where
       \"author_uuid\" is not null
+      and length(\"author_uuid\") = 40
       and not (\"author_bot\" = true)
       and cast(\"grimoire_creation_date\" as long) >= %d
       and cast(\"grimoire_creation_date\" as long) < %d
@@ -592,6 +601,7 @@ func (s *service) contributorStatsMainQuery(
       \"%s\"
     where
       \"author_uuid\" is not null
+      and length(\"author_uuid\") = 40
       and not (\"author_bot\" = true)
       and cast(\"grimoire_creation_date\" as long) >= %d
       and cast(\"grimoire_creation_date\" as long) < %d
@@ -712,6 +722,10 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 	mainColumn := "count(*) as cnt"
 	mainSortField := "cnt"
 	mainSortOrder := "desc"
+	if sortField == "author_uuid" {
+		mainSortField = "author_uuid"
+		mainSortOrder = sortOrder
+	}
 	for i, dataSourceType := range dataSourceTypes {
 		dsFields, err = s.dataSourceTypeFields(dataSourceType)
 		if err != nil {
@@ -733,7 +747,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 	}
 	if mainPattern == "" {
-		if sortField != "" {
+		if sortField != "" && sortField != "author_uuid" {
 			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
 			return
 		}
@@ -768,7 +782,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		return
 	}
 	var res map[string][]string
-	res, err = s.dataSourceQuery(mainDataSourceType, query)
+	res, err = s.dataSourceQuery(query)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
@@ -897,7 +911,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			uuid := res["author_uuid"][i]
 			rec, ok := results[uuid]
 			if !ok {
-				err = errs.Wrap(errs.New(fmt.Errorf("merge query returned uuid %s which is not present in main query results"), errs.ErrBadRequest), "mergeResults")
+				err = errs.Wrap(errs.New(fmt.Errorf("merge query returned uuid %s which is not present in main query results", uuid), errs.ErrBadRequest), "mergeResults")
 				return
 			}
 			for column, values := range res {
@@ -914,17 +928,17 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		ch := make(chan error)
 		nThreads := 0
 		mtx := &sync.Mutex{}
-		for dataSourceType, data := range queries {
+		for _, data := range queries {
 			for column, query := range data {
 				if column == sortField {
 					continue
 				}
-				go func(ch chan error, dataSourceType, query string) (err error) {
+				go func(ch chan error, query string) (err error) {
 					defer func() {
 						ch <- err
 					}()
 					var res map[string][]string
-					res, err = s.dataSourceQuery(dataSourceType, query)
+					res, err = s.dataSourceQuery(query)
 					if err != nil {
 						return
 					}
@@ -932,7 +946,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 					err = mergeResults(res)
 					mtx.Unlock()
 					return
-				}(ch, dataSourceType, query)
+				}(ch, query)
 				nThreads++
 				if nThreads == thrN {
 					err = <-ch
@@ -953,13 +967,13 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	} else {
-		for dataSourceType, data := range queries {
+		for _, data := range queries {
 			for column, query := range data {
 				if column == sortField {
 					continue
 				}
 				var res map[string][]string
-				res, err = s.dataSourceQuery(dataSourceType, query)
+				res, err = s.dataSourceQuery(query)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return
@@ -1004,6 +1018,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			GerritReviewsApproved:     getInt(uuid, "gerrit_approvals"),
 			GerritMergedChangesets:    getInt(uuid, "gerrit_merged_changesets"),
 			GerritChangesets:          getInt(uuid, "gerrit_changesets"),
+			JiraComments:              getInt(uuid, "jira_comments"),
 			JiraIssuesCreated:         getInt(uuid, "jira_issues_created"),
 			JiraIssuesAssigned:        getInt(uuid, "jira_issues_assigned"),
 			JiraAverageIssuesOpenDays: getFloat(uuid, "jira_average_issue_open_days"),

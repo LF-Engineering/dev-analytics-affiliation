@@ -2011,8 +2011,6 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 //     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them using like '%john%'
 //     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using colI like '%valJ%' - so it will create N x M conditions
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
-//    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
-//      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
 // sort_order - optional query parameter: sort order for example desc, asc, default is desc
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(params, nil)
@@ -2089,8 +2087,6 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 //     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them using like '%john%'
 //     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using colI like '%valJ%' - so it will create N x M conditions
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets
-//    allowed: '', uuid, docs, git_commits, git_lines_of_code_added, git_lines_of_code_removed, git_lines_of_code_changed, gerrit_merged_changesets, gerrit_reviews_approved,
-//      jira_issues_created, jira_issues_assigned, jira_average_issues_open_days, confluence_pages_created, confluence_pages_edited, confluence_comments, confluence_blog_posts, confluence_last_documentation
 // sort_order - optional query parameter: sort order for example desc, asc, default is desc
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(nil, params)
@@ -2154,6 +2150,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"gerrit_changesets",
 		"gerrit_merged_changesets",
 		"gerrit_reviews_approved",
+		"jira_comments",
 		"jira_issues_created",
 		"jira_issues_assigned",
 		"jira_average_issues_open_days",
@@ -2184,6 +2181,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatInt(contributor.GerritChangesets, 10),
 			strconv.FormatInt(contributor.GerritMergedChangesets, 10),
 			strconv.FormatInt(contributor.GerritReviewsApproved, 10),
+			strconv.FormatInt(contributor.JiraComments, 10),
 			strconv.FormatInt(contributor.JiraIssuesCreated, 10),
 			strconv.FormatInt(contributor.JiraIssuesAssigned, 10),
 			strconv.FormatFloat(contributor.JiraAverageIssuesOpenDays, 'f', -1, 64),

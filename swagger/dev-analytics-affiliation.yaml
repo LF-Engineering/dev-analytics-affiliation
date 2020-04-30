@@ -1789,6 +1789,10 @@ definitions:
       gerrit_changesets:
         type: integer
         example: 123
+      jira_comments:
+        type: integer
+        example: 123
+        x-omitempty: false
       jira_issues_created:
         type: integer
         example: 123
