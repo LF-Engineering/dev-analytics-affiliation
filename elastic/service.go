@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"encoding/csv"
 	"encoding/json"
@@ -392,8 +393,18 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"jira_average_issue_open_days": "avg(time_to_close_days) as jira_average_issue_open_days",
 			"jira_comments":                "count(distinct comment_id) as jira_comments",
 		}
+	case "confluence":
+		fields = map[string]string{
+			"confluence_pages_created":    "sum(is_new_page) as confluence_pages_created",
+			"confluence_pages_edited":     "sum(is_page) as confluence_pages_edited",
+			"confluence_comments":         "sum(is_comment) as confluence_comments",
+			"confluence_blog_posts":       "sum(is_blogpost) as confluence_blog_posts",
+			"confluence_last_action_date": "max(grimoire_creation_date) as confluence_last_action_date",
+		}
 	default:
-		err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
+		// FIXME: change to error when all known data sources are handled
+		log.Info(fmt.Sprintf("WARNING: unknown data source type: %s", dataSourceType))
+		//err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
 	}
 	return
 }
@@ -445,6 +456,22 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (string, err
 		case "jira_comments":
 			return `and \"comment_id\" is not null and \"type\" = 'comment'`, nil
 		}
+	case "confluence":
+		if len(sortField) > 11 && sortField[:11] != "confluence_" {
+			return "", nil
+		}
+		switch sortField {
+		case "confluence_pages_created":
+			return `and \"is_new_page\" is not null`, nil
+		case "confluence_pages_edited":
+			return `and \"is_page\" is not null`, nil
+		case "confluence_comments":
+			return `and \"is_comment\" is not null`, nil
+		case "confluence_blog_posts":
+			return `and \"is_blogpost\" is not null`, nil
+		case "confluence_last_action_date":
+			return `and \"grimoire_creation_date\" is not null`, nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
 }
@@ -483,6 +510,16 @@ func (s *service) having(dataSourceType, sortField string) (string, error) {
 		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments":
 			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
 		}
+	case "confluence":
+		if len(sortField) > 11 && sortField[:11] != "confluence_" {
+			return "", nil
+		}
+		switch sortField {
+		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts":
+			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+		case "confluence_last_action_date":
+			return `having \"confluence_last_action_date\" > '1900-01-01'::timestamp`, nil
+		}
 	}
 	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
 }
@@ -515,6 +552,11 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, 
 	case "jira":
 		switch sortField {
 		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments":
+			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+		}
+	case "confluence":
+		switch sortField {
+		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts", "confluence_last_action_date":
 			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
 		}
 	}
@@ -627,51 +669,11 @@ func (s *service) contributorStatsMainQuery(
 	re2 := regexp.MustCompile(`\s+`)
 	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
 	jsonStr = `{"query":"` + data + `"}`
-	/*
-	        "confluence": {
-	          "filter": {
-	            "wildcard": {
-	              "_index": "*-confluence"
-	            }
-	          },
-	          "aggs": {
-	            "confluence_pages_created": {
-	              "sum": {
-	                "field": "is_new_page"
-	              }
-	            },
-	            "confluence_pages_edited": {
-	              "sum": {
-	                "field": "is_page"
-	              }
-	            },
-	            "confluence_comments": {
-	              "sum": {
-	                "field": "is_comment"
-	              }
-	            },
-	            "confluence_blog_posts": {
-	              "sum": {
-	                "field": "is_blogpost"
-	              }
-	            },
-	            "confluence_last_action_date": {
-	              "max": {
-	                "field": "grimoire_creation_date"
-	              }
-	            }
-	          }
-	        }
-	      }
-	    }
-	  }
-	*/
 	return
 }
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
-	// FIXME: remove hardcoded data source type(s)
-	dataSourceTypes = []string{"git", "gerrit", "jira"}
+	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Info(
 		fmt.Sprintf(
@@ -1009,45 +1011,42 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		return floatValue
 	}
 	for _, uuid := range uuids {
+		var ok bool
+		confluenceLastActionDate := ""
+		daysAgo := 0.0
+		confluenceLastActionDate, ok = results[uuid]["confluence_last_action_date"]
+		if ok {
+			dt, err := s.TimeParseAny(confluenceLastActionDate)
+			if err == nil {
+				dtMillis := float64(dt.Unix() * 1000.0)
+				nowMillis := float64(time.Now().Unix()) * 1000.0
+				daysAgo = (nowMillis - dtMillis) / 86400000.0
+			} else {
+				confluenceLastActionDate = ""
+			}
+		}
 		contributor := &models.ContributorFlatStats{
-			UUID:                      uuid,
-			GitLinesOfCodeAdded:       getInt(uuid, "git_lines_added"),
-			GitLinesOfCodeChanged:     getInt(uuid, "git_lines_changed"),
-			GitLinesOfCodeRemoved:     getInt(uuid, "git_lines_removed"),
-			GitCommits:                getInt(uuid, "git_commits"),
-			GerritReviewsApproved:     getInt(uuid, "gerrit_approvals"),
-			GerritMergedChangesets:    getInt(uuid, "gerrit_merged_changesets"),
-			GerritChangesets:          getInt(uuid, "gerrit_changesets"),
-			JiraComments:              getInt(uuid, "jira_comments"),
-			JiraIssuesCreated:         getInt(uuid, "jira_issues_created"),
-			JiraIssuesAssigned:        getInt(uuid, "jira_issues_assigned"),
-			JiraAverageIssuesOpenDays: getFloat(uuid, "jira_average_issue_open_days"),
+			UUID:                                 uuid,
+			GitLinesOfCodeAdded:                  getInt(uuid, "git_lines_added"),
+			GitLinesOfCodeChanged:                getInt(uuid, "git_lines_changed"),
+			GitLinesOfCodeRemoved:                getInt(uuid, "git_lines_removed"),
+			GitCommits:                           getInt(uuid, "git_commits"),
+			GerritReviewsApproved:                getInt(uuid, "gerrit_approvals"),
+			GerritMergedChangesets:               getInt(uuid, "gerrit_merged_changesets"),
+			GerritChangesets:                     getInt(uuid, "gerrit_changesets"),
+			JiraComments:                         getInt(uuid, "jira_comments"),
+			JiraIssuesCreated:                    getInt(uuid, "jira_issues_created"),
+			JiraIssuesAssigned:                   getInt(uuid, "jira_issues_assigned"),
+			JiraAverageIssuesOpenDays:            getFloat(uuid, "jira_average_issue_open_days"),
+			ConfluencePagesCreated:               getInt(uuid, "confluence_pages_created"),
+			ConfluencePagesEdited:                getInt(uuid, "confluence_pages_edited"),
+			ConfluenceBlogPosts:                  getInt(uuid, "confluence_blog_posts"),
+			ConfluenceComments:                   getInt(uuid, "confluence_comments"),
+			ConfluenceLastDocumentation:          confluenceLastActionDate,
+			ConfluenceDateSinceLastDocumentation: daysAgo,
 		}
 		top.Contributors = append(top.Contributors, contributor)
 	}
-	/*
-		for idx, bucket := range result.Aggregations.Contributions.Buckets {
-			if int64(idx) >= idxFrom && int64(idx) < idxTo {
-				lastActionDateMillis := bucket.Confluence.LastActionDate.Value
-				daysAgo := 0.0
-				if lastActionDateMillis > 0 {
-					nowMillis := float64(time.Now().Unix()) * 1000.0
-					daysAgo = (nowMillis - lastActionDateMillis) / 86400000.0
-				}
-				contributor := &models.ContributorFlatStats{
-					ConfluencePagesCreated:    int64(bucket.Confluence.PagesCreated.Value),
-					ConfluencePagesEdited:     int64(bucket.Confluence.PagesEdited.Value),
-					ConfluenceBlogPosts:       int64(bucket.Confluence.BlogPosts.Value),
-					ConfluenceComments:        int64(bucket.Confluence.Comments.Value),
-				}
-				if lastActionDateMillis > 0 {
-					contributor.ConfluenceDateSinceLastDocumentation = daysAgo
-					contributor.ConfluenceLastDocumentation = bucket.Confluence.LastActionDate.ValueAsString
-				}
-				top.Contributors = append(top.Contributors, contributor)
-			}
-		}
-	*/
 	return
 }
 
