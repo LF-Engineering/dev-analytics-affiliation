@@ -1,6 +1,7 @@
 #!/bin/bash
-# DA_AFF_API_SQL_OUT=1 - output SQL queries
 # N_CPUS - set number of CPUS, N_CPUS=1 enables singlethreaded mode
+# DA_AFF_API_SQL_OUT=1 - output SQL queries
+# USE_SEARCH_IN_MERGE - special flag to use search patter in merge queries performed after the main search
 if [ -z "${LOG_LEVEL}" ]
 then
   LOG_LEVEL=info

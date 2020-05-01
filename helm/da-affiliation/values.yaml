@@ -15,6 +15,7 @@ dryRun: ''
 logLevel: 'info'
 sqlOut: ''
 nCPUs: ''
+useSearchInMergeQueries: ''
 concurrencyPolicy: Forbid
 fullnameOverride: da-affiliation
 imagePullPolicy: Always

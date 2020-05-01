@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -36,7 +37,7 @@ type Service interface {
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
 	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
-	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64) (string, error)
+	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string) (string, error)
 	getAllStringFields(string) ([]string, error)
@@ -255,7 +256,12 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 func (s *service) dataSourceQuery(query string) (result map[string][]string, err error) {
 	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
 	defer func() {
-		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d result:%d err:%v", len(query), len(result), err))
+		l := 0
+		r, ok := result["author_uuid"]
+		if ok {
+			l = len(r)
+		}
+		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d result:%d err:%v", len(query), l, err))
 	}()
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
@@ -721,21 +727,25 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 func (s *service) contributorStatsMergeQuery(
 	dataSourceType, indexPattern, column, columnStr, search, uuids string,
 	from, to int64,
+	useSearch bool,
 ) (jsonStr string, err error) {
 	log.Debug(
 		fmt.Sprintf(
-			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d",
+			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v",
 			dataSourceType, indexPattern, column, columnStr, search, uuids, from, to,
 		),
 	)
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d jsonStr:%s err:%v",
+				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v jsonStr:%s err:%v",
 				dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, jsonStr, err,
 			),
 		)
 	}()
+	if !useSearch {
+		search = ""
+	}
 	additionalWhereStr := ""
 	havingStr := ""
 	additionalWhereStr, err = s.additionalWhere(dataSourceType, column)
@@ -856,11 +866,18 @@ func (s *service) contributorStatsMainQuery(
 }
 
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
+	// Set this to true, to apply search filters to merge queries too
+	// This can discard some users, even if they're specified in uuids array
+	// Because search condition can be slightly different per data source type (esepecially in all=value)
+	// This is because in all=value mode, list of columns to search for 'value'
+	// is different in each index pattern (some columns are data source type specific)
+	// If we set this to false, only UUIDs from the main query will be used as a condition
+	useSearchInMergeQueries := os.Getenv("USE_SEARCH_IN_MERGE") != ""
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
 	log.Debug(
 		fmt.Sprintf(
-			"GetTopContributors: projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s",
+			"GetTopContributors: projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
 			projectSlug,
 			dataSourceTypes,
 			patterns,
@@ -871,6 +888,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			search,
 			sortField,
 			sortOrder,
+			useSearchInMergeQueries,
 		),
 	)
 	top = &models.TopContributorsFlatOutput{}
@@ -884,7 +902,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 		log.Debug(
 			fmt.Sprintf(
-				"GetTopContributors(exit): projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s top:%+v err:%v",
+				"GetTopContributors(exit): projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v top:%+v err:%v",
 				projectSlug,
 				dataSourceTypes,
 				patterns,
@@ -895,6 +913,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 				search,
 				sortField,
 				sortOrder,
+				useSearchInMergeQueries,
 				inf,
 				err,
 			),
@@ -1007,6 +1026,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 	}
 	uuidsCond = uuidsCond[:len(uuidsCond)-1] + ")"
 	thrN := s.GetThreadsNum()
+	searchCond = ""
 	queries := make(map[string]map[string]string)
 	if thrN > 1 {
 		mtx := &sync.Mutex{}
@@ -1027,20 +1047,32 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 						ok       bool
 						srchCond string
 					)
-					condMtx.Lock()
-					srchCond, ok = searchCondMap[pattern]
-					if !ok {
-						srchCond, err = s.searchCondition(pattern, search)
-						if err == nil {
-							searchCondMap[pattern] = srchCond
+					if useSearchInMergeQueries {
+						condMtx.Lock()
+						srchCond, ok = searchCondMap[pattern]
+						if !ok {
+							srchCond, err = s.searchCondition(pattern, search)
+							if err == nil {
+								searchCondMap[pattern] = srchCond
+							}
+						}
+						condMtx.Unlock()
+						if err != nil {
+							return
 						}
 					}
-					condMtx.Unlock()
-					if err != nil {
-						return
-					}
 					query := ""
-					query, err = s.contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, srchCond, uuidsCond, from, to)
+					query, err = s.contributorStatsMergeQuery(
+						dataSourceType,
+						pattern,
+						column,
+						columnStr,
+						srchCond,
+						uuidsCond,
+						from,
+						to,
+						useSearchInMergeQueries,
+					)
 					if err != nil {
 						return
 					}
@@ -1072,20 +1104,32 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		for i, dataSourceType := range dataSourceTypes {
 			queries[dataSourceType] = make(map[string]string)
 			var ok bool
-			searchCond, ok = searchCondMap[patterns[i]]
-			if !ok {
-				searchCond, err = s.searchCondition(patterns[i], search)
-				if err != nil {
-					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-					return
+			if useSearchInMergeQueries {
+				searchCond, ok = searchCondMap[patterns[i]]
+				if !ok {
+					searchCond, err = s.searchCondition(patterns[i], search)
+					if err != nil {
+						err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+						return
+					}
+					searchCondMap[patterns[i]] = searchCond
 				}
-				searchCondMap[patterns[i]] = searchCond
 			}
 			for column, columnStr := range fields[dataSourceType] {
 				if column == sortField {
 					continue
 				}
-				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(dataSourceType, patterns[i], column, columnStr, searchCond, uuidsCond, from, to)
+				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(
+					dataSourceType,
+					patterns[i],
+					column,
+					columnStr,
+					searchCond,
+					uuidsCond,
+					from,
+					to,
+					useSearchInMergeQueries,
+				)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return

@@ -81,6 +81,8 @@ spec:
           value: '{{ .Values.nCPUs }}'
         - name: DA_AFF_API_SQL_OUT
           value: '{{ .Values.sqlOut }}'
+        - name: USE_SEARCH_IN_MERGE
+          value: '{{ .Values.useSearchInMergeQueries }}'
         - name: API_DB_ENDPOINT
           valueFrom:
             secretKeyRef:
