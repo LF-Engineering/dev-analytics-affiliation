@@ -33,7 +33,7 @@ Start local Elastic Search instance:
 
 Start API server using dockerized MariaDB and Postgres databases:
 
-- Start API server: `` [ONLYRUN=1] ./sh/api.sh ``. Eventually: `` LOG_LEVEL=debug ONLYRUN=1 NOCHECKS=1 ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
+- Start API server: `` [ONLYRUN=1] ./sh/api.sh ``. Eventually: `` LOG_LEVEL=debug [N_CPUS=1|N|''] ONLYRUN=1 NOCHECKS=1 ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
 - Call example clients:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh 'odpi/egeria' CNCF cncf.io 1 1 0 ``.
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_unique_identities.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a [0] ``.
@@ -87,7 +87,7 @@ Start API server using dockerized MariaDB and Postgres databases:
 To deploy to docker:
 
 - Build docker image: `DOCKER_USER=... docker/build_image.sh`.
-- Run it: `DOCKER_USER=... [LOG_LEVEL=debug] docker/run.sh`. It will serve on 18080 instead of 8080 port.
+- Run it: `DOCKER_USER=... [LOG_LEVEL=debug] [N_CPUS=16] docker/run.sh`. It will serve on 18080 instead of 8080 port. `N_CPUS` is optional, skipping will use auto-detecting, setting to 1 will enable singlethreaded mode.
 - Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
 
 

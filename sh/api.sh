@@ -1,5 +1,6 @@
 #!/bin/bash
 # DA_AFF_API_SQL_OUT=1 - output SQL queries
+# N_CPUS - set number of CPUS, N_CPUS=1 enables singlethreaded mode
 if [ -z "${LOG_LEVEL}" ]
 then
   LOG_LEVEL=info

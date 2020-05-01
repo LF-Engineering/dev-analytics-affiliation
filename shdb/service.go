@@ -484,9 +484,9 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	}
 	found := 0
 	orgFound := 0
-	log.Info(fmt.Sprintf("EnrichContributors: contributors:%s millisSinceEpoch:%d tx:%v", inf, millisSinceEpoch, tx != nil))
+	log.Debug(fmt.Sprintf("EnrichContributors: contributors:%s millisSinceEpoch:%d tx:%v", inf, millisSinceEpoch, tx != nil))
 	defer func() {
-		log.Info(
+		log.Debug(
 			fmt.Sprintf(
 				"EnrichContributors(exit): contributors:%s millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
 				inf,

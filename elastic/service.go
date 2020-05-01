@@ -565,136 +565,177 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 	return
 }
 
-func (s *service) having(dataSourceType, sortField string) (string, error) {
+func (s *service) having(dataSourceType, sortField string) (cond string, err error) {
+	log.Info(fmt.Sprintf("having: dataSourceType:%s sortField:%s", dataSourceType, sortField))
+	defer func() {
+		log.Info(fmt.Sprintf("having(exit): dataSourceType:%s sortField:%s cond:%s err:%v", dataSourceType, sortField, cond, err))
+	}()
 	if sortField == "cnt" {
-		return "", nil
+		return
 	}
 	switch dataSourceType {
 	case "all":
 		switch sortField {
 		case "cnt", "author_uuid":
-			return "", nil
+			return
 		}
 	case "git":
 		if len(sortField) > 4 && sortField[:4] != "git_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		}
 	case "gerrit":
 		if len(sortField) > 7 && sortField[:7] != "gerrit_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		}
 	case "jira":
 		if len(sortField) > 5 && sortField[:5] != "jira_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments", "jira_issues_closed":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		}
 	case "confluence":
 		if len(sortField) > 11 && sortField[:11] != "confluence_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		case "confluence_last_action_date":
-			return `having \"confluence_last_action_date\" > '1900-01-01'::timestamp`, nil
+			cond = `having \"confluence_last_action_date\" > '1900-01-01'::timestamp`
+			return
 		}
 	case "github/issue":
 		if len(sortField) > 13 && sortField[:13] != "github_issue_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		}
 	case "github/pull_request":
 		if len(sortField) > 20 && sortField[:20] != "github_pull_request_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		}
 	case "bugzilla", "bugzillarest":
 		if len(sortField) > 9 && sortField[:9] != "bugzilla_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "bugzilla_issues_created":
-			return fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			return
 		}
 	}
-	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
+	err = errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "having")
+	return
 }
 
-func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (string, error) {
+func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order string, err error) {
+	log.Info(fmt.Sprintf("orderBy: dataSourceType:%s sortField:%s", dataSourceType, sortField))
+	defer func() {
+		log.Info(fmt.Sprintf("orderBy(exit): dataSourceType:%s sortField:%s cond:%s err:%v", dataSourceType, sortField, order, err))
+	}()
 	dir := ""
 	if sortOrder == "" || strings.ToLower(sortOrder) == "desc" {
 		dir = "desc"
 	} else if strings.ToLower(sortOrder) == "asc" {
 		dir = "asc"
 	} else {
-		return "", errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
+		err = errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
+		return
 	}
 	switch dataSourceType {
 	case "all":
 		switch sortField {
 		case "author_uuid":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "git":
 		switch sortField {
 		case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "gerrit":
 		switch sortField {
 		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "jira":
 		switch sortField {
 		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments", "jira_issues_closed":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "confluence":
 		switch sortField {
 		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts", "confluence_last_action_date":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "github/issue":
 		switch sortField {
 		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "github/pull_request":
 		switch sortField {
 		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	case "bugzilla", "bugzillarest":
 		switch sortField {
 		case "bugzilla_issues_created":
-			return fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir), nil
+			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
 		}
 	}
-	return `order by \"cnt\" desc`, nil
+	order = `order by \"cnt\" desc`
+	return
 }
 
 func (s *service) contributorStatsMergeQuery(
 	dataSourceType, indexPattern, column, columnStr, search, uuids string,
 	from, to int64,
 ) (jsonStr string, err error) {
+	log.Debug(
+		fmt.Sprintf(
+			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d",
+			dataSourceType, indexPattern, column, columnStr, search, uuids, from, to,
+		),
+	)
+	defer func() {
+		log.Debug(
+			fmt.Sprintf(
+				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d jsonStr:%s err:%v",
+				dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, jsonStr, err,
+			),
+		)
+	}()
 	additionalWhereStr := ""
 	havingStr := ""
 	additionalWhereStr, err = s.additionalWhere(dataSourceType, column)
@@ -746,6 +787,20 @@ func (s *service) contributorStatsMainQuery(
 	from, to, limit, offset int64,
 	search, sortField, sortOrder string,
 ) (jsonStr string, err error) {
+	log.Debug(
+		fmt.Sprintf(
+			"contributorStatsMainQuery: dataSourceType:%s indexPattern:%s column:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s",
+			dataSourceType, indexPattern, column, from, to, limit, offset, search, sortField, sortOrder,
+		),
+	)
+	defer func() {
+		log.Debug(
+			fmt.Sprintf(
+				"contributorStatsMainQuery(exit): dataSourceType:%s indexPattern:%s column:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s jsonStr:%s err:%v",
+				dataSourceType, indexPattern, column, from, to, limit, offset, search, sortField, sortOrder, jsonStr, err,
+			),
+		)
+	}()
 	additionalWhereStr := ""
 	havingStr := ""
 	orderByClause := ""
@@ -803,7 +858,7 @@ func (s *service) contributorStatsMainQuery(
 func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
-	log.Info(
+	log.Debug(
 		fmt.Sprintf(
 			"GetTopContributors: projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s",
 			projectSlug,
@@ -827,7 +882,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		} else {
 			inf = fmt.Sprintf("%+v", s.ToLocalTopContributorsFlatObj(top))
 		}
-		log.Info(
+		log.Debug(
 			fmt.Sprintf(
 				"GetTopContributors(exit): projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s top:%+v err:%v",
 				projectSlug,
@@ -1036,6 +1091,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 	}
 	mergeResults := func(res map[string][]string) (err error) {
+		log.Debug(fmt.Sprintf("Merging %d result", len(res)))
 		l := len(res["author_uuid"])
 		for i := 0; i < l; i++ {
 			uuid := res["author_uuid"][i]

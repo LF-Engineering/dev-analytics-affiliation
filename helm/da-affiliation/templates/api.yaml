@@ -77,6 +77,8 @@ spec:
         env:
         - name: LOG_LEVEL
           value: '{{ .Values.logLevel }}'
+        - name: N_CPUS
+          value: '{{ .Values.nCPUs }}'
         - name: DA_AFF_API_SQL_OUT
           value: '{{ .Values.sqlOut }}'
         - name: API_DB_ENDPOINT

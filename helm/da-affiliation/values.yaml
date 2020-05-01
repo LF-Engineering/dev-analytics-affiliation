@@ -14,6 +14,7 @@ deployEnv: 'set-me'
 dryRun: ''
 logLevel: 'info'
 sqlOut: ''
+nCPUs: ''
 concurrencyPolicy: Forbid
 fullnameOverride: da-affiliation
 imagePullPolicy: Always

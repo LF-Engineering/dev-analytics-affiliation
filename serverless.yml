@@ -14,6 +14,7 @@ provider:
   environment:
     CORS_ALLOWED_ORIGINS: https://test.lfanalytics.io,https://lfanalytics.io
     LOG_LEVEL: info
+    N_CPUS: ''
     ELASTIC_URL: ${ssm:/da_elastic_endpoint~true}
     ELASTIC_USERNAME: ${ssm:/da_elastic_username~true}
     ELASTIC_PASSWORD: ${ssm:/da_elastic_password~true}
