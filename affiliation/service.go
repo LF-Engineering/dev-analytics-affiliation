@@ -2008,11 +2008,16 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 // search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
 //     john - will search using like '.*john.*' no case sensitive regexp pattern on author_org_name, author_name and author_uuids columns
-//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them
-//     all=john,pamela,../josh - will search for multiple values on all columns
+//     all=john - will fetch list of all string type columns (per index pattern) and then search for '.*john.*' (case insensitive) on all of them
+//     all=john,pamela,..,josh - will search for multiple values on all columns
 //     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using N x M or conditions
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets, can be fetched from "data_source_types" object returned per given project slug
-// sort_order - optional query parameter: sort order for example desc, asc, default is desc
+//     if not specified API sorts contributors by count of documents related to their activity descending - so its most probable to get actual top contributors across all data sources defined for the project
+//     if defined it must be one of fields returned in data source types fields object (from "data_source_types" object + special author_uuid) in that case API fetches contributors by this field first
+//     and then once it has list of their UUIDs (after searching, sorting and paging) - it uses that list of UUIDs to get the remaining fields and finally merge results into one object.
+// sort_order - optional query parameter: sort order allowed desc or asc, default is desc
+//     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
+//     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(params, nil)
 	if to < from {
@@ -2085,11 +2090,16 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 // search - optional query parameter: for example john, it can be specified in multiple forms (must be urlencoded)
 //     empty - so search filter will be applied
 //     john - will search using like '.*john.*' no case sensitive regexp pattern on author_org_name, author_name and author_uuids columns
-//     all=john - will fetch list of all string type columns (per index pattern) and then search on all of them
-//     all=john,pamela,../josh - will search for multiple values on all columns
+//     all=john - will fetch list of all string type columns (per index pattern) and then search for '.*john.*' (case insensitive) on all of them
+//     all=john,pamela,..,josh - will search for multiple values on all columns
 //     col1,col2,...,colN=val1,val2,...,valM - will search for any of val1 - valM on all col1 - colN columns using N x M or conditions
 // sort_field - optional query parameter: sort field for example gerrit_merged_changesets, can be fetched from "data_source_types" object returned per given project slug
-// sort_order - optional query parameter: sort order for example desc, asc, default is desc
+//     if not specified API sorts contributors by count of documents related to their activity descending - so its most probable to get actual top contributors across all data sources defined for the project
+//     if defined it must be one of fields returned in data source types fields object (from "data_source_types" object + special author_uuid) in that case API fetches contributors by this field first
+//     and then once it has list of their UUIDs (after searching, sorting and paging) - it uses that list of UUIDs to get the remaining fields and finally merge results into one object.
+// sort_order - optional query parameter: sort order allowed desc or asc, default is desc
+//     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
+//     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
 	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(nil, params)
 	if to < from {
