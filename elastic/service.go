@@ -1023,13 +1023,16 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 					defer func() {
 						ch <- err
 					}()
-					var ok bool
+					var (
+						ok       bool
+						srchCond string
+					)
 					condMtx.Lock()
-					searchCond, ok = searchCondMap[pattern]
+					srchCond, ok = searchCondMap[pattern]
 					if !ok {
-						searchCond, err = s.searchCondition(pattern, search)
+						srchCond, err = s.searchCondition(pattern, search)
 						if err == nil {
-							searchCondMap[pattern] = searchCond
+							searchCondMap[pattern] = srchCond
 						}
 					}
 					condMtx.Unlock()
@@ -1037,7 +1040,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 						return
 					}
 					query := ""
-					query, err = s.contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, searchCond, uuidsCond, from, to)
+					query, err = s.contributorStatsMergeQuery(dataSourceType, pattern, column, columnStr, srchCond, uuidsCond, from, to)
 					if err != nil {
 						return
 					}
