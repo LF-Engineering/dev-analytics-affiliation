@@ -203,7 +203,7 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s\n", err, method, url)
+		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
@@ -214,11 +214,11 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 		var body []byte
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s\n", err, method, url)
+			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 			return
 		}
-		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
+		err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
@@ -251,14 +251,14 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, quer: %s\n", err, method, url, query)
+		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s\n", err, method, url, query)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s\n", err, method, url)
+		err = fmt.Errorf("do request error: %+v for %s url: %s query: %s\n", err, method, url, query)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
@@ -269,15 +269,15 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 		var body []byte
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s\n", err, method, url)
+			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s query: %s\n", err, method, url, query)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 			return
 		}
-		err = fmt.Errorf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body)
+		err = fmt.Errorf("Method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s\n", method, url, resp.StatusCode, query, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
-	//fmt.Printf("\n+++++++++++++++++++++++++\n%s\n+++++++++++++++++++++++++\n", query)
+	log.Debug(fmt.Sprintf("Query: %s", query))
 	reader := csv.NewReader(resp.Body)
 	row := []string{}
 	n := 0
@@ -293,7 +293,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 			return
 		}
 		n++
-		//fmt.Printf("row #%d --> %+v\n", n, row)
+		log.Debug(fmt.Sprintf("Row #%d: %+v", n, row))
 		if n == 1 {
 			result = make(map[string][]string)
 			for i, col := range row {
@@ -357,10 +357,10 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 	} else {
 		escaped := s.JSONEscape(s.ToCaseInsensitiveRegexp(search))
 		condition = fmt.Sprintf(`
-      and (\"author_name\" rlike %[1]s
+			and (\"author_name\" rlike %[1]s
 			or \"author_org_name\" rlike %[1]s
 			or \"author_uuid\" rlike %[1]s)
-      `,
+			`,
 			escaped,
 		)
 	}
@@ -672,23 +672,23 @@ func (s *service) contributorStatsMergeQuery(
 		return
 	}
 	data := fmt.Sprintf(`
-    select
-      \"author_uuid\", %s
-    from
-      \"%s\"
-    where
-      \"author_uuid\" is not null
-      and length(\"author_uuid\") = 40
-      and not (\"author_bot\" = true)
-      and cast(\"grimoire_creation_date\" as long) >= %d
-      and cast(\"grimoire_creation_date\" as long) < %d
-      %s
-      %s
-      %s
-    group by
-      \"author_uuid\"
-      %s
-    `,
+		select
+			\"author_uuid\", %s
+		from
+			\"%s\"
+		where
+			\"author_uuid\" is not null
+			and length(\"author_uuid\") = 40
+			and not (\"author_bot\" = true)
+			and cast(\"grimoire_creation_date\" as long) >= %d
+			and cast(\"grimoire_creation_date\" as long) < %d
+			%s
+			%s
+			%s
+		group by
+			\"author_uuid\"
+			%s
+		`,
 		columnStr,
 		s.JSONEscape(indexPattern),
 		from,
@@ -729,24 +729,24 @@ func (s *service) contributorStatsMainQuery(
 		return
 	}
 	data := fmt.Sprintf(`
-    select
-      \"author_uuid\", %s
-    from
-      \"%s\"
-    where
-      \"author_uuid\" is not null
-      and length(\"author_uuid\") = 40
-      and not (\"author_bot\" = true)
-      and cast(\"grimoire_creation_date\" as long) >= %d
-      and cast(\"grimoire_creation_date\" as long) < %d
-      %s
-      %s
-    group by
-      \"author_uuid\"
-      %s
-      %s
-    limit %d
-    `,
+		select
+			\"author_uuid\", %s
+		from
+			\"%s\"
+		where
+			\"author_uuid\" is not null
+			and length(\"author_uuid\") = 40
+			and not (\"author_bot\" = true)
+			and cast(\"grimoire_creation_date\" as long) >= %d
+			and cast(\"grimoire_creation_date\" as long) < %d
+			%s
+			%s
+		group by
+			\"author_uuid\"
+			%s
+			%s
+		limit %d
+		`,
 		column,
 		s.JSONEscape(indexPattern),
 		from,
