@@ -75,6 +75,10 @@ func New(client *elasticsearch.Client, url string) Service {
 }
 
 func (s *service) projectSlugToIndexPattern(projectSlug string) (pattern string) {
+	log.Info(fmt.Sprintf("projectSlugToIndexPattern: projectSlug:%s", projectSlug))
+	defer func() {
+		log.Info(fmt.Sprintf("projectSlugToIndexPattern(exit): projectSlug:%s pattern:%s", projectSlug, pattern))
+	}()
 	pattern = strings.TrimSpace(projectSlug)
 	if strings.HasPrefix(pattern, "/projects/") {
 		pattern = pattern[10:]
@@ -85,6 +89,10 @@ func (s *service) projectSlugToIndexPattern(projectSlug string) (pattern string)
 }
 
 func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes []string) (patterns []string) {
+	log.Info(fmt.Sprintf("projectSlugToIndexPatterns: projectSlug:%s dataSourceTypes:%+v", projectSlug, dataSourceTypes))
+	defer func() {
+		log.Info(fmt.Sprintf("projectSlugToIndexPatterns(exit): projectSlug:%s dataSourceTypes:%+v patterns:%+v", projectSlug, dataSourceTypes, patterns))
+	}()
 	patternRoot := strings.TrimSpace(projectSlug)
 	if strings.HasPrefix(patternRoot, "/projects/") {
 		patternRoot = patternRoot[10:]
@@ -245,6 +253,10 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 }
 
 func (s *service) dataSourceQuery(query string) (result map[string][]string, err error) {
+	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
+	defer func() {
+		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d result:%d err:%v", len(query), len(result), err))
+	}()
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
@@ -370,9 +382,8 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string]string, err error) {
 	log.Info(fmt.Sprintf("dataSourceTypeFields: dataSourceType:%s", dataSourceType))
 	defer func() {
-		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fieldsAry:%+v err:%v", dataSourceType, fields, err))
+		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fields:%+v err:%v", dataSourceType, fields, err))
 	}()
-	// FIXME: use correct fields
 	switch dataSourceType {
 	case "git":
 		fields = map[string]string{
@@ -421,112 +432,137 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"bugzilla_issues_created": "count(distinct url) as bugzilla_issues_created",
 		}
 	default:
-		// FIXME: change to error when all known data sources are handled
-		log.Info(fmt.Sprintf("WARNING: unknown data source type: %s", dataSourceType))
-		//err = errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields")
+		// FIXME: in the future create err log.Error it and return error to caller (now only logs)
+		log.Error("elastic/service.go", errs.Wrap(errs.New(fmt.Errorf("unknown data source type: %s", dataSourceType), errs.ErrBadRequest), "dataSourceTypeFields"))
 	}
 	return
 }
 
-func (s *service) additionalWhere(dataSourceType, sortField string) (string, error) {
+func (s *service) additionalWhere(dataSourceType, sortField string) (cond string, err error) {
+	log.Info(fmt.Sprintf("additionalWhere: dataSourceType:%s sortField:%s", dataSourceType, sortField))
+	defer func() {
+		log.Info(fmt.Sprintf("additionalWhere(exit): dataSourceType:%s sortField:%s cond:%s err:%v", dataSourceType, sortField, cond, err))
+	}()
 	if sortField == "cnt" {
-		return "", nil
+		return
 	}
 	switch dataSourceType {
 	case "all":
 		switch sortField {
 		case "cnt", "author_uuid":
-			return "", nil
+			return
 		}
 	case "git":
 		if len(sortField) > 4 && sortField[:4] != "git_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "git_commits":
-			return `and \"hash\" is not null`, nil
+			cond = `and \"hash\" is not null`
+			return
 		case "git_lines_added", "git_lines_removed", "git_lines_changed":
 			sortField := sortField[4:]
-			return fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField)), nil
+			cond = fmt.Sprintf(`and \"%s\" is not null`, s.JSONEscape(sortField))
+			return
 		}
 	case "gerrit":
 		if len(sortField) > 7 && sortField[:7] != "gerrit_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "gerrit_approvals":
-			return `and \"is_gerrit_approval\" is not null`, nil
+			cond = `and \"is_gerrit_approval\" is not null`
+			return
 		case "gerrit_changesets":
-			return `and \"is_gerrit_changeset\" is not null`, nil
+			cond = `and \"is_gerrit_changeset\" is not null`
+			return
 		case "gerrit_merged_changesets":
-			return `and \"status\" = 'MERGED'`, nil
+			cond = `and \"status\" = 'MERGED'`
+			return
 		}
 	case "jira":
 		if len(sortField) > 5 && sortField[:5] != "jira_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "jira_issues_created":
-			return `and \"issue_key\" is not null`, nil
+			cond = `and \"issue_key\" is not null`
+			return
 		case "jira_issues_assigned":
-			return `and \"assignee_uuid\" is not null`, nil
+			cond = `and \"assignee_uuid\" is not null`
+			return
 		case "jira_average_issue_open_days":
-			return `and \"time_to_close_days\" is not null`, nil
+			cond = `and \"time_to_close_days\" is not null`
+			return
 		case "jira_comments":
-			return `and \"comment_id\" is not null and \"type\" = 'comment'`, nil
+			cond = `and \"comment_id\" is not null and \"type\" = 'comment'`
+			return
 		case "jira_issues_closed":
-			return `and \"assignee_uuid\" is not null and \"status\" in ('Closed', 'Resolved', 'Done')`, nil
+			cond = `and \"assignee_uuid\" is not null and \"status\" in ('Closed', 'Resolved', 'Done')`
+			return
 		}
 	case "confluence":
 		if len(sortField) > 11 && sortField[:11] != "confluence_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "confluence_pages_created":
-			return `and \"is_new_page\" is not null`, nil
+			cond = `and \"is_new_page\" is not null`
+			return
 		case "confluence_pages_edited":
-			return `and \"is_page\" is not null`, nil
+			cond = `and \"is_page\" is not null`
+			return
 		case "confluence_comments":
-			return `and \"is_comment\" is not null`, nil
+			cond = `and \"is_comment\" is not null`
+			return
 		case "confluence_blog_posts":
-			return `and \"is_blogpost\" is not null`, nil
+			cond = `and \"is_blogpost\" is not null`
+			return
 		case "confluence_last_action_date":
-			return `and \"grimoire_creation_date\" is not null`, nil
+			cond = `and \"grimoire_creation_date\" is not null`
+			return
 		}
 	case "github/issue":
 		if len(sortField) > 13 && sortField[:13] != "github_issue_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "github_issue_issues_created", "github_issue_average_time_open_days":
-			return `and \"id\" is not null and \"pull_request\" = false`, nil
+			cond = `and \"id\" is not null and \"pull_request\" = false`
+			return
 		case "github_issue_issues_assigned":
-			return `and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`, nil
+			cond = `and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
+			return
 		}
 	case "github/pull_request":
 		if len(sortField) > 20 && sortField[:20] != "github_pull_request_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "github_pull_request_prs_created":
-			return `and \"id\" is not null and \"pull_request\" = true`, nil
+			cond = `and \"id\" is not null and \"pull_request\" = true`
+			return
 		case "github_pull_request_prs_merged":
-			return `and \"id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`, nil
+			cond = `and \"id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`
+			return
 		case "github_pull_request_prs_open":
-			return `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'open'`, nil
+			cond = `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'open'`
+			return
 		case "github_pull_request_prs_closed":
-			return `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`, nil
+			cond = `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
+			return
 		}
 	case "bugzilla", "bugzillarest":
 		if len(sortField) > 9 && sortField[:9] != "bugzilla_" {
-			return "", nil
+			return
 		}
 		switch sortField {
 		case "bugzilla_issues_created":
-			return `and \"url\" is not null`, nil
+			cond = `and \"url\" is not null`
 		}
 	}
-	return "", errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
+	err = errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
+	return
 }
 
 func (s *service) having(dataSourceType, sortField string) (string, error) {

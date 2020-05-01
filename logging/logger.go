@@ -21,17 +21,22 @@ func init() {
 	//logger.SetFormatter(UTCFormatter{&logrus.TextFormatter{}})
 	//logger.SetReportCaller(true)
 
-	// Only log the warning severity or above.
 	// Default log level
-	logger.SetLevel(logrus.DebugLevel)
+	logger.SetLevel(logrus.InfoLevel)
 
 	EnvLogLevel := os.Getenv("LOG_LEVEL")
-	if EnvLogLevel == "debug" {
+	if EnvLogLevel == "trace" {
+		logger.SetLevel(logrus.TraceLevel)
+	} else if EnvLogLevel == "debug" {
 		logger.SetLevel(logrus.DebugLevel)
 	} else if EnvLogLevel == "info" {
 		logger.SetLevel(logrus.InfoLevel)
 	} else if EnvLogLevel == "warn" {
 		logger.SetLevel(logrus.WarnLevel)
+	} else if EnvLogLevel == "error" {
+		logger.SetLevel(logrus.ErrorLevel)
+	} else if EnvLogLevel == "panic" {
+		logger.SetLevel(logrus.PanicLevel)
 	}
 }
 

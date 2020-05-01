@@ -1,5 +1,9 @@
 #!/bin/bash
 # DA_AFF_API_SQL_OUT=1 - output SQL queries
+if [ -z "${LOG_LEVEL}" ]
+then
+  LOG_LEVEL=info
+fi
 if [ -z "$API_DB_ENDPOINT" ]
 then
   export API_DB_ENDPOINT='host=127.0.0.1 user=postgres password=postgrespwd dbname=dev_analytics port=15432 sslmode=disable'

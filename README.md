@@ -33,7 +33,7 @@ Start local Elastic Search instance:
 
 Start API server using dockerized MariaDB and Postgres databases:
 
-- Start API server: `` [ONLYRUN=1] ./sh/api.sh ``. Eventually: `` ONLYRUN=1 NOCHECKS=1 ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
+- Start API server: `` [ONLYRUN=1] ./sh/api.sh ``. Eventually: `` LOG_LEVEL=debug ONLYRUN=1 NOCHECKS=1 ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
 - Call example clients:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh 'odpi/egeria' CNCF cncf.io 1 1 0 ``.
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_unique_identities.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a [0] ``.
@@ -87,7 +87,7 @@ Start API server using dockerized MariaDB and Postgres databases:
 To deploy to docker:
 
 - Build docker image: `DOCKER_USER=... docker/build_image.sh`.
-- Run it: `DOCKER_USER=... docker/run.sh`. It will serve on 18080 instead of 8080 port.
+- Run it: `DOCKER_USER=... [LOG_LEVEL=debug] docker/run.sh`. It will serve on 18080 instead of 8080 port.
 - Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
 
 
@@ -95,7 +95,7 @@ To deploy to docker:
 
 To deploy on Kubernetes
 
-- Go to `helm/`, run (LF real world example): `NODES=4 ./setup.sh prod`.
+- Go to `helm/`, run (LF real world example): `NODES=4 LOG_LEVEL=debug ./setup.sh prod`.
 - Eventually adjust Helm chart to your needs, including `setup.sh` and `delete.sh` shell scripts.
 - Run from repository root directory (test env): `` API_URL="`cat helm/da-affiliation/secrets/API_URL.test.secret`"  JWT_TOKEN=`cat secret/lgryglicki.test.token` ./sh/curl_get_list_organizations.sh darst '' 20 2 ``.
 - Run from repository root directory (prod env): `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`"  JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations.sh odpi/egeria '' 20 2 ``.

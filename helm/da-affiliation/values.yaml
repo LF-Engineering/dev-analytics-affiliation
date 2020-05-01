@@ -12,6 +12,8 @@
 # Standard values:
 deployEnv: 'set-me'
 dryRun: ''
+logLevel: 'info'
+sqlOut: ''
 concurrencyPolicy: Forbid
 fullnameOverride: da-affiliation
 imagePullPolicy: Always
