@@ -130,6 +130,7 @@ type Service interface {
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
+	NotifySSAW()
 }
 
 type service struct {
@@ -5036,6 +5037,15 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	return
 }
 
+func (s *service) NotifySSAW() {
+	go func() {
+		e := ssawsync.Sync("da-affiliation-api")
+		if e != nil {
+			log.Warn(fmt.Sprintf("ssaw sync error for da-affiliation-api origin: %v\n", e))
+		}
+	}()
+}
+
 func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nUpdated int, err error) {
 	s.mtx.Lock()
 	log.Info(fmt.Sprintf("BulkUpdate: add:%d del:%d", len(add), len(del)))
@@ -5046,7 +5056,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 		go func() {
 			e := ssawsync.Sync("gitdm")
 			if e != nil {
-				log.Warn(fmt.Sprintf("ssaw sync error: %v\n", e))
+				log.Warn(fmt.Sprintf("ssaw sync error for gitdm origin: %v\n", e))
 			}
 		}()
 	}()
