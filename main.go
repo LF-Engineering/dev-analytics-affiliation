@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/jmoiron/sqlx"
@@ -56,7 +55,7 @@ func initAPIDB() *sqlx.DB {
 	return d
 }
 
-func initSHDB() *sqlx.DB {
+func initSHDB(origin string) *sqlx.DB {
 	dbURL := os.Getenv("SH_DB_ENDPOINT")
 	if !strings.Contains(dbURL, "parseTime=true") {
 		if strings.Contains(dbURL, "?") {
@@ -72,9 +71,14 @@ func initSHDB() *sqlx.DB {
 	//d.SetMaxOpenConns(20)
 	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
-	d.SetConnMaxLifetime(time.Second)
+	//d.SetConnMaxLifetime(time.Second)
+	s := &shared.ServiceStruct{}
+	_, err = s.ExecDB(d, "set @origin = ?", origin)
+	if err != nil {
+		log.Panicf("unable to set connection session origin: %v", err)
+	}
 	log.Println(fmt.Sprintf("%+v", d))
-	log.Println("Initialized", "Affiliation DB", host)
+	log.Println("Initialized", "Affiliation DB", origin, host)
 	return d
 }
 
@@ -130,9 +134,10 @@ func main() {
 
 	healthService := health.New()
 	apiDBService := apidb.New(initAPIDB())
-	shDBService := shdb.New(initSHDB())
+	shDBServiceAPI := shdb.New(initSHDB("da-affiliation-api"))
+	shDBServiceGitdm := shdb.New(initSHDB("gitdm"))
 	esService := elastic.New(initES())
-	affiliationService := affiliation.New(apiDBService, shDBService, esService)
+	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService)
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)

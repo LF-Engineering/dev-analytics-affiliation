@@ -94,15 +94,17 @@ type service struct {
 	requestID string
 	apiDB     apidb.Service
 	shDB      shdb.Service
+	shDBGitdm shdb.Service
 	es        elastic.Service
 }
 
 // New is a simple helper function to create a service instance
-func New(apiDB apidb.Service, shDB shdb.Service, es elastic.Service) Service {
+func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service) Service {
 	return &service{
-		apiDB: apiDB,
-		shDB:  shDB,
-		es:    es,
+		apiDB:     apiDB,
+		shDB:      shDBAPI,
+		shDBGitdm: shDBGitdm,
+		es:        es,
 	}
 }
 
@@ -2248,7 +2250,7 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 	defer func() {
 		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
 	}()
-	all, err = s.shDB.GetAllAffiliations()
+	all, err = s.shDBGitdm.GetAllAffiliations()
 	if err != nil {
 		return
 	}
@@ -2267,7 +2269,7 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 	defer func() {
 		log.Info(fmt.Sprintf("PostBulkUpdate(exit): add:%d del:%d added:%d deleted:%d updated:%d status:%s err:%v", len(params.Body.Add), len(params.Body.Del), nAdded, nDeleted, nUpdated, status.Text, err))
 	}()
-	nAdded, nDeleted, nUpdated, err = s.shDB.BulkUpdate(params.Body.Add, params.Body.Del)
+	nAdded, nDeleted, nUpdated, err = s.shDBGitdm.BulkUpdate(params.Body.Add, params.Body.Del)
 	if err != nil {
 		return
 	}
