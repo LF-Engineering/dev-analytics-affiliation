@@ -1775,7 +1775,9 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		return
 	}
 	// Do the actual API call
-	err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
+	esUUID := ""
+	esIsBot := false
+	esUUID, esIsBot, err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1791,6 +1793,11 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		return
 	}
 	uid = ary[0]
+	if esUUID != "" {
+		go func() {
+			s.es.UpdateByQuery("sds-*,-*-raw", "author_bot", esIsBot, "author_uuid", esUUID, true)
+		}()
+	}
 	return
 }
 

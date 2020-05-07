@@ -124,7 +124,7 @@ type Service interface {
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
-	MergeUniqueIdentities(string, string, bool) error
+	MergeUniqueIdentities(string, string, bool) (string, bool, error)
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
@@ -3456,10 +3456,10 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	return
 }
 
-func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (err error) {
+func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (updateESUUID string, updateESIsBot bool, err error) {
 	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v err:%v", fromUUID, toUUID, archive, err))
+		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, err))
 	}()
 	if fromUUID == toUUID {
 		return
@@ -3515,6 +3515,16 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 		if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
 			to.Gender = from.Gender
 			to.GenderAcc = from.GenderAcc
+		}
+		// Do we need to mass update is_bot on all ES indices
+		// on the fromUUID profile that will be merged into toUUID?
+		if from.IsBot != nil && to.IsBot != nil && *from.IsBot != *to.IsBot {
+			updateESUUID = fromUUID
+			if *from.IsBot == 1 {
+				updateESIsBot = true
+			} else {
+				updateESIsBot = false
+			}
 		}
 		if from.IsBot != nil && *from.IsBot == 1 {
 			isBot := int64(1)

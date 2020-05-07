@@ -33,6 +33,7 @@ type Service interface {
 	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
 	GetTopContributors(string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
+	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -1286,6 +1287,92 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
 		}
 		top.Contributors = append(top.Contributors, contributor)
+	}
+	return
+}
+
+func (s *service) UpdateByQuery(indexPattern, updateField string, updateTo interface{}, termField string, termCond interface{}, detached bool) (err error) {
+	log.Info(
+		fmt.Sprintf(
+			"UpdateByQuery: indexPattern:%s updateField:%s updateTo:%+v termField:%s termCond:%+v detached:%v",
+			indexPattern,
+			updateField,
+			updateTo,
+			termField,
+			termCond,
+			detached,
+		),
+	)
+	defer func() {
+		logf := log.Info
+		if err != nil {
+			if detached {
+				logf = log.Warn
+				err = errs.Wrap(err, "UpdateByQuery")
+			} else {
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "UpdateByQuery")
+			}
+		}
+		logf(
+			fmt.Sprintf(
+				"UpdateByQuery(exit): indexPattern:%s updateField:%s updateTo:%+v termField:%s termCond:%+v detached:%v err:%v",
+				indexPattern,
+				updateField,
+				updateTo,
+				termField,
+				termCond,
+				detached,
+				err,
+			),
+		)
+	}()
+	updateToStr := ""
+	termCondStr := ""
+	switch value := updateTo.(type) {
+	case string:
+		updateToStr = `"` + s.JSONEscape(value) + `"`
+	default:
+		updateToStr = fmt.Sprintf("%v", updateTo)
+	}
+	switch value := termCond.(type) {
+	case string:
+		termCondStr = `"` + s.JSONEscape(value) + `"`
+	default:
+		termCondStr = fmt.Sprintf("%v", termCond)
+	}
+	data := fmt.Sprintf(
+		`{"script":{"inline":"ctx._source.%s=%s"},"query":{"term":{"%s":%s}}}`,
+		s.JSONEscape(updateField),
+		updateToStr,
+		s.JSONEscape(termField),
+		termCondStr,
+	)
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/%s/_update_by_query?conflicts=proceed&refresh=true&timeout=20m", s.url, indexPattern)
+	req, err := http.NewRequest(method, os.ExpandEnv(url), payloadBody)
+	if err != nil {
+		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %+v", err, method, url, data)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %+v", err, method, url, data)
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != 200 {
+		body, err2 := ioutil.ReadAll(resp.Body)
+		if err2 != nil {
+			err = fmt.Errorf("ReadAll request error: %+v for %s url: %s, data: %+v", err2, method, url, data)
+			return
+		}
+		err = fmt.Errorf("Method:%s url:%s status:%d data:%+v\n%s", method, url, resp.StatusCode, data, body)
+		return
 	}
 	return
 }

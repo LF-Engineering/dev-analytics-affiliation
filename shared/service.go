@@ -676,7 +676,7 @@ func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
 	return ret + ".*'"
 }
 
-// JSONEscape - escape string for JSOn to avoid injections
+// JSONEscape - escape string for JSON to avoid injections
 func (s *ServiceStruct) JSONEscape(str string) string {
 	b, _ := json.Marshal(str)
 	return string(b[1 : len(b)-1])
