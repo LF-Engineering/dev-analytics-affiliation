@@ -14,6 +14,10 @@ if [ -z "$SH_DB_ENDPOINT" ]
 then
   export SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'
 fi
+if [ -z "$SYNC_URL" ]
+then
+  export SYNC_URL="`cat helm/da-affiliation/secrets/SYNC_URL.prod.secret`"
+fi
 if [ -z "$AUTH0_DOMAIN" ]
 then
   export AUTH0_DOMAIN=`cat secret/auth0.domain`

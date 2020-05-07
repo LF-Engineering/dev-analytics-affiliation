@@ -3,6 +3,7 @@ module github.com/LF-Engineering/dev-analytics-affiliation
 go 1.13
 
 require (
+	github.com/LF-Engineering/ssaw v0.0.0-20200507135346-46a6218c0be7
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/awslabs/aws-lambda-go-api-proxy v0.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

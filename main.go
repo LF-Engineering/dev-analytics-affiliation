@@ -104,6 +104,10 @@ func initES() (*elasticsearch.Client, string) {
 
 func setupEnv() {
 	shared.GSQLOut = os.Getenv("DA_AFF_API_SQL_OUT") != ""
+	shared.GSyncURL = os.Getenv("SYNC_URL")
+	if shared.GSyncURL == "" {
+		log.Fatal("setupEnv:", fmt.Errorf("SYNC_URL environment variable must be set"))
+	}
 }
 
 func main() {

@@ -21,6 +21,8 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
+	"github.com/LF-Engineering/ssaw/ssawsync"
+
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 
 	// SortingHat database is MariaDB/MySQL format
@@ -5040,6 +5042,13 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	defer func() {
 		s.mtx.Unlock()
 		log.Info(fmt.Sprintf("BulkUpdate(exit): add:%d del:%d err:%+v", len(add), len(del), err))
+		// Trigger sync event
+		go func() {
+			e := ssawsync.Sync("gitdm")
+			if e != nil {
+				log.Warn(fmt.Sprintf("ssaw sync error: %v\n", e))
+			}
+		}()
 	}()
 	mAdd := make(map[string]*models.AllOutput)
 	mDel := make(map[string]*models.AllOutput)

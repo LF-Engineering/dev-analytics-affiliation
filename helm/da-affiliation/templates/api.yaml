@@ -83,6 +83,11 @@ spec:
           value: '{{ .Values.sqlOut }}'
         - name: USE_SEARCH_IN_MERGE
           value: '{{ .Values.useSearchInMergeQueries }}'
+        - name: SYNC_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: SYNC_URL.secret
         - name: API_DB_ENDPOINT
           valueFrom:
             secretKeyRef:

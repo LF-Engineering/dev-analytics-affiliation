@@ -29,6 +29,8 @@ Start local Elastic Search instance:
 
 - `./sh/es.sh`.
 
+You also need to have `ssaw` deployment address (you can use one from `SYNC_URL.prod.secret`) - this is needed to trigger ssaw sync. You can set it to "xyz" if you don't have one, API will log sync error but this is not fatal.
+
 # Start API server using
 
 Start API server using dockerized MariaDB and Postgres databases:

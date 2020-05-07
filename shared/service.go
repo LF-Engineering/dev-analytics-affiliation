@@ -29,6 +29,8 @@ const (
 var (
 	// GSQLOut - if set displays all SQLs that are executed (if not set, only failed ones)
 	GSQLOut bool
+	// GSyncURL - used to trigger ssaw sync
+	GSyncURL string
 )
 
 // ServiceInterface - Shared API interface
