@@ -6,7 +6,7 @@ fi
 
 if [ -z "$ORIGIN" ]
 then
-  export ORIGIN="https://test.lfanalytics.io"
+  export ORIGIN="https://insights.test.platform.linuxfoundation.org"
 fi
 
 if [ ! -z "$DEBUG" ]

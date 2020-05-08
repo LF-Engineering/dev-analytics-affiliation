@@ -34,7 +34,7 @@ then
 fi
 if [ "$ORIGIN" = "test" ]
 then
-  export ORIGIN='https://test.lfanalytics.io'
+  export ORIGIN='https://insights.test.platform.linuxfoundation.org'
 fi
 
 
