@@ -498,6 +498,7 @@ func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.P
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	organization, err = s.shDB.AddOrganization(
 		&models.OrganizationDataOutput{
@@ -542,6 +543,7 @@ func (s *service) PutEditOrganization(ctx context.Context, params *affiliation.P
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	organization, err = s.shDB.EditOrganization(
 		&models.OrganizationDataOutput{
@@ -584,6 +586,7 @@ func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	uniqueIdentity, err = s.shDB.AddNestedUniqueIdentity(uuid)
 	if err != nil {
@@ -619,6 +622,7 @@ func (s *service) DeleteIdentity(ctx context.Context, params *affiliation.Delete
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	err = s.shDB.DeleteIdentity(id, false, true, nil, nil)
 	if err != nil {
@@ -663,6 +667,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 			),
 		)
 	}()
+	defer func() { s.shDB.NotifySSAW() }()
 	if err != nil {
 		return
 	}
@@ -736,6 +741,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	} else {
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	_, err = s.shDB.AddEnrollment(enrollment, false, false, nil)
 	if err != nil {
@@ -857,6 +863,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 	} else {
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
@@ -941,6 +948,7 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	} else {
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	err = s.shDB.WithdrawEnrollment(enrollment, true, nil)
 	if err != nil {
@@ -1018,6 +1026,7 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
 	if err != nil {
@@ -1149,6 +1158,7 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	_, err = s.shDB.EditProfile(profile, true, nil)
 	if err != nil {
@@ -1200,6 +1210,7 @@ func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteP
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	status, err = s.shDB.DeleteProfileNested(uuid, archive)
 	if err != nil {
@@ -1235,6 +1246,7 @@ func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	uid, err = s.shDB.UnarchiveProfileNested(uuid)
 	if err != nil {
@@ -1269,6 +1281,7 @@ func (s *service) DeleteOrganization(ctx context.Context, params *affiliation.De
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	status, err = s.shDB.DeleteOrganization(orgID)
 	if err != nil {
@@ -1367,6 +1380,7 @@ func (s *service) PostMatchingBlacklist(ctx context.Context, params *affiliation
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	postMatchingBlacklist, err = s.shDB.PostMatchingBlacklist(email)
 	if err != nil {
@@ -1401,6 +1415,7 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	status, err = s.shDB.DeleteMatchingBlacklist(email)
 	if err != nil {
@@ -1464,6 +1479,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page)
 	if err != nil {
@@ -1610,6 +1626,7 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments)
 	if err != nil {
@@ -1648,6 +1665,7 @@ func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.Delet
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	status, err = s.shDB.DeleteOrgDomain(org, dom)
 	if err != nil {
@@ -1776,6 +1794,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	esUUID := ""
 	esIsBot := false
@@ -1848,6 +1867,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 	if err != nil {
 		return
 	}
+	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	err = s.shDB.MoveIdentity(fromID, toUUID, archive)
 	if err != nil {

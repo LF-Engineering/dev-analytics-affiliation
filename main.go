@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/jmoiron/sqlx"
@@ -71,7 +72,7 @@ func initSHDB(origin string) *sqlx.DB {
 	//d.SetMaxOpenConns(20)
 	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
-	//d.SetConnMaxLifetime(time.Second)
+	d.SetConnMaxLifetime(30 * time.Second)
 	s := &shared.ServiceStruct{}
 	_, err = s.ExecDB(d, "set @origin = ?", origin)
 	if err != nil {
@@ -138,8 +139,10 @@ func main() {
 
 	healthService := health.New()
 	apiDBService := apidb.New(initAPIDB())
-	shDBServiceAPI := shdb.New(initSHDB("da-affiliation-api"))
-	shDBServiceGitdm := shdb.New(initSHDB("gitdm"))
+	daOrigin := "da-affiliation-api"
+	gitdmOrigin := "gitdm"
+	shDBServiceAPI := shdb.New(initSHDB(daOrigin), daOrigin)
+	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), gitdmOrigin)
 	esService := elastic.New(initES())
 	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService)
 
