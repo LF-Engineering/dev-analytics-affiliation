@@ -114,7 +114,7 @@ API is deployed on teh LF both test and prod LF Kubernetes clusters.
 # JWT token
 
 - To actually execute any API call from commandline you will need JWT token (it expires after 24 hours), to get that token value you need to:
-  - Go to lfanalytics.io or test.lfanalytics.io (depending which environment token is needed), sign out if your are signed in.
+  - Go to lfanalytics.io or insights.test.platform.linuxfoundation.org (depending which environment token is needed), sign out if your are signed in.
   - Sign in again.
   - Hit back buton in the browser - you will land on the authorization URL, copy that URL from the browser.
   - URL will be in format `` https://[redacted]/auth#access_token=....&id_token=XXXXXX&scope=...&expires_in=....&token_type=Bearer&state=... ``. Copy the `XXXXXX` value - this is your JWT_TOKEN valid for the next 24 hours.
