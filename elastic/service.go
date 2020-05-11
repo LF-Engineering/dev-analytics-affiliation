@@ -45,7 +45,7 @@ type Service interface {
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
-	dataSourceQuery(string) (map[string][]string, error)
+	dataSourceQuery(string) (map[string][]string, error, bool)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -254,7 +254,7 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	return
 }
 
-func (s *service) dataSourceQuery(query string) (result map[string][]string, err error) {
+func (s *service) dataSourceQuery(query string) (result map[string][]string, err error, drop bool) {
 	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
 	defer func() {
 		l := 0
@@ -271,14 +271,14 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
 		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s\n", err, method, url, query)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		err = fmt.Errorf("do request error: %+v for %s url: %s query: %s\n", err, method, url, query)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 		return
 	}
 	defer func() {
@@ -289,11 +289,16 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
 			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s query: %s\n", err, method, url, query)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 			return
 		}
 		err = fmt.Errorf("Method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s\n", method, url, resp.StatusCode, query, body)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
+		if strings.Contains(err.Error(), " Unknown index ") {
+			log.Warn(fmt.Sprintf("unknown index for query: %s\n", query))
+			err = nil
+			drop = true
+		}
 		return
 	}
 	log.Debug(fmt.Sprintf("Query: %s", query))
@@ -308,7 +313,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, err
 			break
 		} else if err != nil {
 			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 			return
 		}
 		n++
@@ -566,6 +571,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		switch sortField {
 		case "bugzilla_issues_created":
 			cond = `and \"url\" is not null`
+			return
 		}
 	}
 	err = errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
@@ -986,8 +992,14 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
-	var res map[string][]string
-	res, err = s.dataSourceQuery(query)
+	var (
+		res  map[string][]string
+		drop bool
+	)
+	res, err, drop = s.dataSourceQuery(query)
+	if drop == true {
+		err = fmt.Errorf("cannot find main index, no data available for the entire project")
+	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
@@ -1035,7 +1047,9 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		ch := make(chan error)
 		nThreads := 0
 		for i, dataSourceType := range dataSourceTypes {
+			mtx.Lock()
 			queries[dataSourceType] = make(map[string]string)
+			mtx.Unlock()
 			for column, columnStr := range fields[dataSourceType] {
 				if column == sortField {
 					continue
@@ -1158,59 +1172,91 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 		return
 	}
+	dropDS := func(dsName string) {
+		log.Warn("Dropping DS: " + dsName + "\n")
+		idx := -1
+		for i, ds := range top.DataSourceTypes {
+			if ds.Name == dsName {
+				idx = i
+				break
+			}
+		}
+		if idx >= 0 {
+			l := len(top.DataSourceTypes)
+			top.DataSourceTypes[idx] = top.DataSourceTypes[l-1]
+			top.DataSourceTypes = top.DataSourceTypes[:l-1]
+			log.Warn(fmt.Sprintf("Dropped DS %s at #%d\n", dsName, idx))
+		}
+	}
+	type queryResult struct {
+		err  error
+		drop bool
+		ds   string
+	}
+	var mqr queryResult
 	if thrN > 1 {
-		ch := make(chan error)
+		ch := make(chan queryResult)
 		nThreads := 0
 		mtx := &sync.Mutex{}
-		for _, data := range queries {
+		for ds, data := range queries {
 			for column, query := range data {
 				if column == sortField {
 					continue
 				}
-				go func(ch chan error, query string) (err error) {
+				go func(ch chan queryResult, ds, query string) (qr queryResult) {
 					defer func() {
-						ch <- err
+						ch <- qr
 					}()
-					var res map[string][]string
-					res, err = s.dataSourceQuery(query)
-					if err != nil {
+					qr.ds = ds
+					res, qr.err, qr.drop = s.dataSourceQuery(query)
+					if qr.err != nil {
 						return
 					}
 					mtx.Lock()
-					err = mergeResults(res)
+					qr.err = mergeResults(res)
 					mtx.Unlock()
 					return
-				}(ch, query)
+				}(ch, ds, query)
 				nThreads++
 				if nThreads == thrN {
-					err = <-ch
+					mqr = <-ch
 					nThreads--
-					if err != nil {
-						err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+					if mqr.err != nil {
+						err = errs.Wrap(errs.New(mqr.err, errs.ErrBadRequest), "es.GetTopContributors")
 						return
+					}
+					if mqr.drop {
+						dropDS(mqr.ds)
 					}
 				}
 			}
 		}
 		for nThreads > 0 {
-			err = <-ch
+			mqr = <-ch
 			nThreads--
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+			if mqr.err != nil {
+				err = errs.Wrap(errs.New(mqr.err, errs.ErrBadRequest), "es.GetTopContributors")
 				return
+			}
+			if mqr.drop {
+				dropDS(mqr.ds)
 			}
 		}
 	} else {
-		for _, data := range queries {
+		for ds, data := range queries {
 			for column, query := range data {
 				if column == sortField {
 					continue
 				}
 				var res map[string][]string
-				res, err = s.dataSourceQuery(query)
+				res, err, drop = s.dataSourceQuery(query)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return
+				}
+				if drop {
+					dropDS(ds)
+					continue
 				}
 				err = mergeResults(res)
 				if err != nil {
