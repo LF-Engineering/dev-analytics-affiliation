@@ -45,7 +45,7 @@ type Service interface {
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
-	dataSourceQuery(string) (map[string][]string, error, bool)
+	dataSourceQuery(string) (map[string][]string, bool, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -254,7 +254,7 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	return
 }
 
-func (s *service) dataSourceQuery(query string) (result map[string][]string, err error, drop bool) {
+func (s *service) dataSourceQuery(query string) (result map[string][]string, drop bool, err error) {
 	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
 	defer func() {
 		l := 0
@@ -739,14 +739,14 @@ func (s *service) contributorStatsMergeQuery(
 	log.Debug(
 		fmt.Sprintf(
 			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v",
-			dataSourceType, indexPattern, column, columnStr, search, uuids, from, to,
+			dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, useSearch,
 		),
 	)
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
 				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v jsonStr:%s err:%v",
-				dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, jsonStr, err,
+				dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, useSearch, jsonStr, err,
 			),
 		)
 	}()
@@ -996,7 +996,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		res  map[string][]string
 		drop bool
 	)
-	res, err, drop = s.dataSourceQuery(query)
+	res, drop, err = s.dataSourceQuery(query)
 	if drop == true {
 		err = fmt.Errorf("cannot find main index, no data available for the entire project")
 	}
@@ -1208,7 +1208,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 						ch <- qr
 					}()
 					qr.ds = ds
-					res, qr.err, qr.drop = s.dataSourceQuery(query)
+					res, qr.drop, qr.err = s.dataSourceQuery(query)
 					if qr.err != nil {
 						return
 					}
@@ -1249,7 +1249,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 					continue
 				}
 				var res map[string][]string
-				res, err, drop = s.dataSourceQuery(query)
+				res, drop, err = s.dataSourceQuery(query)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return
