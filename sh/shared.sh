@@ -1,5 +1,5 @@
 #!/bin/bash
-if [ -z "$JWT_TOKEN" ]
+if ( [ -z "${SKIP_TOKEN}" ] && [ -z "$JWT_TOKEN" ] )
 then
   echo "$0: please sepcify your JWT token via JWT_TOKEN=..."
   exit 1

@@ -334,11 +334,15 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		project = params.ProjectSlug
 		apiName = "GetUnaffiliated"
 	case *affiliation.GetTopContributorsParams:
-		auth = params.Authorization
+		if params.Authorization != nil {
+			auth = *params.Authorization
+		}
 		project = params.ProjectSlug
 		apiName = "GetTopContributors"
 	case *affiliation.GetTopContributorsCSVParams:
-		auth = params.Authorization
+		if params.Authorization != nil {
+			auth = *params.Authorization
+		}
 		project = params.ProjectSlug
 		apiName = "GetTopContributorsCSV"
 	default:
@@ -2056,11 +2060,12 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors = &models.TopContributorsFlatOutput{}
 	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	public := false
+	apiName, project, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
@@ -2072,12 +2077,13 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 				project,
 				username,
 				len(topContributors.Contributors),
+				public,
 				err,
 			),
 		)
 	}()
-	if err != nil {
-		return
+	if e != nil {
+		public = true
 	}
 	var dataSourceTypes []string
 	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(project)
@@ -2097,6 +2103,11 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 			return
 		}
 	}
+	if public {
+		for i := range topContributors.Contributors {
+			topContributors.Contributors[i].Email = ""
+		}
+	}
 	topContributors.From = from
 	topContributors.To = to
 	topContributors.Limit = limit
@@ -2106,6 +2117,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.SortOrder = sortOrder
 	topContributors.User = username
 	topContributors.Scope = project
+	topContributors.Public = public
 	return
 }
 
@@ -2138,11 +2150,12 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	topContributors := &models.TopContributorsFlatOutput{}
 	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	public := false
+	apiName, project, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
@@ -2154,12 +2167,13 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 				project,
 				username,
 				len(topContributors.Contributors),
+				public,
 				err,
 			),
 		)
 	}()
-	if err != nil {
-		return
+	if e != nil {
+		public = true
 	}
 	var dataSourceTypes []string
 	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(project)
@@ -2179,10 +2193,14 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			return
 		}
 	}
+	if public {
+		for i := range topContributors.Contributors {
+			topContributors.Contributors[i].Email = ""
+		}
+	}
 	hdr := []string{
 		"uuid",
 		"name",
-		"email",
 		"organization",
 		"git_commits",
 		"git_lines_of_code_added",
@@ -2211,6 +2229,9 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_pull_request_prs_closed",
 		"bugzilla_issues_created",
 	}
+	if !public {
+		hdr = append(hdr, "email")
+	}
 	buffer := &bytes.Buffer{}
 	writer := csv.NewWriter(buffer)
 	err = writer.Write(hdr)
@@ -2222,7 +2243,6 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		row := []string{
 			contributor.UUID,
 			contributor.Name,
-			contributor.Email,
 			contributor.Organization,
 			strconv.FormatInt(contributor.GitCommits, 10),
 			strconv.FormatInt(contributor.GitLinesOfCodeAdded, 10),
@@ -2250,6 +2270,9 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatInt(contributor.GithubPullRequestsOpen, 10),
 			strconv.FormatInt(contributor.GithubPullRequestsClosed, 10),
 			strconv.FormatInt(contributor.BugzillaIssuesCreated, 10),
+		}
+		if !public {
+			row = append(row, contributor.Email)
 		}
 		err = writer.Write(row)
 		if err != nil {

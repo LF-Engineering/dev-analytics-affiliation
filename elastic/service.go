@@ -946,7 +946,13 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		fields[dataSourceType] = dsFields
 		if mainPattern == "" {
 			for column, columnStr := range dsFields {
-				if column == sortField {
+				if column == sortField || (column == "git_commits" && sortField == "") {
+					if sortField == "" {
+						sortField = column
+					}
+					if sortOrder == "" {
+						sortOrder = "desc"
+					}
 					mainPattern = patterns[i]
 					mainDataSourceType = dataSourceType
 					mainColumn = columnStr

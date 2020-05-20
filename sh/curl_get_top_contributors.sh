@@ -1,4 +1,5 @@
 #!/bin/bash
+export SKIP_TOKEN=1
 . ./sh/shared.sh
 from=''
 if [ ! -z "$2" ]
@@ -36,10 +37,21 @@ then
   sortOrder=$(rawurlencode "${8}")
 fi
 
-if [ ! -z "$DEBUG" ]
+if [ -z "${JWT_TOKEN}" ]
 then
-  echo curl -i -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
-  curl -i -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  if [ ! -z "$DEBUG" ]
+  then
+    echo curl -i -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+    curl -i -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  else
+    curl -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  fi
 else
-  curl -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  if [ ! -z "$DEBUG" ]
+  then
+    echo curl -i -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+    curl -i -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  else
+    curl -s -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -H "Authorization: Bearer ${JWT_TOKEN}" -XGET "${API_URL}/v1/affiliation/${project}/top_contributors?from=${from}&to=${to}&limit=${limit}&offset=${offset}&search=${search}&sort_field=${sortField}&sort_order=${sortOrder}"
+  fi
 fi

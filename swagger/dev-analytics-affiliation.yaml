@@ -71,7 +71,7 @@ paths:
         - get
         - csv
       parameters:
-        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/optional-auth'
         - $ref: '#/parameters/project-slug'
         - $ref: '#/parameters/unix-millis-from'
         - $ref: '#/parameters/unix-millis-to'
@@ -111,7 +111,7 @@ paths:
         - top
         - get
       parameters:
-        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/optional-auth'
         - $ref: '#/parameters/project-slug'
         - $ref: '#/parameters/unix-millis-from'
         - $ref: '#/parameters/unix-millis-to'
@@ -1246,6 +1246,10 @@ parameters:
     in: header
     type: string
     required: true
+  optional-auth:
+    name: Authorization
+    in: header
+    type: string
   project-slug:
     name: projectSlug
     in: path
@@ -1923,6 +1927,10 @@ definitions:
       sort_order:
         type: string
         example: desc
+      public:
+        type: boolean
+        x-omitempty: false
+        example: false
       data_source_types:
         type: array
         items:
