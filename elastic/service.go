@@ -294,8 +294,8 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 		}
 		err = fmt.Errorf("Method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s\n", method, url, resp.StatusCode, query, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
-		if strings.Contains(err.Error(), " Unknown index ") {
-			log.Warn(fmt.Sprintf("unknown index for query: %s\n", query))
+		if strings.Contains(err.Error(), " Unknown index ") || strings.Contains(err.Error(), " Unknown column ") {
+			log.Warn(fmt.Sprintf("unknown index or column: %v for query: %s\n", err, query))
 			err = nil
 			drop = true
 		}
