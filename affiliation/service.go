@@ -76,7 +76,7 @@ type Service interface {
 
 	// Internal methods
 	getPemCert(*jwt.Token, string) (string, error)
-	checkToken(string) (string, error)
+	checkToken(string) (string, bool, error)
 	checkTokenAndPermission(interface{}) (string, string, string, error)
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
 }
@@ -151,7 +151,7 @@ func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, erro
 	return cert, nil
 }
 
-func (s *service) checkToken(tokenStr string) (username string, err error) {
+func (s *service) checkToken(tokenStr string) (username string, agw bool, err error) {
 	if !strings.HasPrefix(tokenStr, "Bearer ") {
 		err = fmt.Errorf("Authorization header should start with 'Bearer '")
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
@@ -186,7 +186,6 @@ func (s *service) checkToken(tokenStr string) (username string, err error) {
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
-	agw := false
 	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(auth0Domain, true)
 	if !checkIss {
 		checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer("https://linuxfoundation.auth0.com/", true)
@@ -363,12 +362,13 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		return
 	}
 	// Validate JWT token, final outcome is the LFID of current authorized user
-	username, err = s.checkToken(auth)
+	agw := false
+	username, agw, err = s.checkToken(auth)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
-	if username != "internal-api-user" {
+	if !agw {
 		// Check if that user can manage identities for given project/scope
 		var allowed bool
 		allowed, err = s.apiDB.CheckIdentityManagePermission(username, project, nil)
