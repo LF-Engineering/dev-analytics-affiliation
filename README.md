@@ -113,6 +113,7 @@ API is deployed on teh LF both test and prod LF Kubernetes clusters.
 
 # JWT token
 
+- You can generate special API user token via `./sh/get_token.sh prod` (can be used for testing and to access DA-affiliation API from other services).
 - To actually execute any API call from commandline you will need JWT token (it expires after 24 hours), to get that token value you need to:
   - Go to lfanalytics.io or insights.test.platform.linuxfoundation.org (depending which environment token is needed), sign out if your are signed in.
   - Sign in again.

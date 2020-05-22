@@ -186,31 +186,44 @@ func (s *service) checkToken(tokenStr string) (username string, err error) {
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
 		return
 	}
+	agw := false
 	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(auth0Domain, true)
 	if !checkIss {
-		err = fmt.Errorf("invalid issuer: '%s' != '%s'", token.Claims.(jwt.MapClaims)["iss"], auth0Domain)
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-		return
+		checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer("https://linuxfoundation.auth0.com/", true)
+		if !checkIss {
+			err = fmt.Errorf("invalid issuer: '%s' != '%s'", token.Claims.(jwt.MapClaims)["iss"], auth0Domain)
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+			return
+		}
+		agw = true
 	}
 	aud := os.Getenv("AUTH0_CLIENT_ID")
 	checkAud := token.Claims.(jwt.MapClaims).VerifyAudience(aud, true)
 	if !checkAud {
-		err = fmt.Errorf("invalid audience: '%s' != '%s'", token.Claims.(jwt.MapClaims)["aud"], aud)
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-		return
+		checkAud := token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.platform.linuxfoundation.org/", true)
+		if !checkAud {
+			err = fmt.Errorf("invalid audience: '%s' != '%s'", token.Claims.(jwt.MapClaims)["aud"], aud)
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+			return
+		}
+		agw = true
 	}
-	ucl := os.Getenv("AUTH0_USERNAME_CLAIM")
-	iusername, ok := token.Claims.(jwt.MapClaims)[ucl]
-	if !ok {
-		err = fmt.Errorf("invalid user name claim: '%s', not present in %+v", ucl, token.Claims.(jwt.MapClaims))
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-		return
-	}
-	username, ok = iusername.(string)
-	if !ok {
-		err = fmt.Errorf("invalid user name: '%+v': is not string", iusername)
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-		return
+	if agw {
+		username = "internal-api-user"
+	} else {
+		ucl := os.Getenv("AUTH0_USERNAME_CLAIM")
+		iusername, ok := token.Claims.(jwt.MapClaims)[ucl]
+		if !ok {
+			err = fmt.Errorf("invalid user name claim: '%s', not present in %+v", ucl, token.Claims.(jwt.MapClaims))
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+			return
+		}
+		username, ok = iusername.(string)
+		if !ok {
+			err = fmt.Errorf("invalid user name: '%+v': is not string", iusername)
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+			return
+		}
 	}
 	return
 }
@@ -355,15 +368,18 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
-	// Check if that user can manage identities for given project/scope
-	allowed, err := s.apiDB.CheckIdentityManagePermission(username, project, nil)
-	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
-		return
-	}
-	if !allowed {
-		err = errs.Wrap(errs.New(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
-		return
+	if username != "internal-api-user" {
+		// Check if that user can manage identities for given project/scope
+		var allowed bool
+		allowed, err = s.apiDB.CheckIdentityManagePermission(username, project, nil)
+		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+			return
+		}
+		if !allowed {
+			err = errs.Wrap(errs.New(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+			return
+		}
 	}
 	return
 }
