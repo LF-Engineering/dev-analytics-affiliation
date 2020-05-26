@@ -686,7 +686,7 @@ func (s *ServiceStruct) JSONEscape(str string) string {
 
 // QueryOut - display DB query
 func (s *ServiceStruct) QueryOut(query string, args ...interface{}) {
-	log.Info(query)
+	log.Warn(query)
 	if len(args) > 0 {
 		s := ""
 		for vi, vv := range args {
@@ -701,7 +701,7 @@ func (s *ServiceStruct) QueryOut(query string, args ...interface{}) {
 				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
 			}
 		}
-		log.Info("[" + s + "]")
+		log.Warn("[" + s + "]")
 	}
 }
 

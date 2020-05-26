@@ -4,9 +4,9 @@ BUILD_COMMIT=`git rev-parse HEAD`
 BUILD_HOSTNAME=`uname -a | sed "s/ /_/g"`
 BUILD_GO_VERSION=`go version | sed "s/ /_/g"`
 # Turn off race conditions detector
-LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(BUILD_COMMIT) -X main.BuildHostName=$(BUILD_HOSTNAME) -X main.BuildGoVersion=$(BUILD_GO_VERSION)"
+# LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(BUILD_COMMIT) -X main.BuildHostName=$(BUILD_HOSTNAME) -X main.BuildGoVersion=$(BUILD_GO_VERSION)"
 # For detecting race conditions
-# LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(BUILD_COMMIT) -X main.BuildHostName=$(BUILD_HOSTNAME) -X main.BuildGoVersion=$(BUILD_GO_VERSION)" -race
+LDFLAGS=-ldflags "-s -w -extldflags '-static' -X main.BuildStamp=$(BUILD_TIME) -X main.GitHash=$(BUILD_COMMIT) -X main.BuildHostName=$(BUILD_HOSTNAME) -X main.BuildGoVersion=$(BUILD_GO_VERSION)" -race
 GO_BIN_FILES=main.go
 GO_FMT=gofmt -s -w
 GO_VET=go vet
