@@ -3629,23 +3629,28 @@ func (s *service) MergeAll() (status string, err error) {
 		}
 	}
 	nMerges := len(merges)
-	log.Info(fmt.Sprintf("UUIDs to merge: %d\n", nMerges))
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
-		}
-	}()
+	log.Warn(fmt.Sprintf("UUIDs to merge: %d\n", nMerges))
+	mtxMap := make(map[string]*sync.Mutex)
 	mergeFunc := func(ch chan error, i int, fromUUID, toUUID string) (err error) {
 		defer func() {
 			if ch != nil {
 				ch <- err
 			}
 		}()
+		key := toUUID
+		if mtx != nil {
+			mtx.Lock()
+			m, ok := mtxMap[key]
+			if !ok {
+				mtxMap[key] = &sync.Mutex{}
+				m = mtxMap[key]
+			}
+			mtx.Unlock()
+			m.Lock()
+			defer func() {
+				m.Unlock()
+			}()
+		}
 		_, err = s.GetUniqueIdentity(fromUUID, true, nil)
 		if err != nil {
 			return
@@ -3662,6 +3667,15 @@ func (s *service) MergeAll() (status string, err error) {
 		if err != nil {
 			return
 		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
 		archivedDate := time.Now()
 		_, err = s.ArchiveUUID(fromUUID, &archivedDate, tx)
 		if err != nil {
@@ -3743,7 +3757,15 @@ func (s *service) MergeAll() (status string, err error) {
 				return
 			}
 		}
-		log.Info(fmt.Sprintf("%d/%d merges\n", i, nMerges))
+		/*
+				err = tx.Commit()
+				if err != nil {
+					return
+				}
+			  // Set tx to nil, so deferred rollback will not happen
+			  tx = nil
+		*/
+		log.Warn(fmt.Sprintf("%d/%d merges\n", i, nMerges))
 		return
 	}
 	if thrN > 1 {
@@ -3779,14 +3801,7 @@ func (s *service) MergeAll() (status string, err error) {
 			}
 		}
 	}
-	/*
-		err = tx.Commit()
-		if err != nil {
-			return
-		}
-	*/
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
+	status = fmt.Sprintf("Merged %d profiles", nMerges)
 	return
 }
 
