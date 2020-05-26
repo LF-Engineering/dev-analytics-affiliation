@@ -2359,11 +2359,12 @@ func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeA
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	//esUUID, esIsBot, err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
-	//if err != nil {
-	//	err = errs.Wrap(err, apiName)
-	//	return
-	//}
-	status.Text = "OK"
+	stat := ""
+	stat, err = s.shDB.MergeAll()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	status.Text = stat
 	return
 }

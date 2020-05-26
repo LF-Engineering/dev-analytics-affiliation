@@ -133,6 +133,7 @@ type Service interface {
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
+	MergeAll() (string, error)
 }
 
 type service struct {
@@ -3482,6 +3483,72 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 			return
 		}
 	}
+	return
+}
+
+func (s *service) MergeAll() (status string, err error) {
+	log.Info("MergeAll")
+	status = ""
+	defer func() {
+		log.Info(fmt.Sprintf("MergeAll(exit): status:%s err:%v", status, err))
+	}()
+	var rows *sql.Rows
+	rows, err = s.Query(s.db, nil, "select email from (select email, count(distinct uuid) as cnt from identities where email like '%_@_%' group by email order by cnt desc) sub where sub.cnt > 1")
+	if err != nil {
+		return
+	}
+	email := ""
+	emails := []string{}
+	for rows.Next() {
+		err = rows.Scan(&email)
+		if err != nil {
+			return
+		}
+		emails = append(emails, email)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	// xxx
+	status = fmt.Sprintf("Emails to merge: %d\n", len(emails))
+	merges := [][2]string{}
+	for _, email := range emails {
+		rows, err = s.Query(s.db, nil, "select distinct uuid from identities where email = ?", email)
+		if err != nil {
+			return
+		}
+		toUUID := ""
+		uuid := ""
+		uuids := []string{}
+		for rows.Next() {
+			err = rows.Scan(&uuid)
+			if err != nil {
+				return
+			}
+			if toUUID == "" {
+				toUUID = uuid
+			} else {
+				uuids = append(uuids, uuid)
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		for _, uuid := range uuids {
+			merges = append(merges, [2]string{uuid, toUUID})
+		}
+	}
+	status += fmt.Sprintf("UUIDs to merge: %d\n", len(merges))
 	return
 }
 
