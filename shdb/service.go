@@ -3628,7 +3628,165 @@ func (s *service) MergeAll() (status string, err error) {
 			}
 		}
 	}
-	log.Info(fmt.Sprintf("UUIDs to merge: %d\n", len(merges)))
+	nMerges := len(merges)
+	log.Info(fmt.Sprintf("UUIDs to merge: %d\n", nMerges))
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	// Rollback unless tx was set to nil after successful commit
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	mergeFunc := func(ch chan error, i int, fromUUID, toUUID string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		_, err = s.GetUniqueIdentity(fromUUID, true, nil)
+		if err != nil {
+			return
+		}
+		toUU, err := s.GetUniqueIdentity(toUUID, true, nil)
+		if err != nil {
+			return
+		}
+		from, err := s.GetProfile(fromUUID, false, nil)
+		if err != nil {
+			return
+		}
+		to, err := s.GetProfile(toUUID, false, nil)
+		if err != nil {
+			return
+		}
+		archivedDate := time.Now()
+		_, err = s.ArchiveUUID(fromUUID, &archivedDate, tx)
+		if err != nil {
+			return
+		}
+		_, err = s.ArchiveUUID(toUUID, &archivedDate, tx)
+		if err != nil {
+			return
+		}
+		if from != nil && to != nil {
+			if to.Name == nil || (to.Name != nil && *to.Name == "") {
+				to.Name = from.Name
+			}
+			if to.Email == nil || (to.Email != nil && *to.Email == "") {
+				to.Email = from.Email
+			}
+			if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
+				to.CountryCode = from.CountryCode
+			}
+			if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+				to.Gender = from.Gender
+				to.GenderAcc = from.GenderAcc
+			}
+			if from.IsBot != nil && *from.IsBot == 1 {
+				isBot := int64(1)
+				to.IsBot = &isBot
+			}
+			// Update profile and refresh after update
+			to, err = s.EditProfile(to, true, tx)
+			if err != nil {
+				return
+			}
+		}
+		identities, err := s.GetUniqueIdentityIdentities(fromUUID, false, tx)
+		if err != nil {
+			return
+		}
+		for _, identity := range identities {
+			err = s.MoveIdentityToUniqueIdentity(identity, toUU, false, tx)
+			if err != nil {
+				return
+			}
+		}
+		enrollments, err := s.GetUniqueIdentityEnrollments(fromUUID, false, tx)
+		if err != nil {
+			return
+		}
+		for _, rol := range enrollments {
+			rols := []*models.EnrollmentDataOutput{}
+			rols, err = s.FindEnrollments(
+				[]string{"uuid", "organization_id", "start", "end"},
+				[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End},
+				[]bool{false, false, true, true},
+				false,
+				tx,
+			)
+			if err != nil {
+				return
+			}
+			if len(rols) == 0 {
+				err = s.MoveEnrollmentToUniqueIdentity(rol, toUU, tx)
+				if err != nil {
+					return
+				}
+			}
+		}
+		// Delete unique identity archiving it to uidentities_archive
+		err = s.DeleteUniqueIdentity(fromUUID, false, true, nil, tx)
+		if err != nil {
+			return
+		}
+		orgs, err := s.FindUniqueIdentityOrganizations(toUUID, false, tx)
+		if err != nil {
+			return
+		}
+		for _, org := range orgs {
+			err = s.MergeEnrollments(toUU, org, tx)
+			if err != nil {
+				return
+			}
+		}
+		log.Info(fmt.Sprintf("%d/%d merges\n", i, nMerges))
+		return
+	}
+	if thrN > 1 {
+		ch := make(chan error)
+		nThreads := 0
+		for i, data := range merges {
+			fromUUID := data[0]
+			toUUID := data[1]
+			go mergeFunc(ch, i, fromUUID, toUUID)
+			nThreads++
+			if nThreads == thrN {
+				err = <-ch
+				nThreads--
+				if err != nil {
+					return
+				}
+			}
+		}
+		for nThreads > 0 {
+			err = <-ch
+			nThreads--
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		for i, data := range merges {
+			fromUUID := data[0]
+			toUUID := data[1]
+			err = mergeFunc(nil, i, fromUUID, toUUID)
+			if err != nil {
+				return
+			}
+		}
+	}
+	/*
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+	*/
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	return
 }
 
