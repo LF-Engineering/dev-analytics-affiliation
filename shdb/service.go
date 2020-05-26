@@ -2,6 +2,7 @@ package shdb
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -3497,14 +3498,23 @@ func (s *service) MergeAll() (status string, err error) {
 	if err != nil {
 		return
 	}
+	packSize := 1000
 	email := ""
-	emails := []string{}
+	emailsPacks := [][]interface{}{}
+	emails := []interface{}{}
+	n := 0
 	for rows.Next() {
 		err = rows.Scan(&email)
 		if err != nil {
 			return
 		}
 		emails = append(emails, email)
+		n++
+		if n == packSize {
+			emailsPacks = append(emailsPacks, emails)
+			emails = []interface{}{}
+			n = 0
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -3514,30 +3524,53 @@ func (s *service) MergeAll() (status string, err error) {
 	if err != nil {
 		return
 	}
-	// xxx
-	nEmails := len(emails)
-	status = fmt.Sprintf("Emails to merge: %d\n", len(emails))
+	if n > 0 {
+		emailsPacks = append(emailsPacks, emails)
+	}
+	nEmailsPacks := len(emailsPacks)
+	log.Info(fmt.Sprintf("Emails %d-packs to merge: %d\n", packSize, nEmailsPacks))
+	nEmails := 0
+	for _, emails := range emailsPacks {
+		nEmails += len(emails)
+	}
+	log.Info(fmt.Sprintf("Emails to merge: %d\n", nEmails))
 	merges := [][2]string{}
-	for i, email := range emails {
-    // TODO: replace with IN(...) of 1000 packs.
-    // Possibly add 'create index identity_email_idx on identities(email);' if proves faster
-		rows, err = s.Query(s.db, nil, "select uuid from identities where email = ?", email)
+	thrN := runtime.NumCPU()
+	runtime.GOMAXPROCS(thrN)
+	var mtx *sync.Mutex
+	if thrN > 1 {
+		mtx = &sync.Mutex{}
+	}
+	processPack := func(ch chan error, i int, emails []interface{}) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		// Possibly add 'create index identity_email_idx on identities(email);' if proves faster
+		query := "select email, uuid from identities where email in ("
+		for range emails {
+			query += "?,"
+		}
+		query = query[0:len(query)-1] + ")"
+		var rows *sql.Rows
+		rows, err = s.Query(s.db, nil, query, emails...)
 		if err != nil {
 			return
 		}
-		toUUID := ""
 		uuid := ""
-		uuids := []string{}
+		email := ""
+		uuids := make(map[string]map[string]struct{})
 		for rows.Next() {
-			err = rows.Scan(&uuid)
+			err = rows.Scan(&email, &uuid)
 			if err != nil {
 				return
 			}
-			if toUUID == "" {
-				toUUID = uuid
-			} else {
-				uuids = append(uuids, uuid)
+			_, ok := uuids[email]
+			if !ok {
+				uuids[email] = make(map[string]struct{})
 			}
+			uuids[email][uuid] = struct{}{}
 		}
 		err = rows.Err()
 		if err != nil {
@@ -3547,12 +3580,55 @@ func (s *service) MergeAll() (status string, err error) {
 		if err != nil {
 			return
 		}
-		for _, uuid := range uuids {
-			merges = append(merges, [2]string{uuid, toUUID})
+		if mtx != nil {
+			mtx.Lock()
 		}
-		fmt.Printf("%d/%d %s\n", i, nEmails, email)
+		for _, ids := range uuids {
+			toUUID := ""
+			for uuid := range ids {
+				if toUUID == "" {
+					toUUID = uuid
+					continue
+				}
+				merges = append(merges, [2]string{uuid, toUUID})
+			}
+		}
+		if mtx != nil {
+			mtx.Unlock()
+		}
+		log.Info(fmt.Sprintf("%d/%d packs %d emails\n", i, nEmailsPacks, len(emails)))
+		return
 	}
-	status += fmt.Sprintf("UUIDs to merge: %d\n", len(merges))
+	if thrN > 1 {
+		ch := make(chan error)
+		nThreads := 0
+		for i, emails := range emailsPacks {
+			go processPack(ch, i, emails)
+			nThreads++
+			if nThreads == thrN {
+				err = <-ch
+				nThreads--
+				if err != nil {
+					return
+				}
+			}
+		}
+		for nThreads > 0 {
+			err = <-ch
+			nThreads--
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		for i, emails := range emailsPacks {
+			err = processPack(nil, i, emails)
+			if err != nil {
+				return
+			}
+		}
+	}
+	log.Info(fmt.Sprintf("UUIDs to merge: %d\n", len(merges)))
 	return
 }
 
