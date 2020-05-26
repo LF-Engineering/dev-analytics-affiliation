@@ -3515,10 +3515,13 @@ func (s *service) MergeAll() (status string, err error) {
 		return
 	}
 	// xxx
+	nEmails := len(emails)
 	status = fmt.Sprintf("Emails to merge: %d\n", len(emails))
 	merges := [][2]string{}
-	for _, email := range emails {
-		rows, err = s.Query(s.db, nil, "select distinct uuid from identities where email = ?", email)
+	for i, email := range emails {
+    // TODO: replace with IN(...) of 1000 packs.
+    // Possibly add 'create index identity_email_idx on identities(email);' if proves faster
+		rows, err = s.Query(s.db, nil, "select uuid from identities where email = ?", email)
 		if err != nil {
 			return
 		}
@@ -3547,6 +3550,7 @@ func (s *service) MergeAll() (status string, err error) {
 		for _, uuid := range uuids {
 			merges = append(merges, [2]string{uuid, toUUID})
 		}
+		fmt.Printf("%d/%d %s\n", i, nEmails, email)
 	}
 	status += fmt.Sprintf("UUIDs to merge: %d\n", len(merges))
 	return
