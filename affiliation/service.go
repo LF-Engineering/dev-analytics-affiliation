@@ -71,6 +71,7 @@ type Service interface {
 	GetTopContributorsCSV(ctx context.Context, in *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
 	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
+	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -357,6 +358,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		}
 		project = params.ProjectSlug
 		apiName = "GetTopContributorsCSV"
+	case *affiliation.PutMergeAllParams:
+		auth = params.Authorization
+		apiName = "PutMergeAll"
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
@@ -2333,5 +2337,33 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 		return
 	}
 	status.Text = fmt.Sprintf("Requested: Add: %d, Delete:%d, Done: Added: %d, Deleted: %d, Updated: %d", len(params.Body.Add), len(params.Body.Del), nAdded, nDeleted, nUpdated)
+	return
+}
+
+// PutMergeAll: API
+// ===========================================================================
+// Find eny identities with the same email belonging to different profiles
+// Then merge such profiles
+// ===========================================================================
+// /v1/affiliation/merge_all:
+func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeAllParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PutMergeAll")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PutMergeAll(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	// Do the actual API call
+	//esUUID, esIsBot, err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
+	//if err != nil {
+	//	err = errs.Wrap(err, apiName)
+	//	return
+	//}
+	status.Text = "OK"
 	return
 }

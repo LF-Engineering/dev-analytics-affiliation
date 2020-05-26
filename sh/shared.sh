@@ -5,7 +5,7 @@ then
   exit 1
 fi
 
-if [ -z "$1" ]
+if ( [ -z "${SKIP_PROJECT}" ] && [ -z "$1" ] )
 then
   echo "$0: please specify project slug as a 1st arg"
   exit 2

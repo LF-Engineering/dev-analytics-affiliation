@@ -893,6 +893,36 @@ paths:
           type: string
           required: true
           description: Identity ID to be deleted
+  /affiliation/merge_all:
+    put:
+      summary: Detect and merge all profiles using their identities emails
+      operationId: putMergeAll
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully merged profiles"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - merge
+      parameters:
+        - $ref: '#/parameters/auth'
   /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID

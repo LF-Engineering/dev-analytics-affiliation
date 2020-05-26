@@ -908,4 +908,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPostBulkUpdateOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutMergeAllHandler = affiliation.PutMergeAllHandlerFunc(
+		func(params affiliation.PutMergeAllParams) middleware.Responder {
+			log.Info("PutMergeAllHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutMergeAllHandlerFunc: " + info)
+
+			result, err := service.PutMergeAll(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutMergeAllHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutMergeAllHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutMergeAllOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }
