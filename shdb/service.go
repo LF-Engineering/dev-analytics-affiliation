@@ -3508,7 +3508,7 @@ func (s *service) MergeAll() (status string, err error) {
 		if err != nil {
 			return
 		}
-		emails = append(emails, email)
+		emails = append(emails, strings.TrimSpace(strings.ToLower(email)))
 		n++
 		if n == packSize {
 			emailsPacks = append(emailsPacks, emails)
@@ -3534,7 +3534,7 @@ func (s *service) MergeAll() (status string, err error) {
 		nEmails += len(emails)
 	}
 	log.Warn(fmt.Sprintf("Emails to merge: %d\n", nEmails))
-	merges := [][]string{}
+	merges := map[string]map[string]struct{}{}
 	thrN := runtime.NumCPU()
 	runtime.GOMAXPROCS(thrN)
 	var mtx *sync.Mutex
@@ -3566,6 +3566,7 @@ func (s *service) MergeAll() (status string, err error) {
 			if err != nil {
 				return
 			}
+			email = strings.TrimSpace(strings.ToLower(email))
 			_, ok := uuids[email]
 			if !ok {
 				uuids[email] = make(map[string]struct{})
@@ -3583,12 +3584,11 @@ func (s *service) MergeAll() (status string, err error) {
 		if mtx != nil {
 			mtx.Lock()
 		}
-		for _, ids := range uuids {
-			mergesAry := []string{}
+		for email, ids := range uuids {
+			merges[email] = make(map[string]struct{})
 			for uuid := range ids {
-				mergesAry = append(mergesAry, uuid)
+				merges[email][uuid] = struct{}{}
 			}
-			merges = append(merges, mergesAry)
 		}
 		if mtx != nil {
 			mtx.Unlock()
@@ -3626,13 +3626,59 @@ func (s *service) MergeAll() (status string, err error) {
 			}
 		}
 	}
+	nMergeOps := len(merges)
+	if nMergeOps == 0 {
+		status = "Nothing to merge"
+		return
+	}
 	nMerges := 0
 	for _, uuids := range merges {
 		nMerges += len(uuids) - 1
 	}
-	nMergeOps := len(merges)
-	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations\n", nMerges, nMergeOps))
-	mergeFunc := func(ch chan error, i int, uuids []string) (err error) {
+	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (before dedup)\n", nMerges, nMergeOps))
+	iter := 0
+	for {
+		iter++
+		hits := 0
+		for email, uuids := range merges {
+			uuid := ""
+			for u := range uuids {
+				uuid = u
+				break
+			}
+			for email2, uuids2 := range merges {
+				if email2 == email {
+					continue
+				}
+				_, ok := merges[email2][uuid]
+				if ok {
+					hits++
+					//fmt.Printf("iter #%d (hits %d) %s present in %+v\n", iter, hits, uuid, uuids2)
+					for uuid2 := range uuids2 {
+						merges[email][uuid2] = struct{}{}
+					}
+					delete(merges, email2)
+				}
+			}
+		}
+		log.Warn(fmt.Sprintf("Dedup step #%d finished with %d hits\n", iter, hits))
+		if hits == 0 {
+			break
+		}
+		if iter > 50 {
+			log.Warn("Wasn't able to fully dedup in 50 steps, using single-threaded merge to avoid transaction deadlocks\n")
+			thrN = 1
+			break
+		}
+	}
+	nMergeOps = len(merges)
+	nMerges = 0
+	for _, uuids := range merges {
+		nMerges += len(uuids) - 1
+	}
+	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (after dedup in %d steps)\n", nMerges, nMergeOps, iter))
+	currIndex := 0
+	mergeFunc := func(ch chan error, email string, uuids []string) (err error) {
 		toUUID := uuids[0]
 		defer func() {
 			if ch != nil {
@@ -3766,47 +3812,73 @@ func (s *service) MergeAll() (status string, err error) {
 				}
 			}
 		}
-		/*
-				err = tx.Commit()
-				if err != nil {
-					return
-				}
-			  // Set tx to nil, so deferred rollback will not happen
-			  tx = nil
-		*/
-		log.Warn(fmt.Sprintf("%d/%d merges (%d profiles)\n", i, nMergeOps, nUUIDs))
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
+		if mtx != nil {
+			mtx.Lock()
+		}
+		currIndex++
+		i := currIndex
+		if mtx != nil {
+			mtx.Unlock()
+		}
+		log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles)\n", i, nMergeOps, email, nUUIDs))
 		return
 	}
+	nErrs := 0
+	errsStr := ""
 	if thrN > 1 {
 		ch := make(chan error)
 		nThreads := 0
-		for i, uuids := range merges {
-			go mergeFunc(ch, i, uuids[:])
+		for email, uuidsMap := range merges {
+			uuids := []string{}
+			for uuid := range uuidsMap {
+				uuids = append(uuids, uuid)
+			}
+			go mergeFunc(ch, email, uuids[:])
 			nThreads++
 			if nThreads == thrN {
-				err = <-ch
+				e := <-ch
 				nThreads--
-				if err != nil {
-					return
+				if e != nil {
+					log.Warn(e.Error())
+					errsStr += e.Error() + " "
+					nErrs++
 				}
 			}
 		}
 		for nThreads > 0 {
-			err = <-ch
+			e := <-ch
 			nThreads--
-			if err != nil {
-				return
+			if e != nil {
+				log.Warn(e.Error())
+				errsStr += e.Error() + " "
+				nErrs++
 			}
 		}
 	} else {
-		for i, uuids := range merges {
-			err = mergeFunc(nil, i, uuids[:])
-			if err != nil {
-				return
+		for email, uuidsMap := range merges {
+			uuids := []string{}
+			for uuid := range uuidsMap {
+				uuids = append(uuids, uuid)
+			}
+			e := mergeFunc(nil, email, uuids)
+			if e != nil {
+				log.Warn(e.Error())
+				errsStr += e.Error() + " "
+				nErrs++
 			}
 		}
 	}
-	status = fmt.Sprintf("Merged %d profiles", nMerges)
+	if nErrs > 0 {
+		status = fmt.Sprintf("Merged profiles, %d errors: %s", nErrs, errsStr)
+	} else {
+		status = fmt.Sprintf("Merged %d profiles", nMerges)
+	}
 	return
 }
 
