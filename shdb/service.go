@@ -3515,20 +3515,55 @@ func (s *service) HideEmails() (status string, err error) {
 		column := update[1]
 		re := "^[^@]+@[^@]+$"
 		updateSQL := fmt.Sprintf(
-			"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1) where %[2]s regexp '%[3]s'",
+			"update %[1]s set %[2]s = substring_index(%[2]s, '@', 1) where %[2]s regexp '%[3]s'",
 			table,
 			column,
 			re,
 		)
 		var res sql.Result
+		conflict := false
 		res, err = s.Exec(s.db, nil, updateSQL)
 		if err != nil {
-			return
+			if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+				return err
+			}
+			updateSQL := fmt.Sprintf(
+				"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1) where %[2]s regexp '%[3]s'",
+				table,
+				column,
+				re,
+			)
+			res, err = s.Exec(s.db, nil, updateSQL)
+			if err != nil {
+				return
+			}
+			conflict = true
 		}
 		affected := int64(0)
 		affected, err = res.RowsAffected()
 		if err != nil {
 			return
+		}
+		if conflict {
+			updateSQL := fmt.Sprintf(
+				"update %[1]s set %[2]s = concat(substring_index(%[2]s, '@', 1), '-redacted') where %[2]s regexp '%[3]s'",
+				table,
+				column,
+				re,
+			)
+			res, err = s.Exec(s.db, nil, updateSQL)
+			if err != nil {
+				return
+			}
+			affected2 := int64(0)
+			affected2, err = res.RowsAffected()
+			if err != nil {
+				return
+			}
+			if affected2 > 0 {
+				affected += affected2
+				log.Warn(fmt.Sprintf("%d conflicts on column %s table %s, added '-redacted' suffix", affected2, column, table))
+			}
 		}
 		if mtx != nil {
 			mtx.Lock()

@@ -201,7 +201,10 @@ func (s *service) checkToken(tokenStr string) (username string, agw bool, err er
 	aud := os.Getenv("AUTH0_CLIENT_ID")
 	checkAud := token.Claims.(jwt.MapClaims).VerifyAudience(aud, true)
 	if !checkAud {
-		checkAud := token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.platform.linuxfoundation.org/", true)
+		checkAud = token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.platform.linuxfoundation.org/", true)
+		if !checkAud {
+			checkAud = token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.test.platform.linuxfoundation.org/", true)
+		}
 		if !checkAud {
 			err = fmt.Errorf("invalid audience: '%s' != '%s'", token.Claims.(jwt.MapClaims)["aud"], aud)
 			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")

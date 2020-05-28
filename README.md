@@ -35,7 +35,7 @@ You also need to have `ssaw` deployment address (you can use one from `SYNC_URL.
 
 Start API server using dockerized MariaDB and Postgres databases:
 
-- Start API server: `` ./sh/api.sh ``. Eventually: `` LOG_LEVEL=debug [N_CPUS=1|N|''] ONLYRUN=1 NOCHECKS=1 ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
+- Start API server: `` ./sh/api.sh ``. Eventually: `` LOG_LEVEL=debug [N_CPUS=1|N|''] ONLYRUN=1 NOCHECKS=1 AUTH0_DOMAIN="`cat helm/da-affiliation/secrets/AUTH0_DOMAIN.prod.secret`" ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
 - Call example clients:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh 'odpi/egeria' CNCF cncf.io 1 1 0 ``.
   - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_unique_identities.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a [0] ``.
