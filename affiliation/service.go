@@ -368,6 +368,12 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	case *affiliation.PutHideEmailsParams:
 		auth = params.Authorization
 		apiName = "PutHideEmails"
+	case *affiliation.GetAllAffiliationsParams:
+		auth = params.Authorization
+		apiName = "GetAllAffiliations"
+	case *affiliation.PostBulkUpdateParams:
+		auth = params.Authorization
+		apiName = "PostBulkUpdate"
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
@@ -2317,9 +2323,14 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.GetAllAffiliationsParams) (all *models.AllArrayOutput, err error) {
 	all = &models.AllArrayOutput{}
 	log.Info("GetAllAffiliations")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {
-		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
+		log.Info(fmt.Sprintf("GetAllAffiliations(exit): apiName:%s username:%s all:%d err:%v", apiName, username, len(all.Profiles), err))
 	}()
+	if err != nil {
+		return
+	}
 	all, err = s.shDBGitdm.GetAllAffiliations()
 	if err != nil {
 		return
@@ -2336,9 +2347,27 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 	nDeleted := 0
 	nUpdated := 0
 	log.Info(fmt.Sprintf("PostBulkUpdate: add:%d del:%d", len(params.Body.Add), len(params.Body.Del)))
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {
-		log.Info(fmt.Sprintf("PostBulkUpdate(exit): add:%d del:%d added:%d deleted:%d updated:%d status:%s err:%v", len(params.Body.Add), len(params.Body.Del), nAdded, nDeleted, nUpdated, status.Text, err))
+		log.Info(
+			fmt.Sprintf(
+				"PostBulkUpdate(exit): add:%d del:%d apiName:%s username:%s added:%d deleted:%d updated:%d status:%s err:%v",
+				len(params.Body.Add),
+				len(params.Body.Del),
+				apiName,
+				username,
+				nAdded,
+				nDeleted,
+				nUpdated,
+				status.Text,
+				err,
+			),
+		)
 	}()
+	if err != nil {
+		return
+	}
 	nAdded, nDeleted, nUpdated, err = s.shDBGitdm.BulkUpdate(params.Body.Add, params.Body.Del)
 	if err != nil {
 		return

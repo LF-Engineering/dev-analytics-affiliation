@@ -1232,6 +1232,8 @@ paths:
         - affiliation
         - all
         - get
+      parameters:
+        - $ref: '#/parameters/auth'
   /affiliation/bulk_update:
     post:
       summary: Bulk process updates to DB
@@ -1265,6 +1267,7 @@ paths:
         - bulk_update
         - post
       parameters:
+        - $ref: '#/parameters/auth'
         - name: body
           in: body
           required: true
