@@ -921,6 +921,7 @@ paths:
       tags:
         - affiliation
         - merge
+        - all
       parameters:
         - $ref: '#/parameters/auth'
   /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
@@ -1270,6 +1271,37 @@ paths:
           description: arrays of profiles to be added and/or deleted
           schema:
             $ref: "#/definitions/db-update"
+  /affiliation/hide_emails:
+    put:
+      summary: For any email found in non-email column, remove its @domain part
+      operationId: putHideEmails
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully hidden emails"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - hide_emails
+        - all
+      parameters:
+        - $ref: '#/parameters/auth'
 parameters:
   auth:
     name: Authorization

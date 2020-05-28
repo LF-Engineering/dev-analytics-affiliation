@@ -935,4 +935,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutMergeAllOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutHideEmailsHandler = affiliation.PutHideEmailsHandlerFunc(
+		func(params affiliation.PutHideEmailsParams) middleware.Responder {
+			log.Info("PutHideEmailsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutHideEmailsHandlerFunc: " + info)
+
+			result, err := service.PutHideEmails(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutHideEmailsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutHideEmailsHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutHideEmailsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

@@ -78,6 +78,8 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2000-01-01T00:00' end='2021-01-01T00:00' ./sh/curl_delete_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_merge_all.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_hide_emails.sh ``.
 - Some special utils:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.

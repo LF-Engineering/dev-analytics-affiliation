@@ -72,6 +72,7 @@ type Service interface {
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
 	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
+	PutHideEmails(ctx context.Context, in *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -361,6 +362,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	case *affiliation.PutMergeAllParams:
 		auth = params.Authorization
 		apiName = "PutMergeAll"
+	case *affiliation.PutHideEmailsParams:
+		auth = params.Authorization
+		apiName = "PutHideEmails"
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
@@ -2342,7 +2346,7 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 
 // PutMergeAll: API
 // ===========================================================================
-// Find eny identities with the same email belonging to different profiles
+// Find any identities with the same email belonging to different profiles
 // Then merge such profiles
 // ===========================================================================
 // /v1/affiliation/merge_all:
@@ -2366,5 +2370,36 @@ func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeA
 		return
 	}
 	status.Text = stat
+	return
+}
+
+// PutHideEmails: API
+// ===========================================================================
+// For all non-email columns on profiles and identities, if emails value is found
+// name@doman - remove '@domain' part and leave only 'name'
+// ===========================================================================
+// /v1/affiliation/merge_all:
+func (s *service) PutHideEmails(ctx context.Context, params *affiliation.PutHideEmailsParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PutHideEmails")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PutHideEmails(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	// Do the actual API call
+	/*
+		stat := ""
+		stat, err = s.shDB.HideEmails()
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+	*/
+	status.Text = "All emails hidden"
 	return
 }
