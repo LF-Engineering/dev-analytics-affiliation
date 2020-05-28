@@ -2392,14 +2392,12 @@ func (s *service) PutHideEmails(ctx context.Context, params *affiliation.PutHide
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	/*
-		stat := ""
-		stat, err = s.shDB.HideEmails()
-		if err != nil {
-			err = errs.Wrap(err, apiName)
-			return
-		}
-	*/
-	status.Text = "All emails hidden"
+	stat := ""
+	stat, err = s.shDB.HideEmails()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	status.Text = stat
 	return
 }

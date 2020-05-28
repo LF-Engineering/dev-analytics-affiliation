@@ -135,6 +135,7 @@ type Service interface {
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
 	MergeAll() (string, error)
+	HideEmails() (string, error)
 }
 
 type service struct {
@@ -3487,6 +3488,97 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	return
 }
 
+func (s *service) HideEmails() (status string, err error) {
+	log.Info("HideEmails")
+	status = ""
+	defer func() {
+		log.Info(fmt.Sprintf("HideEmails(exit): status:%s err:%v", status, err))
+	}()
+	updates := [][2]string{
+		{"profiles", "name"},
+		{"identities", "name"},
+		{"identities", "username"},
+	}
+	thrN := runtime.NumCPU()
+	runtime.GOMAXPROCS(thrN)
+	var mtx *sync.Mutex
+	if thrN > 1 {
+		mtx = &sync.Mutex{}
+	}
+	updateFunc := func(ch chan error, update [2]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		table := update[0]
+		column := update[1]
+		re := "^[^@]+@[^@]+$"
+		updateSQL := fmt.Sprintf(
+			"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1) where %[2]s regexp '%[3]s'",
+			table,
+			column,
+			re,
+		)
+		var res sql.Result
+		res, err = s.Exec(s.db, nil, updateSQL)
+		if err != nil {
+			return
+		}
+		affected := int64(0)
+		affected, err = res.RowsAffected()
+		if err != nil {
+			return
+		}
+		if mtx != nil {
+			mtx.Lock()
+		}
+		if status == "" {
+			status = fmt.Sprintf("Updated %d %s values on %s table, ", affected, column, table)
+		} else {
+			status += fmt.Sprintf("%d %s values on %s table, ", affected, column, table)
+		}
+		if mtx != nil {
+			mtx.Unlock()
+		}
+		return
+	}
+	ch := make(chan error)
+	nThreads := 0
+	if thrN > 0 {
+		for _, update := range updates {
+			go updateFunc(ch, update)
+			nThreads++
+			if nThreads == thrN {
+				err = <-ch
+				nThreads--
+				if err != nil {
+					return
+				}
+			}
+		}
+		for nThreads > 0 {
+			err = <-ch
+			nThreads--
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		for _, update := range updates {
+			err = updateFunc(nil, update)
+			if err != nil {
+				return
+			}
+		}
+	}
+	if len(status) > 2 {
+		status = status[0 : len(status)-2]
+	}
+	log.Warn(status)
+	return
+}
+
 func (s *service) MergeAll() (status string, err error) {
 	log.Info("MergeAll")
 	status = ""
@@ -3494,7 +3586,7 @@ func (s *service) MergeAll() (status string, err error) {
 		log.Info(fmt.Sprintf("MergeAll(exit): status:%s err:%v", status, err))
 	}()
 	var rows *sql.Rows
-	rows, err = s.Query(s.db, nil, "select email from (select email, count(distinct uuid) as cnt from identities where email like '%_@_%' group by email order by cnt desc) sub where sub.cnt > 1")
+	rows, err = s.Query(s.db, nil, "select email from (select email, count(distinct uuid) as cnt from identities where email regexp '^[^@]+@[^@]+$' group by email order by cnt desc) sub where sub.cnt > 1")
 	if err != nil {
 		return
 	}
@@ -3678,6 +3770,7 @@ func (s *service) MergeAll() (status string, err error) {
 	}
 	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (after dedup in %d steps)\n", nMerges, nMergeOps, iter))
 	currIndex := 0
+	actualMerges := 0
 	mergeFunc := func(ch chan error, email string, uuids []string) (err error) {
 		toUUID := uuids[0]
 		defer func() {
@@ -3697,6 +3790,7 @@ func (s *service) MergeAll() (status string, err error) {
 				tx.Rollback()
 			}
 		}()
+		didMerges := 0
 		nUUIDs := len(uuids)
 		for _, fromUUID := range uuids[1:] {
 			_, e := s.GetUniqueIdentity(fromUUID, true, nil)
@@ -3811,6 +3905,7 @@ func (s *service) MergeAll() (status string, err error) {
 					return
 				}
 			}
+			didMerges++
 		}
 		err = tx.Commit()
 		if err != nil {
@@ -3823,10 +3918,12 @@ func (s *service) MergeAll() (status string, err error) {
 		}
 		currIndex++
 		i := currIndex
+		actualMerges += didMerges
+		soFar := actualMerges
 		if mtx != nil {
 			mtx.Unlock()
 		}
-		log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles)\n", i, nMergeOps, email, nUUIDs))
+		log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles, %d merges so far)\n", i, nMergeOps, email, nUUIDs, soFar))
 		return
 	}
 	nErrs := 0
@@ -3875,9 +3972,9 @@ func (s *service) MergeAll() (status string, err error) {
 		}
 	}
 	if nErrs > 0 {
-		status = fmt.Sprintf("Merged profiles, %d errors: %s", nErrs, errsStr)
+		status = fmt.Sprintf("Merged %d profiles, %d errors: %s", actualMerges, nErrs, errsStr)
 	} else {
-		status = fmt.Sprintf("Merged %d profiles", nMerges)
+		status = fmt.Sprintf("Merged %d profiles", actualMerges)
 	}
 	return
 }
