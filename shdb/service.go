@@ -542,7 +542,10 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		if err != nil {
 			return
 		}
-		data[uuid] = [3]string{name, email, org}
+		_, ok := data[uuid]
+		if !ok {
+			data[uuid] = [3]string{name, email, org}
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -552,6 +555,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	if err != nil {
 		return
 	}
+	missUUIDs := []string{}
 	for idx, contributor := range contributors {
 		uuid := contributor.UUID
 		ary, ok := data[uuid]
@@ -562,6 +566,64 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			found++
 			if ary[2] != "" {
 				orgFound++
+			}
+		} else {
+			missUUIDs = append(missUUIDs, uuid)
+		}
+	}
+	if len(missUUIDs) > 0 {
+		sel := "select p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles_archive p left join enrollments_archive e"
+		sel += fmt.Sprintf(
+			" on p.archived_at = e.archived_at and p.uuid = e.uuid and e.start <= coalesce(from_unixtime(%f), now()) and e.end >= coalesce(from_unixtime(%f), now())",
+			secsSinceEpoch,
+			secsSinceEpoch,
+		)
+		sel += " left join organizations o on e.organization_id = o.id where p.uuid in ("
+		uuids := []interface{}{}
+		data := make(map[string][3]string)
+		for _, uuid := range missUUIDs {
+			uuids = append(uuids, uuid)
+			sel += "?,"
+		}
+		sel = sel[0:len(sel)-1] + ") order by p.uuid asc, p.archived_at desc"
+		var rows *sql.Rows
+		rows, err = s.Query(s.db, tx, sel, uuids...)
+		if err != nil {
+			return
+		}
+		uuid := ""
+		name := ""
+		email := ""
+		org := ""
+		for rows.Next() {
+			err = rows.Scan(&uuid, &name, &email, &org)
+			if err != nil {
+				return
+			}
+			_, ok := data[uuid]
+			if !ok {
+				data[uuid] = [3]string{name, email, org}
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		for idx, contributor := range contributors {
+			uuid := contributor.UUID
+			ary, ok := data[uuid]
+			if ok {
+				contributors[idx].Name = ary[0]
+				contributors[idx].Email = ary[1]
+				contributors[idx].Organization = ary[2]
+				found++
+				if ary[2] != "" {
+					orgFound++
+				}
 			}
 		}
 	}
