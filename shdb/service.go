@@ -3683,25 +3683,36 @@ func (s *service) MergeAll() (status string, err error) {
 		log.Info(fmt.Sprintf("MergeAll(exit): status:%s err:%v", status, err))
 	}()
 	var rows *sql.Rows
-	rows, err = s.Query(s.db, nil, "select email from (select email, count(distinct uuid) as cnt from identities where email regexp '^[^@]+@[^@]+$' group by email order by cnt desc) sub where sub.cnt > 1")
+	rows, err = s.Query(
+		s.db,
+		nil,
+		"select email, name from (select email, name, count(distinct uuid) as cnt from identities "+
+			"where name is not null and email is not null and email regexp '^[^@]+@[^@]+$' "+
+			"group by email, name order by cnt desc) sub where sub.cnt > 1",
+	)
 	if err != nil {
 		return
 	}
 	packSize := 1000
 	email := ""
-	emailsPacks := [][]interface{}{}
-	emails := []interface{}{}
+	name := ""
+	key := ""
+	keysPacks := [][]interface{}{}
+	keys := []interface{}{}
 	n := 0
 	for rows.Next() {
-		err = rows.Scan(&email)
+		err = rows.Scan(&email, &name)
 		if err != nil {
 			return
 		}
-		emails = append(emails, strings.TrimSpace(strings.ToLower(email)))
+		email = strings.TrimSpace(strings.ToLower(email))
+		name = strings.TrimSpace(strings.ToLower(name))
+		key = email + ":::" + name
+		keys = append(keys, key)
 		n++
 		if n == packSize {
-			emailsPacks = append(emailsPacks, emails)
-			emails = []interface{}{}
+			keysPacks = append(keysPacks, keys)
+			keys = []interface{}{}
 			n = 0
 		}
 	}
@@ -3714,15 +3725,15 @@ func (s *service) MergeAll() (status string, err error) {
 		return
 	}
 	if n > 0 {
-		emailsPacks = append(emailsPacks, emails)
+		keysPacks = append(keysPacks, keys)
 	}
-	nEmailsPacks := len(emailsPacks)
-	log.Warn(fmt.Sprintf("Emails %d-packs to merge: %d\n", packSize, nEmailsPacks))
-	nEmails := 0
-	for _, emails := range emailsPacks {
-		nEmails += len(emails)
+	nKeysPacks := len(keysPacks)
+	log.Warn(fmt.Sprintf("Keys %d-packs to merge: %d\n", packSize, nKeysPacks))
+	nKeys := 0
+	for _, keys := range keysPacks {
+		nKeys += len(keys)
 	}
-	log.Warn(fmt.Sprintf("Emails to merge: %d\n", nEmails))
+	log.Warn(fmt.Sprintf("Profiles to merge: %d\n", nKeys))
 	merges := map[string]map[string]struct{}{}
 	thrN := runtime.NumCPU()
 	runtime.GOMAXPROCS(thrN)
@@ -3730,37 +3741,41 @@ func (s *service) MergeAll() (status string, err error) {
 	if thrN > 1 {
 		mtx = &sync.Mutex{}
 	}
-	processPack := func(ch chan error, i int, emails []interface{}) (err error) {
+	processPack := func(ch chan error, i int, keys []interface{}) (err error) {
 		defer func() {
 			if ch != nil {
 				ch <- err
 			}
 		}()
-		// Possibly add 'create index identity_email_idx on identities(email);' if proves faster
-		query := "select email, uuid from identities where email in ("
-		for range emails {
+		query := "select email, name, uuid from identities where name is not null and email is not null and concat(email, ':::', name) in ("
+		for range keys {
 			query += "?,"
 		}
 		query = query[0:len(query)-1] + ")"
 		var rows *sql.Rows
-		rows, err = s.Query(s.db, nil, query, emails...)
+		rows, err = s.Query(s.db, nil, query, keys...)
 		if err != nil {
 			return
 		}
 		uuid := ""
 		email := ""
+		name := ""
+		key := ""
 		uuids := make(map[string]map[string]struct{})
 		for rows.Next() {
-			err = rows.Scan(&email, &uuid)
+			err = rows.Scan(&email, &name, &uuid)
 			if err != nil {
 				return
 			}
 			email = strings.TrimSpace(strings.ToLower(email))
-			_, ok := uuids[email]
+			name = strings.TrimSpace(strings.ToLower(name))
+			key = email + ":::" + name
+			// fmt.Printf("key: %s\n", key)
+			_, ok := uuids[key]
 			if !ok {
-				uuids[email] = make(map[string]struct{})
+				uuids[key] = make(map[string]struct{})
 			}
-			uuids[email][uuid] = struct{}{}
+			uuids[key][uuid] = struct{}{}
 		}
 		err = rows.Err()
 		if err != nil {
@@ -3773,24 +3788,24 @@ func (s *service) MergeAll() (status string, err error) {
 		if mtx != nil {
 			mtx.Lock()
 		}
-		for email, ids := range uuids {
-			merges[email] = make(map[string]struct{})
+		for key, ids := range uuids {
+			merges[key] = make(map[string]struct{})
 			for uuid := range ids {
-				merges[email][uuid] = struct{}{}
+				merges[key][uuid] = struct{}{}
 			}
 		}
 		if mtx != nil {
 			mtx.Unlock()
 		}
-		nEmails := len(emails)
-		log.Warn(fmt.Sprintf("%d/%d packs %d emails\n", i, nEmailsPacks, nEmails))
+		nKeys := len(keys)
+		log.Warn(fmt.Sprintf("%d/%d packs %d keys\n", i, nKeysPacks, nKeys))
 		return
 	}
 	if thrN > 1 {
 		ch := make(chan error)
 		nThreads := 0
-		for i, emails := range emailsPacks {
-			go processPack(ch, i, emails)
+		for i, keys := range keysPacks {
+			go processPack(ch, i, keys)
 			nThreads++
 			if nThreads == thrN {
 				err = <-ch
@@ -3808,8 +3823,8 @@ func (s *service) MergeAll() (status string, err error) {
 			}
 		}
 	} else {
-		for i, emails := range emailsPacks {
-			err = processPack(nil, i, emails)
+		for i, keys := range keysPacks {
+			err = processPack(nil, i, keys)
 			if err != nil {
 				return
 			}
@@ -3821,7 +3836,11 @@ func (s *service) MergeAll() (status string, err error) {
 		return
 	}
 	nMerges := 0
-	for _, uuids := range merges {
+	for key, uuids := range merges {
+		l := len(uuids)
+		if l > 10 {
+			log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids))
+		}
 		nMerges += len(uuids) - 1
 	}
 	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (before dedup)\n", nMerges, nMergeOps))
@@ -3829,24 +3848,24 @@ func (s *service) MergeAll() (status string, err error) {
 	for {
 		iter++
 		hits := 0
-		for email, uuids := range merges {
+		for key, uuids := range merges {
 			uuid := ""
 			for u := range uuids {
 				uuid = u
 				break
 			}
-			for email2, uuids2 := range merges {
-				if email2 == email {
+			for key2, uuids2 := range merges {
+				if key2 == key {
 					continue
 				}
-				_, ok := merges[email2][uuid]
+				_, ok := merges[key2][uuid]
 				if ok {
 					hits++
 					//fmt.Printf("iter #%d (hits %d) %s present in %+v\n", iter, hits, uuid, uuids2)
 					for uuid2 := range uuids2 {
-						merges[email][uuid2] = struct{}{}
+						merges[key][uuid2] = struct{}{}
 					}
-					delete(merges, email2)
+					delete(merges, key2)
 				}
 			}
 		}
@@ -3862,13 +3881,17 @@ func (s *service) MergeAll() (status string, err error) {
 	}
 	nMergeOps = len(merges)
 	nMerges = 0
-	for _, uuids := range merges {
+	for key, uuids := range merges {
+		l := len(uuids)
+		if l > 10 {
+			log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids))
+		}
 		nMerges += len(uuids) - 1
 	}
 	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (after dedup in %d steps)\n", nMerges, nMergeOps, iter))
 	currIndex := 0
 	actualMerges := 0
-	mergeFunc := func(ch chan error, email string, uuids []string) (err error) {
+	mergeFunc := func(ch chan error, key string, uuids []string) (err error) {
 		toUUID := uuids[0]
 		defer func() {
 			if ch != nil {
@@ -4020,7 +4043,7 @@ func (s *service) MergeAll() (status string, err error) {
 		if mtx != nil {
 			mtx.Unlock()
 		}
-		log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles, %d merges so far)\n", i, nMergeOps, email, nUUIDs, soFar))
+		log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles, %d merges so far)\n", i, nMergeOps, key, nUUIDs, soFar))
 		return
 	}
 	nErrs := 0
@@ -4028,12 +4051,12 @@ func (s *service) MergeAll() (status string, err error) {
 	if thrN > 1 {
 		ch := make(chan error)
 		nThreads := 0
-		for email, uuidsMap := range merges {
+		for key, uuidsMap := range merges {
 			uuids := []string{}
 			for uuid := range uuidsMap {
 				uuids = append(uuids, uuid)
 			}
-			go mergeFunc(ch, email, uuids[:])
+			go mergeFunc(ch, key, uuids[:])
 			nThreads++
 			if nThreads == thrN {
 				e := <-ch
@@ -4055,12 +4078,12 @@ func (s *service) MergeAll() (status string, err error) {
 			}
 		}
 	} else {
-		for email, uuidsMap := range merges {
+		for key, uuidsMap := range merges {
 			uuids := []string{}
 			for uuid := range uuidsMap {
 				uuids = append(uuids, uuid)
 			}
-			e := mergeFunc(nil, email, uuids)
+			e := mergeFunc(nil, key, uuids)
 			if e != nil {
 				log.Warn(e.Error())
 				errsStr += e.Error() + " "
