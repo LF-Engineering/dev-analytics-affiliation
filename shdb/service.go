@@ -3686,7 +3686,7 @@ func (s *service) MergeAll() (status string, err error) {
 	rows, err = s.Query(
 		s.db,
 		nil,
-		"select email, name from (select email, name, count(distinct uuid) as cnt from identities "+
+		"select email, name, cnt from (select email, name, count(distinct uuid) as cnt from identities "+
 			"where name is not null and email is not null and email regexp '^[^@]+@[^@]+$' "+
 			"group by email, name order by cnt desc) sub where sub.cnt > 1",
 	)
@@ -3700,14 +3700,17 @@ func (s *service) MergeAll() (status string, err error) {
 	keysPacks := [][]interface{}{}
 	keys := []interface{}{}
 	n := 0
+	cnt := 0
 	for rows.Next() {
-		err = rows.Scan(&email, &name)
+		err = rows.Scan(&email, &name, &cnt)
 		if err != nil {
 			return
 		}
 		email = strings.TrimSpace(strings.ToLower(email))
 		name = strings.TrimSpace(strings.ToLower(name))
-		key = email + ":::" + name
+		key = s.StripUnicode(email + ":::" + name)
+		// debug
+		// fmt.Printf("email: %s, name: %s --> key(%d): %s\n", email, name, cnt, key)
 		keys = append(keys, key)
 		n++
 		if n == packSize {
@@ -3747,7 +3750,7 @@ func (s *service) MergeAll() (status string, err error) {
 				ch <- err
 			}
 		}()
-		query := "select email, name, uuid from identities where name is not null and email is not null and concat(email, ':::', name) in ("
+		query := "select email, name, uuid from identities where name is not null and email is not null and concat(trim(email), ':::', trim(name)) in ("
 		for range keys {
 			query += "?,"
 		}
@@ -3769,8 +3772,9 @@ func (s *service) MergeAll() (status string, err error) {
 			}
 			email = strings.TrimSpace(strings.ToLower(email))
 			name = strings.TrimSpace(strings.ToLower(name))
-			key = email + ":::" + name
-			// fmt.Printf("key: %s\n", key)
+			key = s.StripUnicode(email + ":::" + name)
+			// debug
+			// fmt.Printf("key: %s (%s, %s, %s)\n", key, email, name, uuid)
 			_, ok := uuids[key]
 			if !ok {
 				uuids[key] = make(map[string]struct{})
@@ -3831,76 +3835,122 @@ func (s *service) MergeAll() (status string, err error) {
 		}
 	}
 	nMergeOps := len(merges)
+	nMerges := 0
+	for key, uuids := range merges {
+		l := len(uuids)
+		if l == 1 {
+			log.Warn(fmt.Sprintf("Key %+v deleted - had only 1 uuid: %+v\n", strings.Split(key, ":::"), uuids))
+			delete(merges, key)
+			continue
+		}
+		if l > 25 {
+			log.Warn(fmt.Sprintf("Key %+v deleted - had more than 25 uuids (%d): %+v\n", strings.Split(key, ":::"), l, uuids))
+			delete(merges, key)
+			nMerges -= l - 1
+			continue
+		}
+		// debug
+		// fmt.Printf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids)
+		if l > 10 {
+			log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids))
+		}
+		nMerges += l - 1
+	}
+	nMergeOps = len(merges)
 	if nMergeOps == 0 {
 		status = "Nothing to merge"
 		return
 	}
-	nMerges := 0
-	for key, uuids := range merges {
-		l := len(uuids)
-		if l > 10 {
-			log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids))
-		}
-		nMerges += len(uuids) - 1
-	}
 	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (before dedup)\n", nMerges, nMergeOps))
 	iter := 0
+	allHits := 0
+	processed := make(map[string]struct{})
 	for {
 		iter++
 		hits := 0
 		for key, uuids := range merges {
-			uuid := ""
-			for u := range uuids {
-				uuid = u
-				break
-			}
-			for key2, uuids2 := range merges {
-				if key2 == key {
-					continue
-				}
-				_, ok := merges[key2][uuid]
-				if ok {
-					hits++
-					//fmt.Printf("iter #%d (hits %d) %s present in %+v\n", iter, hits, uuid, uuids2)
-					for uuid2 := range uuids2 {
-						merges[key][uuid2] = struct{}{}
+			// debug
+			// fmt.Printf("> key:%s\n", key)
+			for uuid := range uuids {
+				// debug
+				// fmt.Printf(">> key:%s,uuid:%s\n", key, uuid)
+				for key2, uuids2 := range merges {
+					if key2 == key {
+						continue
 					}
-					delete(merges, key2)
+					_, ok := processed[key]
+					if ok {
+						continue
+					}
+					_, ok = merges[key2][uuid]
+					if ok {
+						hits++
+						// debug
+						// fmt.Printf("iter #%d (hits %d) %s present in %+v\n", iter, hits, uuid, uuids2)
+						for uuid2 := range uuids2 {
+							merges[key][uuid2] = struct{}{}
+						}
+						delete(merges, key2)
+					}
 				}
 			}
+			processed[key] = struct{}{}
 		}
 		log.Warn(fmt.Sprintf("Dedup step #%d finished with %d hits\n", iter, hits))
 		if hits == 0 {
 			break
 		}
+		allHits += hits
 		if iter > 50 {
 			log.Warn("Wasn't able to fully dedup in 50 steps, using single-threaded merge to avoid transaction deadlocks\n")
 			thrN = 1
 			break
 		}
 	}
+	log.Warn(fmt.Sprintf("Dedup finished with %d hits\n", allHits))
 	nMergeOps = len(merges)
 	nMerges = 0
 	for key, uuids := range merges {
 		l := len(uuids)
+		if l > 25 {
+			log.Warn(fmt.Sprintf("Key %+v deleted - had more than 25 uuids (%d): %+v\n", strings.Split(key, ":::"), l, uuids))
+			delete(merges, key)
+			nMerges -= l - 1
+			continue
+		}
+		// debug
+		// fmt.Printf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids)
 		if l > 10 {
 			log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, ":::"), l, uuids))
 		}
 		nMerges += len(uuids) - 1
 	}
+	nMergeOps = len(merges)
+	if nMergeOps == 0 {
+		status = "Nothing to merge"
+		return
+	}
 	log.Warn(fmt.Sprintf("UUIDs to merge: %d in %d operations (after dedup in %d steps)\n", nMerges, nMergeOps, iter))
 	currIndex := 0
 	actualMerges := 0
-	mergeFunc := func(ch chan error, key string, uuids []string) (err error) {
+	type mergeResult struct {
+		key string
+		err error
+	}
+	mergeFunc := func(ch chan mergeResult, key string, uuids []string) (result mergeResult) {
 		toUUID := uuids[0]
+		var err error
 		defer func() {
+			result = mergeResult{err: err, key: strings.Join(uuids, ",")}
 			if ch != nil {
 				if err != nil {
 					err = errs.Wrap(err, toUUID)
 				}
-				ch <- err
+				ch <- result
 			}
 		}()
+		// debug
+		// fmt.Printf("merging %+v\n", uuids)
 		tx, err := s.db.Begin()
 		if err != nil {
 			return
@@ -3912,7 +3962,7 @@ func (s *service) MergeAll() (status string, err error) {
 		}()
 		didMerges := 0
 		nUUIDs := len(uuids)
-		for _, fromUUID := range uuids[1:] {
+		for idx, fromUUID := range uuids[1:] {
 			_, e := s.GetUniqueIdentity(fromUUID, true, nil)
 			if e != nil {
 				err = e
@@ -4026,6 +4076,10 @@ func (s *service) MergeAll() (status string, err error) {
 				}
 			}
 			didMerges++
+			debug := false
+			if debug {
+				fmt.Printf("merged %d/%d %s --> %s\n", idx+1, nUUIDs, fromUUID, toUUID)
+			}
 		}
 		err = tx.Commit()
 		if err != nil {
@@ -4043,39 +4097,58 @@ func (s *service) MergeAll() (status string, err error) {
 		if mtx != nil {
 			mtx.Unlock()
 		}
+		// debug
+		// fmt.Printf("merged %d %+v\n", nUUIDs, uuids)
 		log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles, %d merges so far)\n", i, nMergeOps, key, nUUIDs, soFar))
 		return
 	}
 	nErrs := 0
 	errsStr := ""
+	merging := make(map[string]struct{})
+	nProc := 0
+	infoMerging := func() {
+		// debug
+		if nProc%10 == 0 {
+			log.Info(fmt.Sprintf("currently merging %d (%d/%d finished): %+v\n", len(merging), nProc, nMergeOps, merging))
+		}
+	}
 	if thrN > 1 {
-		ch := make(chan error)
+		ch := make(chan mergeResult)
 		nThreads := 0
 		for key, uuidsMap := range merges {
 			uuids := []string{}
 			for uuid := range uuidsMap {
 				uuids = append(uuids, uuid)
 			}
+			merging[strings.Join(uuids, ",")] = struct{}{}
 			go mergeFunc(ch, key, uuids[:])
 			nThreads++
 			if nThreads == thrN {
-				e := <-ch
+				res := <-ch
+				delete(merging, res.key)
+				e := res.err
 				nThreads--
 				if e != nil {
-					log.Warn(e.Error())
+					log.Warn("Merge error: " + e.Error())
 					errsStr += e.Error() + " "
 					nErrs++
 				}
+				nProc++
+				infoMerging()
 			}
 		}
 		for nThreads > 0 {
-			e := <-ch
+			res := <-ch
+			delete(merging, res.key)
+			e := res.err
 			nThreads--
 			if e != nil {
-				log.Warn(e.Error())
+				log.Warn("Merge error: " + e.Error())
 				errsStr += e.Error() + " "
 				nErrs++
 			}
+			nProc++
+			infoMerging()
 		}
 	} else {
 		for key, uuidsMap := range merges {
@@ -4083,12 +4156,17 @@ func (s *service) MergeAll() (status string, err error) {
 			for uuid := range uuidsMap {
 				uuids = append(uuids, uuid)
 			}
-			e := mergeFunc(nil, key, uuids)
+			merging[strings.Join(uuids, ",")] = struct{}{}
+			res := mergeFunc(nil, key, uuids)
+			delete(merging, res.key)
+			e := res.err
 			if e != nil {
-				log.Warn(e.Error())
+				log.Warn("Merge error: " + e.Error())
 				errsStr += e.Error() + " "
 				nErrs++
 			}
+			nProc++
+			infoMerging()
 		}
 	}
 	if nErrs > 0 {

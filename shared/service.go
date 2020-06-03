@@ -14,6 +14,8 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
@@ -67,6 +69,7 @@ type ServiceInterface interface {
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
 	JSONEscape(string) string
+	StripUnicode(str string) string
 	ToCaseInsensitiveRegexp(string) string
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
@@ -676,6 +679,22 @@ func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
 		}
 	}
 	return ret + ".*'"
+}
+
+// StripUnicode - strip special characters and remove non-ascii chars ł->l, ą->a etc.
+func (s *ServiceStruct) StripUnicode(str string) string {
+	isNonASCII := func(r rune) bool {
+		return r < 32 || r >= 127
+	}
+	manualReplaces := [][2]string{
+		{"ł", "l"},
+	}
+	for _, replace := range manualReplaces {
+		str = strings.Replace(str, replace[0], replace[1], -1)
+	}
+	t := transform.Chain(norm.NFKD, transform.RemoveFunc(isNonASCII))
+	str, _, _ = transform.String(t, str)
+	return str
 }
 
 // JSONEscape - escape string for JSON to avoid injections
