@@ -441,7 +441,9 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "bugzilla", "bugzillarest":
 		fields = map[string]string{
-			"bugzilla_issues_created": "count(distinct url) as bugzilla_issues_created",
+			"bugzilla_issues_created":  "count(distinct url) as bugzilla_issues_created",
+			"bugzilla_issues_closed":   "count(is_open) as bugzilla_issues_closed",
+			"bugzilla_issues_assigned": "count(distinct url) as bugzilla_issues_assigned",
 		}
 	default:
 		// FIXME: in the future create err log.Error it and return error to caller (now only logs)
@@ -572,7 +574,14 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "bugzilla_issues_created":
 			cond = `and \"url\" is not null`
 			return
+		case "bugzilla_issues_closed":
+			cond = ` and \"url\" is not null and \"is_open\" = false`
+			return
+		case "bugzilla_issues_assigned":
+			cond = `and \"assigned_to_uuid\" is not null`
+			return
 		}
+
 	}
 	err = errs.Wrap(errs.New(fmt.Errorf("unknown dataSourceType/sortField: %s/%s", dataSourceType, sortField), errs.ErrBadRequest), "additionalWhere")
 	return
@@ -654,7 +663,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "bugzilla_issues_created":
+		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned":
 			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -722,7 +731,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "bugzilla", "bugzillarest":
 		switch sortField {
-		case "bugzilla_issues_created":
+		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
@@ -1337,6 +1346,8 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			GithubPullRequestsOpen:               getInt(uuid, "github_pull_request_prs_open"),
 			GithubPullRequestsClosed:             getInt(uuid, "github_pull_request_prs_closed"),
 			BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
+			BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
+			BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
 		}
 		top.Contributors = append(top.Contributors, contributor)
 	}
