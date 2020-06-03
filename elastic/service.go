@@ -470,7 +470,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		}
 		switch sortField {
 		case "git_commits":
-			cond = `and \"hash\" is not null`
+			cond = `and \"hash\" is not null and (\"lines_changed\" > 0 or \"lines_added\" > 0 or \"lines_removed\" > 0)`
 			return
 		case "git_lines_added", "git_lines_removed", "git_lines_changed":
 			sortField := sortField[4:]
