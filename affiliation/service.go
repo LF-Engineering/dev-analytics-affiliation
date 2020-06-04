@@ -2261,6 +2261,8 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_pull_request_prs_open",
 		"github_pull_request_prs_closed",
 		"bugzilla_issues_created",
+		"bugzilla_issues_closed",
+		"bugzilla_issues_assigned",
 	}
 	if !public {
 		hdr = append(hdr, "email")
@@ -2303,6 +2305,8 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatInt(contributor.GithubPullRequestsOpen, 10),
 			strconv.FormatInt(contributor.GithubPullRequestsClosed, 10),
 			strconv.FormatInt(contributor.BugzillaIssuesCreated, 10),
+			strconv.FormatInt(contributor.BugzillaIssuesClosed, 10),
+			strconv.FormatInt(contributor.BugzillaIssuesAssigned, 10),
 		}
 		if !public {
 			row = append(row, contributor.Email)
