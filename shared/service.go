@@ -118,11 +118,15 @@ type LocalAllOutput struct {
 }
 
 // SortKey - defines sort order for enrollments
-func (e *LocalEnrollmentShortOutput) SortKey() string {
-	return e.Start + ":" + e.End + ":" + e.Organization
+func (e *LocalEnrollmentShortOutput) SortKey() (key string) {
+	key = e.Start + ":" + e.End + ":" + e.Organization + ":"
+	if e.ProjectSlug != nil {
+		key += *(e.ProjectSlug)
+	}
+	return
 }
 
-// SortKey - defines sort order for enrollments
+// SortKey - defines sort order for identities
 func (i *LocalIdentityShortOutput) SortKey() (key string) {
 	key = i.Source
 	if i.Name != nil {
@@ -143,7 +147,7 @@ func (i *LocalIdentityShortOutput) SortKey() (key string) {
 	return
 }
 
-// SortKey - defines sort order for enrollments
+// SortKey - defines sort order for profiles
 func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 	if a.Name != nil {
 		key += *(a.Name)
@@ -236,6 +240,10 @@ func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentSho
 	enrollment.Organization = strings.TrimSpace(enrollment.Organization)
 	enrollment.Start = strings.TrimSpace(enrollment.Start)
 	enrollment.End = strings.TrimSpace(enrollment.End)
+	if enrollment.ProjectSlug != nil {
+		projectSlug := strings.TrimSpace(*(enrollment.ProjectSlug))
+		enrollment.ProjectSlug = &projectSlug
+	}
 }
 
 // SanitizeProfile - trim white spaces
@@ -534,6 +542,9 @@ func (s *ServiceStruct) ToLocalNestedEnrollments(ia []*models.EnrollmentNestedDa
 		}
 		if i.Organization != nil {
 			m["Organization"] = *(i.Organization)
+		}
+		if i.ProjectSlug != nil {
+			m["ProjectSlug"] = *(i.ProjectSlug)
 		}
 		oa = append(oa, m)
 	}

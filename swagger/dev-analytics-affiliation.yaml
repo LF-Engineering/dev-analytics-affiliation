@@ -1599,8 +1599,12 @@ definitions:
       organization:
         type: object
         $ref: "#/definitions/organization-data-output"
+      project_slug:
+        type: string
+        example: lfn/onap
+        x-nullable: true
   enrollment-nested-data-output-no-dates:
-    title: Enrollment data output (only tu support hiding default start/end dates)
+    title: Enrollment data output (only to support hiding default start/end dates)
     description: Enrollment data
     type: object
     properties:
@@ -1624,6 +1628,10 @@ definitions:
       organization:
         type: object
         $ref: "#/definitions/organization-data-output"
+      project_slug:
+        type: string
+        example: lfn/onap
+        x-nullable: true
   enrollment-data-output:
     title: Enrollment data output
     description: Enrollment data
@@ -1646,6 +1654,10 @@ definitions:
         type: string
         format: date-time
         example: '2019-09-02 03:00:33.000000'
+      project_slug:
+        type: string
+        example: lfn/onap
+        x-nullable: true
   organization-data-output:
     title: Organization data output
     description: Organization data
@@ -2149,6 +2161,12 @@ definitions:
         type: string
         example: 2019-09-02
         x-go-custom-tag: 'yaml:"T"'
+      project_slug:
+        type: string
+        example: lfn/onap
+        x-nullable: true
+        x-omitempty: true
+        x-go-custom-tag: 'yaml:"P,omitempty"'
   all-output:
     title: Human readable output for all data
     description: Human readable output for all data

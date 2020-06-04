@@ -982,13 +982,24 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 		column := columns[index]
 		value := values[index]
 		date := isDate[index]
-		if date {
-			sel += " " + column + " = str_to_date(?, ?)"
-			vals = append(vals, value)
-			vals = append(vals, DateTimeFormat)
+		isNil := false
+		if column == "project_slug" {
+			v, ok := value.(*string)
+			if ok {
+				isNil = v == nil
+			}
+		}
+		if isNil {
+			sel += " " + column + " is null"
 		} else {
-			sel += " " + column + " = ?"
-			vals = append(vals, value)
+			if date {
+				sel += " " + column + " = str_to_date(?, ?)"
+				vals = append(vals, value)
+				vals = append(vals, DateTimeFormat)
+			} else {
+				sel += " " + column + " = ?"
+				vals = append(vals, value)
+			}
 		}
 		if index < lastIndex {
 			sel += " and"
@@ -1059,13 +1070,24 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 		column := columns[index]
 		value := values[index]
 		date := isDate[index]
-		if date {
-			sel += " " + column + " = str_to_date(?, ?)"
-			vals = append(vals, value)
-			vals = append(vals, DateTimeFormat)
+		isNil := false
+		if column == "project_slug" {
+			v, ok := value.(*string)
+			if ok {
+				isNil = v == nil
+			}
+		}
+		if isNil {
+			sel += " " + column + " is null"
 		} else {
-			sel += " " + column + " = ?"
-			vals = append(vals, value)
+			if date {
+				sel += " " + column + " = str_to_date(?, ?)"
+				vals = append(vals, value)
+				vals = append(vals, DateTimeFormat)
+			} else {
+				sel += " " + column + " = ?"
+				vals = append(vals, value)
+			}
 		}
 		if index < lastIndex {
 			sel += " and"
@@ -4595,7 +4617,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
 	sel += "i.id, i.name, i.email, i.username, i.source, s.id, s.start, s.end, s.oname "
 	sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
-	sel += "e.id, e.start, e.end, o.name as oname from uidentities u, profiles p "
+	sel += "e.id, e.start, e.end, e.project_slug, o.name as oname from uidentities u, profiles p "
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
 	var rows *sql.Rows
@@ -4613,6 +4635,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		rolStart        *strfmt.DateTime
 		rolEnd          *strfmt.DateTime
 		rolOrganization *string
+		rolProjectSlug  *string
 	)
 	uidsMap := make(map[string]*models.AllOutput)
 	idsMap := make(map[string]*models.IdentityShortOutput)
@@ -4625,7 +4648,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		err = rows.Scan(
 			&uuid, &prof.Name, &prof.Email, &prof.Gender, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource,
-			&rolID, &rolStart, &rolEnd, &rolOrganization,
+			&rolID, &rolStart, &rolEnd, &rolProjectSlug, &rolOrganization,
 		)
 		if err != nil {
 			return
@@ -4670,6 +4693,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 				Start:        time.Time(*rolStart).Format(DateFormat),
 				End:          time.Time(*rolEnd).Format(DateFormat),
 				Organization: *rolOrganization,
+				ProjectSlug:  rolProjectSlug,
 			}
 		}
 		existingProf, ok := uidsMap[uuid]
@@ -6006,12 +6030,13 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						mOrgID[organization.ID] = organization
 					}
 					enrollments, err = s.FindEnrollments(
-						[]string{"uuid", "start", "end", "organization_id"},
+						[]string{"uuid", "start", "end", "organization_id", "project_slug"},
 						[]interface{}{
 							foundProf.UUID,
 							strfmt.DateTime(start),
 							strfmt.DateTime(end),
 							organization.ID,
+							rol.ProjectSlug,
 						},
 						[]bool{false, true, true, false},
 						false,
@@ -6158,6 +6183,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						Start:        time.Time(enrollment.Start).Format(DateFormat),
 						End:          time.Time(enrollment.End).Format(DateFormat),
 						Organization: organization.Name,
+						ProjectSlug:  enrollment.ProjectSlug,
 					}
 					del.Enrollments = append(del.Enrollments, rol)
 				}
@@ -6266,6 +6292,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				Start:          strfmt.DateTime(start),
 				End:            strfmt.DateTime(end),
 				OrganizationID: organization.ID,
+				ProjectSlug:    rol.ProjectSlug,
 			}
 			_, err = s.AddEnrollment(enrollment, false, false, tx)
 			if err != nil {
@@ -6393,12 +6420,13 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						mOrgID[organization.ID] = organization
 					}
 					enrollments, err = s.FindEnrollments(
-						[]string{"uuid", "start", "end", "organization_id"},
+						[]string{"uuid", "start", "end", "organization_id", "project_slug"},
 						[]interface{}{
 							foundProf.UUID,
 							strfmt.DateTime(start),
 							strfmt.DateTime(end),
 							organization.ID,
+							rol.ProjectSlug,
 						},
 						[]bool{false, true, true, false},
 						false,
@@ -6508,12 +6536,13 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					mOrgID[organization.ID] = organization
 				}
 				enrollments, err = s.FindEnrollments(
-					[]string{"uuid", "start", "end", "organization_id"},
+					[]string{"uuid", "start", "end", "organization_id", "project_slug"},
 					[]interface{}{
 						uuid,
 						strfmt.DateTime(start),
 						strfmt.DateTime(end),
 						organization.ID,
+						rol.ProjectSlug,
 					},
 					[]bool{false, true, true, false},
 					false,
@@ -6581,6 +6610,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					Start:          strfmt.DateTime(start),
 					End:            strfmt.DateTime(end),
 					OrganizationID: organization.ID,
+					ProjectSlug:    rol.ProjectSlug,
 				}
 				_, err = s.AddEnrollment(enrollment, true, false, tx)
 				if err != nil {
