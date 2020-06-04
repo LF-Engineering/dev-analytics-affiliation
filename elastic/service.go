@@ -439,10 +439,16 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"github_pull_request_prs_open":    "count(distinct id) as github_pull_request_prs_open",
 			"github_pull_request_prs_closed":  "count(distinct id) as github_pull_request_prs_closed",
 		}
-	case "bugzilla", "bugzillarest":
+	case "bugzillarest":
 		fields = map[string]string{
 			"bugzilla_issues_created":  "count(distinct url) as bugzilla_issues_created",
 			"bugzilla_issues_closed":   "count(is_open) as bugzilla_issues_closed",
+			"bugzilla_issues_assigned": "count(distinct url) as bugzilla_issues_assigned",
+		}
+	case "bugzilla":
+		fields = map[string]string{
+			"bugzilla_issues_created":  "count(distinct url) as bugzilla_issues_created",
+			"bugzilla_issues_closed":   "count(status) as bugzilla_issues_closed",
 			"bugzilla_issues_assigned": "count(distinct url) as bugzilla_issues_assigned",
 		}
 	default:
@@ -566,7 +572,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			cond = `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
 			return
 		}
-	case "bugzilla", "bugzillarest":
+	case "bugzillarest":
 		if len(sortField) > 9 && sortField[:9] != "bugzilla_" {
 			return
 		}
@@ -576,6 +582,21 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		case "bugzilla_issues_closed":
 			cond = ` and \"url\" is not null and \"is_open\" = false`
+			return
+		case "bugzilla_issues_assigned":
+			cond = `and \"assigned_to_uuid\" is not null`
+			return
+		}
+	case "bugzilla":
+		if len(sortField) > 9 && sortField[:9] != "bugzilla_" {
+			return
+		}
+		switch sortField {
+		case "bugzilla_issues_created":
+			cond = `and \"url\" is not null`
+			return
+		case "bugzilla_issues_closed":
+			cond = ` and \"url\" is not null and \"status\" in ('CLOSED', 'RESOLVED')`
 			return
 		case "bugzilla_issues_assigned":
 			cond = `and \"assigned_to_uuid\" is not null`
