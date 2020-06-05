@@ -13,36 +13,43 @@
           "organization": "Independent"
         },
         {
+          "project_slug": "pl",
           "start": "2006-03-01",
           "end": "2012-08-01",
           "organization": "IGF PAN Hornsund Expedition"
         },
         {
+          "project_slug": "cs",
           "start": "2012-08-01",
           "end": "2013-10-15",
           "organization": "Cleverstep"
         },
         {
+          "project_slug": "sg",
           "start": " 2013-10-15  ",
           "end": "  2014-04-15 ",
           "organization": "Societe Generale "
         },
         {
+          "project_slug": "cs",
           "start": "2014-04-15",
           "end": "2015-11-20",
           "organization": "  Cleverstep"
         },
         {
+          "project_slug": "lf",
           "start": "2015-11-20",
           "end": "2017-03-15",
           "organization": " Google "
         },
         {
+          "project_slug": "cncf",
           "start": "2017-03-15",
           "end": "2020-05-01",
           "organization": "CNCF  "
         },
         {
+          "project_slug": "lf",
           "start": "2020-05-01",
           "end": "2100-01-01",
           "organization": " The Linux foundation  "
@@ -84,6 +91,7 @@
         {
           "start": "1970-01-01",
           "end": "2006-03-01",
+          "project_slug": "cncf",
           "organization": "Independent"
         },
         {
@@ -99,6 +107,7 @@
         {
           "start": "2012-08-01",
           "end": "2013-10-15",
+          "project_slug": "cncf",
           "organization": "Cleverstep"
         },
         {
@@ -114,6 +123,7 @@
         {
           "start": "2015-11-20",
           "end": "2017-03-15",
+          "project_slug": "cncf",
           "organization": "Spreemo"
         },
         {

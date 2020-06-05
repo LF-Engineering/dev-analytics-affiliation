@@ -699,6 +699,9 @@ func (s *ServiceStruct) StripUnicode(str string) string {
 	}
 	manualReplaces := [][2]string{
 		{"ł", "l"},
+		{"ø", "o"},
+		{"ß", "ss"},
+		{"æ", "ae"},
 	}
 	for _, replace := range manualReplaces {
 		str = strings.Replace(str, replace[0], replace[1], -1)
