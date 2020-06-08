@@ -1085,6 +1085,7 @@ paths:
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
+        - $ref: '#/parameters/is-project-specific'
         - $ref: '#/parameters/merge'
   /affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}:
     put:
@@ -1122,6 +1123,7 @@ paths:
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
+        - $ref: '#/parameters/is-project-specific'
         - $ref: '#/parameters/merge'
         - name: new_start
           in: query
@@ -1169,6 +1171,7 @@ paths:
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
+        - $ref: '#/parameters/is-project-specific'
   /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
     put:
       summary: Merge overlapping enrollments for UUID/orgName
@@ -1203,6 +1206,11 @@ paths:
         - $ref: '#/parameters/project-slug'
         - $ref: '#/parameters/uuid'
         - $ref: '#/parameters/org-name'
+        - $ref: '#/parameters/is-project-specific'
+        - name: all_projects
+          in: query
+          type: boolean
+          description: if set, all enrollments will be merged (global one and 0 or more project specific ones)
   /affiliation/all:
     get:
       summary: Return all affiliations data in human readable format
@@ -1441,6 +1449,11 @@ parameters:
     in: query
     type: boolean
     description: merge setting
+  is-project-specific:
+    name: is_project_specific
+    in: query
+    type: boolean
+    description: 'false: global enrollment (project_slug = null), true: project specific (project_slug non-null)'
 definitions:
   health:
     type: object

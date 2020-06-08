@@ -102,7 +102,7 @@ type Service interface {
 	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetUniqueIdentityIdentities(string, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) error
-	MergeEnrollments(*models.UniqueIdentityDataOutput, *models.OrganizationDataOutput, *sql.Tx) error
+	MergeEnrollments(*models.UniqueIdentityDataOutput, *models.OrganizationDataOutput, *string, bool, *sql.Tx) error
 	MergeDateRanges([][]strfmt.DateTime) ([][]strfmt.DateTime, error)
 	FindUniqueIdentityOrganizations(string, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
@@ -295,17 +295,22 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	return
 }
 
-func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutput, organization *models.OrganizationDataOutput, tx *sql.Tx) (err error) {
-	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v tx:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, tx != nil))
+func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutput, organization *models.OrganizationDataOutput, projectSlug *string, allProjectSlugs bool, tx *sql.Tx) (err error) {
+	pSlug := ""
+	if projectSlug != nil {
+		pSlug = *projectSlug
+	}
+	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v tx:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, tx != nil, err))
+		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, tx != nil, err))
 	}()
+	// FIXME: implement projectSlug/allprojectSlugs support
 	disjoint, err := s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uniqueIdentity.UUID, organization.ID}, []bool{false, false}, false, tx)
 	if err != nil {
 		return
 	}
 	if len(disjoint) == 0 {
-		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization)
+		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
 		return
 	}
@@ -984,7 +989,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 		value := values[index]
 		date := isDate[index]
 		isNil := false
-		if column == "project_slug" {
+		if column == "e.project_slug" {
 			v, ok := value.(*string)
 			if ok {
 				isNil = v == nil
@@ -4114,9 +4119,9 @@ func (s *service) MergeAll() (status string, err error) {
 				for _, rol := range enrollments {
 					rols := []*models.EnrollmentDataOutput{}
 					rols, e = s.FindEnrollments(
-						[]string{"uuid", "organization_id", "start", "end"},
-						[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End},
-						[]bool{false, false, true, true},
+						[]string{"uuid", "organization_id", "start", "end", "project_slug"},
+						[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End, rol.ProjectSlug},
+						[]bool{false, false, true, true, false},
 						false,
 						tx,
 					)
@@ -4144,7 +4149,7 @@ func (s *service) MergeAll() (status string, err error) {
 					return
 				}
 				for _, org := range orgs {
-					e = s.MergeEnrollments(toUU, org, tx)
+					e = s.MergeEnrollments(toUU, org, nil, true, tx)
 					if e != nil {
 						err = e
 						return
@@ -4358,9 +4363,9 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 	for _, rol := range enrollments {
 		rols := []*models.EnrollmentDataOutput{}
 		rols, err = s.FindEnrollments(
-			[]string{"uuid", "organization_id", "start", "end"},
-			[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End},
-			[]bool{false, false, true, true},
+			[]string{"uuid", "organization_id", "start", "end", "project_slug"},
+			[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End, rol.ProjectSlug},
+			[]bool{false, false, true, true, false},
 			false,
 			tx,
 		)
@@ -4384,7 +4389,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 		return
 	}
 	for _, org := range orgs {
-		err = s.MergeEnrollments(toUU, org, tx)
+		err = s.MergeEnrollments(toUU, org, nil, true, tx)
 		if err != nil {
 			return
 		}

@@ -378,6 +378,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
 	}
+	project = strings.Replace(project, "/projects/", "", -1)
 	// Validate JWT token, final outcome is the LFID of current authorized user
 	agw := false
 	username, agw, err = s.checkToken(auth)
@@ -438,6 +439,7 @@ func (s *service) toNoDates(in *models.UniqueIdentityNestedDataOutput) (out *mod
 				End:            enrollmentEnd,
 				OrganizationID: enrollment.OrganizationID,
 				Organization:   enrollment.Organization,
+				ProjectSlug:    enrollment.ProjectSlug,
 			},
 		)
 	}
@@ -725,6 +727,8 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 // start - optional query parameter: enrollment start date, 1900-01-01 if not set
 // end - optional query parameter: enrollment end date, 2100-01-01 if not set
 // merge - optional query parameter: if set it will merge enrollment dates for organization added
+// is_project_specific - optional query parameter, if set - enrollment will be marked as {projectSlug} specific (its "project_slug" column will be {projectSlug}
+//   else enrollment will be global (its "project_slug" column will be set to null)
 func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.PostAddEnrollmentParams) (uidnd *models.UniqueIdentityNestedDataOutputNoDates, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -778,6 +782,9 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	} else {
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
 	}
+	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
+		enrollment.ProjectSlug = &project
+	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	_, err = s.shDB.AddEnrollment(enrollment, false, false, nil)
@@ -786,7 +793,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		return
 	}
 	if params.Merge != nil && *(params.Merge) {
-		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
@@ -817,6 +824,8 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 // new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
 // new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
+// is_project_specific - optional query parameter, if set - enrollment specific to this project will be edited
+//   else global enrollment will be edited
 func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.PutEditEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -859,9 +868,12 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	columns := []string{"uuid", "organization_id"}
-	values := []interface{}{params.UUID, enrollment.OrganizationID}
-	isDates := []bool{false, false}
+	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
+		enrollment.ProjectSlug = &project
+	}
+	columns := []string{"uuid", "organization_id", "project_slug"}
+	values := []interface{}{params.UUID, enrollment.OrganizationID, enrollment.ProjectSlug}
+	isDates := []bool{false, false, false}
 	if params.Start != nil {
 		columns = append(columns, "start")
 		values = append(values, *(params.Start))
@@ -907,7 +919,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		return
 	}
 	if params.Merge != nil && *(params.Merge) {
-		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
@@ -934,6 +946,8 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 // {orgName} - required path parameter: enrollments organization to delete (must exist)
 // start - optional query parameter: enrollments start date, 1900-01-01 if not set
 // end - optional query parameter: enrollments end date, 2100-01-01 if not set
+// is_project_specific - optional query parameter, if set - enrollemnt specific to this project will be deleted
+//   else global enrollment will be deleted
 func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.DeleteEnrollmentsParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -985,6 +999,9 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	} else {
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
 	}
+	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
+		enrollment.ProjectSlug = &project
+	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	err = s.shDB.WithdrawEnrollment(enrollment, true, nil)
@@ -1020,7 +1037,10 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 // /v1/affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}
 // {projectSlug} - required path parameter: project to merge enrollments (project slug URL encoded, can be prefixed with "/projects/")
 // {uuid} - required path parameter: Profile UUID to merge enrollments
-// {orgName} - required path parameter: enrollment organization to delete (must exist)
+// {orgName} - required path parameter: enrollment organization to merge
+// is_project_specific - optional query parameter, if set - enrollment specific to project will be merged
+//   else global enrollment will be merged
+// all_projects - optional query parameter, if set all enrollments will be merged (global one and 0 or more project specific ones)
 func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.PutMergeEnrollmentsParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -1063,9 +1083,16 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
+		enrollment.ProjectSlug = &project
+	}
+	allProjectSlugs := false
+	if params.AllProjects != nil && *(params.AllProjects) {
+		allProjectSlugs = true
+	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil)
+	err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, allProjectSlugs, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
