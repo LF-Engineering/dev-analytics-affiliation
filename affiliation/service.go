@@ -2003,7 +2003,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 			err = errs.Wrap(err, apiName)
 			return
 		}
-		getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, nil)
+		getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, project, nil)
 		if err != nil {
 			getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
 			err = errs.Wrap(err, apiName)
@@ -2157,7 +2157,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		return
 	}
 	if len(topContributors.Contributors) > 0 {
-		err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
+		err = s.shDB.EnrichContributors(topContributors.Contributors, project, to, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
@@ -2247,7 +2247,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		return
 	}
 	if len(topContributors.Contributors) > 0 {
-		err = s.shDB.EnrichContributors(topContributors.Contributors, to, nil)
+		err = s.shDB.EnrichContributors(topContributors.Contributors, project, to, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return

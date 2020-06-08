@@ -108,8 +108,8 @@ type Service interface {
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
 	UnarchiveUUID(string, time.Time, *sql.Tx) error
 	Unarchive(string, string) (bool, error)
-	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
-	EnrichContributors([]*models.ContributorFlatStats, int64, *sql.Tx) error
+	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, string, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
+	EnrichContributors([]*models.ContributorFlatStats, string, int64, *sql.Tx) error
 	// SSAW related
 	NotifySSAW()
 	SetOrigin()
@@ -304,50 +304,70 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 	defer func() {
 		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, tx != nil, err))
 	}()
-	// FIXME: implement projectSlug/allprojectSlugs support
-	disjoint, err := s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uniqueIdentity.UUID, organization.ID}, []bool{false, false}, false, tx)
-	if err != nil {
-		return
-	}
-	if len(disjoint) == 0 {
-		err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
-		return
-	}
-	dates := [][]strfmt.DateTime{}
-	for _, rol := range disjoint {
-		dates = append(dates, []strfmt.DateTime{rol.Start, rol.End})
-	}
-	mergedDates, err := s.MergeDateRanges(dates)
-	if err != nil {
-		return
-	}
-	for _, data := range mergedDates {
-		st := data[0]
-		en := data[1]
-		isDup := func(x *models.EnrollmentDataOutput, st, en strfmt.DateTime) bool {
-			return x.Start == st && x.End == en
+	projectSlugs := make(map[*string]struct{})
+	if allProjectSlugs {
+		var rols []*models.EnrollmentDataOutput
+		rols, err = s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uniqueIdentity.UUID, organization.ID}, []bool{false, false}, false, tx)
+		if err != nil {
+			return
 		}
-		filtered := []*models.EnrollmentDataOutput{}
+		for _, rol := range rols {
+			projectSlugs[rol.ProjectSlug] = struct{}{}
+		}
+	} else {
+		projectSlugs[projectSlug] = struct{}{}
+	}
+	for slug := range projectSlugs {
+		var disjoint []*models.EnrollmentDataOutput
+		disjoint, err = s.FindEnrollments([]string{"uuid", "organization_id", "project_slug"}, []interface{}{uniqueIdentity.UUID, organization.ID, slug}, []bool{false, false, false}, false, tx)
+		if err != nil {
+			return
+		}
+		pS := ""
+		if slug != nil {
+			pS = *slug
+		}
+		if len(disjoint) == 0 {
+			err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pS, allProjectSlugs)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
+			return
+		}
+		dates := [][]strfmt.DateTime{}
 		for _, rol := range disjoint {
-			if !isDup(rol, st, en) {
-				filtered = append(filtered, rol)
+			dates = append(dates, []strfmt.DateTime{rol.Start, rol.End})
+		}
+		var mergedDates [][]strfmt.DateTime
+		mergedDates, err = s.MergeDateRanges(dates)
+		if err != nil {
+			return
+		}
+		for _, data := range mergedDates {
+			st := data[0]
+			en := data[1]
+			isDup := func(x *models.EnrollmentDataOutput, st, en strfmt.DateTime) bool {
+				return x.Start == st && x.End == en
+			}
+			filtered := []*models.EnrollmentDataOutput{}
+			for _, rol := range disjoint {
+				if !isDup(rol, st, en) {
+					filtered = append(filtered, rol)
+				}
+			}
+			if len(filtered) != len(disjoint) {
+				disjoint = filtered
+				continue
+			}
+			newEnrollment := &models.EnrollmentDataOutput{UUID: uniqueIdentity.UUID, OrganizationID: organization.ID, Start: st, End: en, ProjectSlug: slug}
+			_, err = s.AddEnrollment(newEnrollment, false, false, tx)
+			if err != nil {
+				return
 			}
 		}
-		if len(filtered) != len(disjoint) {
-			disjoint = filtered
-			continue
-		}
-		newEnrollment := &models.EnrollmentDataOutput{UUID: uniqueIdentity.UUID, OrganizationID: organization.ID, Start: st, End: en}
-		_, err = s.AddEnrollment(newEnrollment, false, false, tx)
-		if err != nil {
-			return
-		}
-	}
-	for _, rol := range disjoint {
-		err = s.DeleteEnrollment(rol.ID, false, true, nil, tx)
-		if err != nil {
-			return
+		for _, rol := range disjoint {
+			err = s.DeleteEnrollment(rol.ID, false, true, nil, tx)
+			if err != nil {
+				return
+			}
 		}
 	}
 	return
@@ -489,7 +509,7 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 	return
 }
 
-func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats, millisSinceEpoch int64, tx *sql.Tx) (err error) {
+func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats, projectSlug string, millisSinceEpoch int64, tx *sql.Tx) (err error) {
 	inf := ""
 	n := len(contributors)
 	if n > shared.LogListMax {
@@ -499,12 +519,13 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	}
 	found := 0
 	orgFound := 0
-	log.Debug(fmt.Sprintf("EnrichContributors: contributors:%s millisSinceEpoch:%d tx:%v", inf, millisSinceEpoch, tx != nil))
+	log.Debug(fmt.Sprintf("EnrichContributors: contributors:%s projectSlug:%s millisSinceEpoch:%d tx:%v", inf, projectSlug, millisSinceEpoch, tx != nil))
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"EnrichContributors(exit): contributors:%s millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
+				"EnrichContributors(exit): contributors:%s projectSlug, millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
 				inf,
+				projectSlug,
 				millisSinceEpoch,
 				tx != nil,
 				orgFound,
@@ -532,7 +553,8 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		uuids = append(uuids, uuid)
 		sel += "?,"
 	}
-	sel = sel[0:len(sel)-1] + ")"
+	uuids = append(uuids, projectSlug)
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = '?') order by e.project_slug is null"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
@@ -590,7 +612,8 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			uuids = append(uuids, uuid)
 			sel += "?,"
 		}
-		sel = sel[0:len(sel)-1] + ") order by p.uuid asc, p.archived_at desc"
+		uuids = append(uuids, projectSlug)
+		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = '?') order by e.project_slug is null, p.uuid asc, p.archived_at desc"
 		var rows *sql.Rows
 		rows, err = s.Query(s.db, tx, sel, uuids...)
 		if err != nil {
@@ -635,7 +658,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	return
 }
 
-func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOutput, tx *sql.Tx) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
+func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOutput, projectSlug string, tx *sql.Tx) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
 	inunaff := ""
 	nUnaffiliated := len(inUnaffiliated)
 	if nUnaffiliated > shared.LogListMax {
@@ -643,7 +666,7 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 	} else {
 		inunaff = fmt.Sprintf("%+v", s.ToLocalUnaffiliated(inUnaffiliated))
 	}
-	log.Info(fmt.Sprintf("CheckUnaffiliated: inUnaffiliated:%s tx:%v", inunaff, tx != nil))
+	log.Info(fmt.Sprintf("CheckUnaffiliated: inUnaffiliated:%s projectSlug:%s tx:%v", inunaff, projectSlug, tx != nil))
 	defer func() {
 		unaff := ""
 		nUnaffiliated := len(unaffiliated)
@@ -654,8 +677,9 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 		}
 		log.Info(
 			fmt.Sprintf(
-				"CheckUnaffiliated(exit): inUnaffiliated:%+v tx:%v unaffiliated:%+v err:%v",
+				"CheckUnaffiliated(exit): inUnaffiliated:%+v projectSlug:%s tx:%v unaffiliated:%+v err:%v",
 				inunaff,
+				projectSlug,
 				tx != nil,
 				unaff,
 				err,
@@ -672,7 +696,8 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 		sel += "?,"
 		contribs[uuid] = unaff.Contributions
 	}
-	sel = sel[0:len(sel)-1] + ")"
+	uuids = append(uuids, projectSlug)
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = '?') order by e.project_slug is null"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
