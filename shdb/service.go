@@ -127,7 +127,7 @@ type Service interface {
 	GetListProfiles(string, int64, int64, string) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
-	FindEnrollmentsNested([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
+	FindEnrollmentsNested([]string, []interface{}, []bool, bool, string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) (string, bool, error)
@@ -985,17 +985,18 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 	return
 }
 
-func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
-	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v", columns, values, isDate, missingFatal, tx != nil))
+func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, projectSlug string, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlug:%s tx:%v", columns, values, isDate, missingFatal, projectSlug, tx != nil))
 	s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"FindEnrollmentsNested(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v tx:%v enrollments:%+v err:%v",
+				"FindEnrollmentsNested(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlug:%s tx:%v enrollments:%+v err:%v",
 				columns,
 				values,
 				isDate,
 				missingFatal,
+				projectSlug,
 				tx != nil,
 				s.ToLocalNestedEnrollments(enrollments),
 				err,
@@ -1035,6 +1036,10 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 		if index < lastIndex {
 			sel += " and"
 		}
+	}
+	if projectSlug != "" {
+		sel += " and (e.project_slug is null or e.project_slug = ?)"
+		vals = append(vals, projectSlug)
 	}
 	sel += " order by e.uuid asc, e.start asc, e.end asc"
 	rows, err := s.Query(s.db, tx, sel, vals...)

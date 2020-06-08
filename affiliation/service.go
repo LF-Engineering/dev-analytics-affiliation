@@ -1628,7 +1628,7 @@ func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation
 	}
 	// Do the actual API call
 	var enrollments []*models.EnrollmentNestedDataOutput
-	enrollments, err = s.shDB.FindEnrollmentsNested([]string{"e.uuid"}, []interface{}{uuid}, []bool{false}, false, nil)
+	enrollments, err = s.shDB.FindEnrollmentsNested([]string{"e.uuid"}, []interface{}{uuid}, []bool{false}, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
