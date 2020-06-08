@@ -2155,6 +2155,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errs.Wrap(err, apiName)
 		return
 	}
+
 	topContributors, err = s.es.GetTopContributors(project, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
