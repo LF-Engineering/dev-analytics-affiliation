@@ -800,7 +800,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -926,7 +926,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1010,7 +1010,7 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1098,7 +1098,11 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, nil)
+	if allProjectSlugs {
+		ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, "", nil)
+	} else {
+		ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
+	}
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1230,7 +1234,7 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1285,7 +1289,7 @@ func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteP
 }
 
 // PostUnarchiveProfile: API params:
-// /v1/affiliation/{projectSlug}/delete_profile/{uuid}[?archive=true]
+// /v1/affiliation/{projectSlug}/unarchive_profile/{uuid}[?archive=true]
 // {projectSlug} - required path parameter: project where we need to unarchive profile (project slug URL encoded, can be prefixed with "/projects/")
 // {uuid} - required path parameter: profile uuid to be unarchived (it will cascade delete all objects referring to that uuid)
 func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.PostUnarchiveProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
@@ -1545,7 +1549,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page)
+	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page, project)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1583,7 +1587,7 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 	}
 	// Do the actual API call
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1868,7 +1872,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1939,7 +1943,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, project, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return

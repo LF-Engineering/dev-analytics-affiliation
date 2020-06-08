@@ -67,7 +67,7 @@ type Service interface {
 	ArchiveUniqueIdentity(string, *time.Time, *sql.Tx) error
 	UnarchiveUniqueIdentity(string, bool, *time.Time, *sql.Tx) error
 	DeleteUniqueIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
-	QueryUniqueIdentitiesNested(string, int64, int64, bool, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
+	QueryUniqueIdentitiesNested(string, int64, int64, bool, string, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
 	// Enrollment
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -124,7 +124,7 @@ type Service interface {
 	UnarchiveProfileNested(string) (*models.UniqueIdentityNestedDataOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
-	GetListProfiles(string, int64, int64) (*models.GetListProfilesOutput, error)
+	GetListProfiles(string, int64, int64, string) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
@@ -1002,7 +1002,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 			),
 		)
 	}()
-	sel := "select e.id, e.uuid, e.start, e.end, o.id, o.name from enrollments e, organizations o where e.organization_id = o.id"
+	sel := "select e.id, e.uuid, e.start, e.end, e.project_slug, o.id, o.name from enrollments e, organizations o where e.organization_id = o.id"
 	vals := []interface{}{}
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -1049,6 +1049,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 			&enrollmentData.UUID,
 			&enrollmentData.Start,
 			&enrollmentData.End,
+			&enrollmentData.ProjectSlug,
 			&enrollmentData.OrganizationID,
 			&oName,
 		)
@@ -1090,7 +1091,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 			),
 		)
 	}()
-	sel := "select id, uuid, organization_id, start, end from enrollments"
+	sel := "select id, uuid, organization_id, start, end, project_slug from enrollments"
 	vals := []interface{}{}
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -1137,6 +1138,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 			&enrollmentData.OrganizationID,
 			&enrollmentData.Start,
 			&enrollmentData.End,
+			&enrollmentData.ProjectSlug,
 		)
 		if err != nil {
 			return
@@ -1235,7 +1237,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select id, uuid, organization_id, start, end from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
+		"select id, uuid, organization_id, start, end, project_slug from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
 		uuid,
 		tm,
 	)
@@ -1250,6 +1252,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 			&enrollmentData.OrganizationID,
 			&enrollmentData.Start,
 			&enrollmentData.End,
+			&enrollmentData.ProjectSlug,
 		)
 		if err != nil {
 			return
@@ -1344,7 +1347,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select id, uuid, organization_id, start, end from enrollments where uuid = ? order by start asc, end asc",
+		"select id, uuid, organization_id, start, end, project_slug from enrollments where uuid = ? order by start asc, end asc",
 		uuid,
 	)
 	if err != nil {
@@ -1358,6 +1361,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 			&enrollmentData.OrganizationID,
 			&enrollmentData.Start,
 			&enrollmentData.End,
+			&enrollmentData.ProjectSlug,
 		)
 		if err != nil {
 			return
@@ -1398,7 +1402,7 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select id, uuid, organization_id, start, end from enrollments where id = ? limit 1",
+		"select id, uuid, organization_id, start, end, project_slug from enrollments where id = ? limit 1",
 		id,
 	)
 	if err != nil {
@@ -1412,6 +1416,7 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 			&enrollmentData.OrganizationID,
 			&enrollmentData.Start,
 			&enrollmentData.End,
+			&enrollmentData.ProjectSlug,
 		)
 		if err != nil {
 			return
@@ -2050,13 +2055,13 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx 
 	var res sql.Result
 	s.SetOrigin()
 	if tm != nil {
-		insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
-			"select id, uuid, organization_id, start, end from enrollments_archive " +
+		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug) " +
+			"select id, uuid, organization_id, start, end, project_slug from enrollments_archive " +
 			"where id = ? and archived_at = ?"
 		res, err = s.Exec(s.db, tx, insert, id, tm)
 	} else {
-		insert := "insert into enrollments(id, uuid, organization_id, start, end) " +
-			"select id, uuid, organization_id, start, end from enrollments_archive " +
+		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug) " +
+			"select id, uuid, organization_id, start, end, project_slug from enrollments_archive " +
 			"where id = ? order by archived_at desc limit 1"
 		res, err = s.Exec(s.db, tx, insert, id)
 	}
@@ -2088,8 +2093,8 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, archived_at) " +
-		"select id, uuid, organization_id, start, end, ? from enrollments where id = ? limit 1"
+	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, project_slug, archived_at) " +
+		"select id, uuid, organization_id, start, end, project_slug, ? from enrollments where id = ? limit 1"
 	res, err := s.Exec(s.db, tx, insert, tm, id)
 	if err != nil {
 		return
@@ -2112,19 +2117,36 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 	defer func() {
 		log.Info(fmt.Sprintf("WithdrawEnrollment(exit): enrollment:%+v missingFatal:%v tx:%v err:%v", enrollment, missingFatal, tx != nil, err))
 	}()
-	del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?)"
 	s.SetOrigin()
-	res, err := s.Exec(
-		s.db,
-		tx,
-		del,
-		enrollment.UUID,
-		enrollment.OrganizationID,
-		enrollment.Start,
-		DateTimeFormat,
-		enrollment.End,
-		DateTimeFormat,
-	)
+	var res sql.Result
+	if enrollment.ProjectSlug == nil {
+		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug is null"
+		res, err = s.Exec(
+			s.db,
+			tx,
+			del,
+			enrollment.UUID,
+			enrollment.OrganizationID,
+			enrollment.Start,
+			DateTimeFormat,
+			enrollment.End,
+			DateTimeFormat,
+		)
+	} else {
+		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug = ?"
+		res, err = s.Exec(
+			s.db,
+			tx,
+			del,
+			enrollment.UUID,
+			enrollment.OrganizationID,
+			enrollment.Start,
+			DateTimeFormat,
+			enrollment.End,
+			DateTimeFormat,
+			enrollment.ProjectSlug,
+		)
+	}
 	if err != nil {
 		return
 	}
@@ -2504,6 +2526,11 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 	}()
 	if forUpdate && enrollmentData.ID < 1 {
 		err = fmt.Errorf("enrollment '%+v' missing id", enrollmentData)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
+		return
+	}
+	if enrollmentData.ProjectSlug != nil && *(enrollmentData.ProjectSlug) == "" {
+		err = fmt.Errorf("enrollment '%+v' project_slug must be null or non-empty string", enrollmentData)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
 		return
 	}
@@ -3112,7 +3139,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 	if ignore {
 		root += " ignore"
 	}
-	insert := root + " into enrollments(uuid, organization_id, start, end) select ?, ?, str_to_date(?, ?), str_to_date(?, ?)"
+	insert := root + " into enrollments(uuid, organization_id, start, end, project_slug) select ?, ?, str_to_date(?, ?), str_to_date(?, ?), ?"
 	var res sql.Result
 	s.SetOrigin()
 	res, err = s.Exec(
@@ -3125,6 +3152,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 		DateTimeFormat,
 		enrollmentData.End,
 		DateTimeFormat,
+		enrollmentData.ProjectSlug,
 	)
 	if err != nil {
 		enrollmentData = nil
@@ -3258,7 +3286,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		enrollmentData = nil
 		return
 	}
-	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?) where id = ?"
+	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ? where id = ?"
 	var res sql.Result
 	s.SetOrigin()
 	res, err = s.Exec(
@@ -3271,6 +3299,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		DateTimeFormat,
 		enrollmentData.End,
 		DateTimeFormat,
+		enrollmentData.ProjectSlug,
 		enrollmentData.ID,
 	)
 	if err != nil {
@@ -4852,8 +4881,8 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	return
 }
 
-func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identityRequired bool, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
-	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d identityRequired:%v tx:%v", q, rows, page, identityRequired, tx != nil))
+func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identityRequired bool, projectSlug string, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
+	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d identityRequired:%v projectSlug:%s tx:%v", q, rows, page, identityRequired, projectSlug, tx != nil))
 	defer func() {
 		list := ""
 		nProfs := len(uids)
@@ -4864,11 +4893,12 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		}
 		log.Info(
 			fmt.Sprintf(
-				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d identityRequired:%v tx:%v uids:%s n_rows:%d err:%v",
+				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d identityRequired:%v projectSlug:%s tx:%v uids:%s n_rows:%d err:%v",
 				q,
 				rows,
 				page,
 				identityRequired,
+				projectSlug,
 				tx != nil,
 				list,
 				nRows,
@@ -4910,15 +4940,15 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	uuid := ""
 	if identityRequired {
 		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
-		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, o.name "
+		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, e.project_slug, o.name "
 		sel += "from uidentities u, identities i, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
 	} else {
 		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
-		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.oname "
+		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.project_slug, s.oname "
 		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
-		sel += "e.id, e.start, e.end, e.organization_id, o.name as oname from uidentities u, profiles p "
+		sel += "e.id, e.start, e.end, e.organization_id, e.project_slug, o.name as oname from uidentities u, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = p.uuid and u.uuid in ("
 	}
@@ -4933,10 +4963,19 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	if len(uuids) < 1 {
 		return
 	}
+	projectSlugWhere := ""
+	if projectSlug != "" {
+		if identityRequired {
+			projectSlugWhere = " and (e.project_slug is null or e.project_slug = '?')"
+		} else {
+			projectSlugWhere = " where (s.project_slug is null or s.project_slug = '?')"
+		}
+		uuids = append(uuids, projectSlug)
+	}
 	if identityRequired {
-		sel = sel[0:len(sel)-1] + ") order by u.uuid, i.source, e.start"
+		sel = sel[0:len(sel)-1] + fmt.Sprintf(") %s order by u.uuid, i.source, e.start", projectSlugWhere)
 	} else {
-		sel = sel[0:len(sel)-1] + ")) s left join identities i on s.uuid = i.uuid order by s.uuid, i.source, s.start"
+		sel = sel[0:len(sel)-1] + fmt.Sprintf(")) s left join identities i on s.uuid = i.uuid %s order by s.uuid, i.source, s.start", projectSlugWhere)
 	}
 	err = qrows.Err()
 	if err != nil {
@@ -4956,6 +4995,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		rolEnd            *strfmt.DateTime
 		rolOrganizationID *int64
 		rolOrganization   *string
+		rolProjectSlug    *string
 		iID               *string
 		iName             *string
 		iEmail            *string
@@ -4975,7 +5015,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 			&uid.UUID, &uid.LastModified,
 			&prof.Name, &prof.Email, &prof.Gender, &prof.GenderAcc, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource, &iLastModified,
-			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolOrganization,
+			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolProjectSlug, &rolOrganization,
 		)
 		if err != nil {
 			return
@@ -4988,6 +5028,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 				UUID:           uuid,
 				Start:          *rolStart,
 				End:            *rolEnd,
+				ProjectSlug:    rolProjectSlug,
 				OrganizationID: *rolOrganizationID,
 				Organization: &models.OrganizationDataOutput{
 					ID:   *rolOrganizationID,
@@ -5427,7 +5468,7 @@ func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentit
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, tx)
+	ary, _, err = s.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, "", tx)
 	if err != nil {
 		return
 	}
@@ -5609,8 +5650,8 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 	return
 }
 
-func (s *service) GetListProfiles(q string, rows, page int64) (getListProfiles *models.GetListProfilesOutput, err error) {
-	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d", q, rows, page))
+func (s *service) GetListProfiles(q string, rows, page int64, projectSlug string) (getListProfiles *models.GetListProfilesOutput, err error) {
+	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d projectSlug:%s", q, rows, page, projectSlug))
 	s.SetOrigin()
 	getListProfiles = &models.GetListProfilesOutput{}
 	defer func() {
@@ -5623,10 +5664,11 @@ func (s *service) GetListProfiles(q string, rows, page int64) (getListProfiles *
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListProfiles(exit): q:%s rows:%d page:%d getListProfiles:%s err:%v",
+				"GetListProfiles(exit): q:%s rows:%d page:%d projectSlug:%s getListProfiles:%s err:%v",
 				q,
 				rows,
 				page,
+				projectSlug,
 				list,
 				err,
 			),
@@ -5634,7 +5676,7 @@ func (s *service) GetListProfiles(q string, rows, page int64) (getListProfiles *
 	}()
 	nRows := int64(0)
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, true, nil)
+	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, true, projectSlug, nil)
 	if err != nil {
 		return
 	}
