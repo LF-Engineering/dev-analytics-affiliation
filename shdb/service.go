@@ -553,8 +553,8 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		uuids = append(uuids, uuid)
 		sel += "?,"
 	}
-	//uuids = append(uuids, projectSlug)
-	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = '?') order by e.project_slug is null"
+	uuids = append(uuids, projectSlug)
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = ?) order by e.project_slug is null"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
@@ -612,8 +612,8 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			uuids = append(uuids, uuid)
 			sel += "?,"
 		}
-		//uuids = append(uuids, projectSlug)
-		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = '?') order by e.project_slug is null, p.uuid asc, p.archived_at desc"
+		uuids = append(uuids, projectSlug)
+		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = ?) order by e.project_slug is null, p.uuid asc, p.archived_at desc"
 		var rows *sql.Rows
 		rows, err = s.Query(s.db, tx, sel, uuids...)
 		if err != nil {
@@ -697,7 +697,7 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 		contribs[uuid] = unaff.Contributions
 	}
 	uuids = append(uuids, projectSlug)
-	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = '?') order by e.project_slug is null"
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = ?) order by e.project_slug is null"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
@@ -4971,9 +4971,9 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	projectSlugWhere := ""
 	if projectSlug != "" {
 		if identityRequired {
-			projectSlugWhere = " and (e.project_slug is null or e.project_slug = '?')"
+			projectSlugWhere = " and (e.project_slug is null or e.project_slug = ?)"
 		} else {
-			projectSlugWhere = " where (s.project_slug is null or s.project_slug = '?')"
+			projectSlugWhere = " where (s.project_slug is null or s.project_slug = ?)"
 		}
 		uuids = append(uuids, projectSlug)
 	}
