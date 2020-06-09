@@ -129,7 +129,7 @@ type Service interface {
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
-	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
+	PutOrgDomain(string, string, bool, bool, bool, string) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) (string, bool, error)
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
@@ -523,7 +523,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"EnrichContributors(exit): contributors:%s projectSlug, millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
+				"EnrichContributors(exit): contributors:%s projectSlug:%s millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
 				inf,
 				projectSlug,
 				millisSinceEpoch,
@@ -686,6 +686,10 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 			),
 		)
 	}()
+	if len(inUnaffiliated) == 0 {
+		log.Info("No unaffiliated data to check")
+		return
+	}
 	sel := "select p.uuid, p.name, e.uuid from profiles p left join enrollments e on p.uuid = e.uuid"
 	sel += " where (p.is_bot is null or p.is_bot = 0) and p.uuid in ("
 	uuids := []interface{}{}
@@ -5751,14 +5755,14 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 }
 
 // PutOrgDomain - add domain to organization
-func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
-	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
+func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool, projectSlug string) (putOrgDomain *models.PutOrgDomainOutput, err error) {
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v projectSlug:%s", org, dom, overwrite, isTopDomain, skipEnrollments, projectSlug))
 	s.SetOrigin()
 	putOrgDomain = &models.PutOrgDomainOutput{}
 	org = strings.TrimSpace(org)
 	dom = strings.TrimSpace(dom)
 	defer func() {
-		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, putOrgDomain, err))
+		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v projectSlug:%s putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, projectSlug, putOrgDomain, err))
 	}()
 	rows, err := s.Query(s.db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {

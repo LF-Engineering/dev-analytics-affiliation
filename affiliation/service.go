@@ -826,6 +826,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
 // is_project_specific - optional query parameter, if set - enrollment specific to this project will be edited
 //   else global enrollment will be edited
+// new_is_project_specific - ooptional query parameter, if set - will update is_project_specific value
 func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.PutEditEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -911,6 +912,13 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		enrollment.End = *(params.NewEnd)
 	} else {
 		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+	}
+	if params.NewIsProjectSpecific != nil {
+		if *(params.NewIsProjectSpecific) == true {
+			enrollment.ProjectSlug = &project
+		} else {
+			enrollment.ProjectSlug = nil
+		}
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
@@ -1696,7 +1704,7 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments)
+	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments, project)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return

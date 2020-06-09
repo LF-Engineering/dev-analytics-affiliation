@@ -73,9 +73,9 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_identity.sh odpi/egeria 5d53a9a4774a912e19fc7afe4a21bcc0ea8a63bb ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria aaa8024197795de9b90676592772633c5cfcb35a | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05Z' end='2015-05-05T18:30:08Z' merge=1 ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05Z' end='2015-05-05T18:30:08Z' is_project_specific=true merge=1 ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05' end='2015-05-05T19:19' ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2000-01-01T00:00' end='2021-01-01T00:00' ./sh/curl_delete_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_merge_all.sh ``.

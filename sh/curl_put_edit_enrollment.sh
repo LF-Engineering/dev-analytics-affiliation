@@ -14,7 +14,7 @@ uuid=$(rawurlencode "${2}")
 orgName=$(rawurlencode "${3}")
 extra=''
 
-for prop in start end new_start new_end merge
+for prop in start end merge is_project_specific new_start new_end new_is_project_specific
 do
   if [ ! -z "${!prop}" ]
   then

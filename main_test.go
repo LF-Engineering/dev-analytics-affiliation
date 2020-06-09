@@ -203,7 +203,7 @@ func TestMergeDateRanges(t *testing.T) {
 			},
 		},
 	}
-	s := shdb.New(nil)
+	s := shdb.New(nil, "api-test")
 	for index, test := range testCases {
 		expected := test.expected
 		expectedErr := test.expectedErr

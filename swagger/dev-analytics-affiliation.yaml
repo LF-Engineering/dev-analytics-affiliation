@@ -1135,6 +1135,10 @@ paths:
           type: string
           format: date-time
           description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new end date for the existing enrollment
+        - name: new_is_project_specific
+          in: query
+          type: boolean
+          description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
   /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
