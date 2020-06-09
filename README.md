@@ -75,9 +75,11 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05Z' end='2015-05-05T18:30:08Z' is_project_specific=true merge=1 ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05' end='2015-05-05T19:19' ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 new_is_project_specific=false ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2000-01-01T00:00' end='2021-01-01T00:00' ./sh/curl_delete_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.test.token` is_project_specific=true ./sh/curl_delete_enrollments.sh project1 f1dd198c9d0427f603789b5a8cc7e0bc3ca66649 'Intel Corporation' | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` is_project_specific=true ./sh/curl_put_merge_enrollments.sh proj1 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` all_projects=true ./sh/curl_put_merge_enrollments.sh proj2 0000142135434a2b963c916185862168806fb1f5 'Intel Corporation' | jq ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_merge_all.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_hide_emails.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_get_all_yaml.sh ``.
@@ -86,7 +88,6 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" SEARCH=john SIZE=1 ./sh/curl_get_top_contributors_query.sh lfn ``.
-
 
 # Docker
 

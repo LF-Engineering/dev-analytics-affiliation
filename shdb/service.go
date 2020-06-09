@@ -305,6 +305,7 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, tx != nil, err))
 	}()
 	projectSlugs := make(map[*string]struct{})
+	projectSlugsInf := make(map[string]struct{})
 	if allProjectSlugs {
 		var rols []*models.EnrollmentDataOutput
 		rols, err = s.FindEnrollments([]string{"uuid", "organization_id"}, []interface{}{uniqueIdentity.UUID, organization.ID}, []bool{false, false}, false, tx)
@@ -313,10 +314,22 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 		}
 		for _, rol := range rols {
 			projectSlugs[rol.ProjectSlug] = struct{}{}
+			ps := rol.ProjectSlug
+			if ps == nil {
+				projectSlugsInf["(null)"] = struct{}{}
+			} else {
+				projectSlugsInf[*ps] = struct{}{}
+			}
 		}
 	} else {
 		projectSlugs[projectSlug] = struct{}{}
+		if projectSlug == nil {
+			projectSlugsInf["(null)"] = struct{}{}
+		} else {
+			projectSlugsInf[*projectSlug] = struct{}{}
+		}
 	}
+	log.Info(fmt.Sprintf("Merging projects %+v organization %+v uniqueIdentity %+v", projectSlugsInf, organization, s.ToLocalUniqueIdentity(uniqueIdentity)))
 	for slug := range projectSlugs {
 		var disjoint []*models.EnrollmentDataOutput
 		disjoint, err = s.FindEnrollments([]string{"uuid", "organization_id", "project_slug"}, []interface{}{uniqueIdentity.UUID, organization.ID, slug}, []bool{false, false, false}, false, tx)
