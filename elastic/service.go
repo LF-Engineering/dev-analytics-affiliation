@@ -993,6 +993,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			}
 		}
 	}
+
 	if mainPattern == "" {
 		if sortField != "" && sortField != "author_uuid" {
 			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
@@ -1001,11 +1002,24 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		mainPattern = s.projectSlugToIndexPattern(projectSlug)
 	}
 	top.DataSourceTypes = []*models.DataSourceTypeFields{}
+
+	//map to keep order of datasource fields output
+	dataSourceOrder := map[string]int{
+		"git":          0,
+		"gerrit":       1,
+		"github":       2,
+		"jira":         3,
+		"github/issue": 4,
+		"bugzilla":     5,
+		"confluence":   6,
+	}
+
 	for dataSourceType, dataSourceFields := range fields {
 		dsFields := []string{}
 		for field := range dataSourceFields {
 			dsFields = append(dsFields, field)
 		}
+
 		top.DataSourceTypes = append(
 			top.DataSourceTypes,
 			&models.DataSourceTypeFields{
@@ -1014,6 +1028,36 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			},
 		)
 	}
+
+	for i := 0; i < len(top.DataSourceTypes); i++ {
+		first := 0
+		if _, ok := dataSourceOrder[top.DataSourceTypes[i].Name]; ok {
+			first = dataSourceOrder[top.DataSourceTypes[i].Name]
+		} else {
+			first = 99
+		}
+
+		minIndex := i
+
+		for j := i; j < len(top.DataSourceTypes); j++ {
+			current := 0
+			if _, ok := dataSourceOrder[top.DataSourceTypes[j].Name]; ok {
+				current = dataSourceOrder[top.DataSourceTypes[j].Name]
+			} else {
+				current = 99
+			}
+
+			if current < first {
+				first = current
+				minIndex = j
+			}
+		}
+
+		tempDataSource := top.DataSourceTypes[i]
+		top.DataSourceTypes[i] = top.DataSourceTypes[minIndex]
+		top.DataSourceTypes[minIndex] = tempDataSource
+	}
+
 	searchCond := ""
 	searchCondMap := make(map[string]string)
 	searchCond, err = s.searchCondition(mainPattern, search)
