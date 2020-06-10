@@ -1005,16 +1005,28 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 
 	//map to keep order of datasource fields output
 	dataSourceOrder := map[string]int{
-		"git":          0,
-		"gerrit":       1,
-		"github":       2,
-		"jira":         3,
-		"github/issue": 4,
-		"bugzilla":     5,
-		"confluence":   6,
+		"git":                 0,
+		"gerrit":              1,
+		"github/pull_request": 2,
+		"jira":                3,
+		"github/issue":        4,
+		"bugzilla":            5,
+		"confluence":          6,
+		"slack":               7,
+		"rocketchat":          8,
+		"pipermail":           9,
+		"groupsio":            10,
+		"discourse":           11,
+		"jenkins":             12,
+		"dockerhub":           13,
 	}
 
 	for dataSourceType, dataSourceFields := range fields {
+		dataSourceTypeName := dataSourceType
+		if dataSourceTypeName == "bugzillarest" {
+			dataSourceTypeName = "bugzilla"
+		}
+
 		dsFields := []string{}
 		for field := range dataSourceFields {
 			dsFields = append(dsFields, field)
@@ -1023,7 +1035,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		top.DataSourceTypes = append(
 			top.DataSourceTypes,
 			&models.DataSourceTypeFields{
-				Name:   dataSourceType,
+				Name:   dataSourceTypeName,
 				Fields: dsFields,
 			},
 		)
@@ -1385,11 +1397,11 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 		contributor := &models.ContributorFlatStats{
 			UUID:                                 uuid,
-			GitLinesOfCodeAdded:                  getInt(uuid, "git_lines_added"),
-			GitLinesOfCodeChanged:                getInt(uuid, "git_lines_changed"),
-			GitLinesOfCodeRemoved:                getInt(uuid, "git_lines_removed"),
+			GitLinesAdded:                        getInt(uuid, "git_lines_added"),
+			GitLinesChanged:                      getInt(uuid, "git_lines_changed"),
+			GitLinesRemoved:                      getInt(uuid, "git_lines_removed"),
 			GitCommits:                           getInt(uuid, "git_commits"),
-			GerritReviewsApproved:                getInt(uuid, "gerrit_approvals"),
+			GerritApprovals:                      getInt(uuid, "gerrit_approvals"),
 			GerritMergedChangesets:               getInt(uuid, "gerrit_merged_changesets"),
 			GerritChangesets:                     getInt(uuid, "gerrit_changesets"),
 			JiraComments:                         getInt(uuid, "jira_comments"),
@@ -1401,15 +1413,15 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			ConfluencePagesEdited:                getInt(uuid, "confluence_pages_edited"),
 			ConfluenceBlogPosts:                  getInt(uuid, "confluence_blog_posts"),
 			ConfluenceComments:                   getInt(uuid, "confluence_comments"),
-			ConfluenceLastDocumentation:          confluenceLastActionDate,
+			ConfluenceLastActionDate:             confluenceLastActionDate,
 			ConfluenceDateSinceLastDocumentation: daysAgo,
-			GithubIssuesCreated:                  getInt(uuid, "github_issue_issues_created"),
-			GithubIssuesAssigned:                 getInt(uuid, "github_issue_issues_assigned"),
-			GithubIssuesAverageTimeOpenDays:      getFloat(uuid, "github_issue_average_time_open_days"),
-			GithubPullRequestsCreated:            getInt(uuid, "github_pull_request_prs_created"),
-			GithubPullRequestsMerged:             getInt(uuid, "github_pull_request_prs_merged"),
-			GithubPullRequestsOpen:               getInt(uuid, "github_pull_request_prs_open"),
-			GithubPullRequestsClosed:             getInt(uuid, "github_pull_request_prs_closed"),
+			GithubIssueIssuesCreated:             getInt(uuid, "github_issue_issues_created"),
+			GithubIssueIssuesAssigned:            getInt(uuid, "github_issue_issues_assigned"),
+			GithubIssueAverageTimeOpenDays:       getFloat(uuid, "github_issue_average_time_open_days"),
+			GithubPullRequestsPrsCreated:         getInt(uuid, "github_pull_request_prs_created"),
+			GithubPullRequestsPrsMerged:          getInt(uuid, "github_pull_request_prs_merged"),
+			GithubPullRequestsPrsOpen:            getInt(uuid, "github_pull_request_prs_open"),
+			GithubPullRequestsPrsClosed:          getInt(uuid, "github_pull_request_prs_closed"),
 			BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
 			BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
 			BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
