@@ -62,6 +62,7 @@ type Service interface {
 	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutputNoDates, error)
 	PutEditEnrollment(ctx context.Context, in *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteEnrollments(ctx context.Context, in *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteEnrollment(ctx context.Context, in *affiliation.DeleteEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeEnrollments(ctx context.Context, in *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -326,6 +327,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "DeleteEnrollments"
+	case *affiliation.DeleteEnrollmentParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "DeleteEnrollment"
 	case *affiliation.PutMergeEnrollmentsParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -1025,6 +1030,61 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	}
 	if len(ary) == 0 {
 		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		return
+	}
+	uid = ary[0]
+	return
+}
+
+// DeleteEnrollment: API params:
+// /v1/affiliation/{projectSlug}/delete_enrollment/{id}
+// {projectSlug} - required path parameter: project to delete enrollments from (project slug URL encoded, can be prefixed with "/projects/")
+// {id} - required path parameter: Enrollment ID to delete
+func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.DeleteEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	enrollment := &models.EnrollmentDataOutput{ID: params.ID}
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("DeleteEnrollment: id:%d", params.ID))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteEnrollment(exit): id:%d enrollment:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				params.ID,
+				enrollment,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	var rols []*models.EnrollmentDataOutput
+	rols, err = s.shDB.FindEnrollments([]string{"id"}, []interface{}{enrollment.ID}, []bool{false}, true, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	// Do the actual API call
+	err = s.shDB.DeleteEnrollment(enrollment.ID, true, true, nil, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	enrollment = rols[0]
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+enrollment.UUID, 1, 1, false, project, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", enrollment.UUID), apiName)
 		return
 	}
 	uid = ary[0]

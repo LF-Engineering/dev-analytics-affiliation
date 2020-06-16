@@ -827,6 +827,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewDeleteEnrollmentsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationDeleteEnrollmentHandler = affiliation.DeleteEnrollmentHandlerFunc(
+		func(params affiliation.DeleteEnrollmentParams) middleware.Responder {
+			log.Info("DeleteEnrollmentHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("DeleteEnrollmentHandlerFunc: " + info)
+
+			result, err := service.DeleteEnrollment(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("DeleteEnrollmentHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("DeleteEnrollmentHandlerFunc(ok): " + info)
+
+			return affiliation.NewDeleteEnrollmentOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPutMergeEnrollmentsHandler = affiliation.PutMergeEnrollmentsHandlerFunc(
 		func(params affiliation.PutMergeEnrollmentsParams) middleware.Responder {
 			log.Info("PutMergeEnrollmentsHandlerFunc")

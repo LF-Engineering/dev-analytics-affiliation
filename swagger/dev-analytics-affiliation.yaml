@@ -1139,6 +1139,43 @@ paths:
           in: query
           type: boolean
           description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
+  /affiliation/{projectSlug}/delete_enrollment/{id}:
+    delete:
+      summary: Delete enrollment from profile
+      operationId: deleteEnrollment
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - delete_enrollment
+        - delete
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - name: id
+          in: path
+          type: integer
+          required: true
+          description: Enrollment ID
   /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
