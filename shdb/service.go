@@ -3729,7 +3729,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			if err != nil {
 				return
 			}
-			inf = fmt.Sprintf("Added organization '%s' (id=%d)\n", to, id)
+			inf = fmt.Sprintf("Added organization '%s' (id=%d)", to, id)
 			status += inf + ", "
 			log.Info(inf)
 		} else if actualName != to {
@@ -3737,7 +3737,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			if err != nil {
 				return
 			}
-			inf = fmt.Sprintf("Updated organization name '%s' -> '%s' (id=%d)\n", actualName, to, id)
+			inf = fmt.Sprintf("Updated organization name '%s' -> '%s' (id=%d)", actualName, to, id)
 			status += inf + ", "
 			log.Info(inf)
 		}
@@ -3753,7 +3753,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 				return
 			}
 			if nid == id {
-				inf = fmt.Sprintf("'%s' (id=%d) matching '%s' already maps into '%s' (id=%d), skipping\n", name, nid, re, to, id)
+				inf = fmt.Sprintf("'%s' (id=%d) matching '%s' already maps into '%s' (id=%d), skipping", name, nid, re, to, id)
 				status += inf + ", "
 				log.Info(inf)
 				continue
@@ -3766,7 +3766,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			affected := int64(0)
 			affected, err = res.RowsAffected()
 			if affected > 0 {
-				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d enrollments\n", name, to, affected)
+				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d enrollments", name, to, affected)
 				status += inf + ", "
 				log.Info(inf)
 			}
