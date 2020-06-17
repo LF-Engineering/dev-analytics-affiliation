@@ -11,6 +11,7 @@ import (
 	"crypto/sha1"
 	"database/sql"
 	"encoding/hex"
+	"io/ioutil"
 
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -25,6 +26,7 @@ import (
 	"github.com/LF-Engineering/ssaw/ssawsync"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
+	yaml "gopkg.in/yaml.v2"
 
 	// SortingHat database is MariaDB/MySQL format
 	_ "github.com/go-sql-driver/mysql"
@@ -139,11 +141,17 @@ type Service interface {
 	MapOrgNames() (string, error)
 }
 
+type allMappings struct {
+	Mappings [][2]string `yaml:"mappings"`
+}
+
 type service struct {
 	shared.ServiceStruct
-	db     *sqlx.DB
-	origin string
-	mtx    *sync.RWMutex
+	db               *sqlx.DB
+	origin           string
+	mtx              *sync.RWMutex
+	orgNamesMappings allMappings
+	mappingsLoaded   bool
 }
 
 // New creates new db service instance with given db
@@ -157,7 +165,8 @@ func New(db *sqlx.DB, origin string) Service {
 
 // DateTimeFormat - this is how we format datetime for MariaDB
 const (
-	DateTimeFormat = "%Y-%m-%dT%H:%i:%s.%fZ"
+	DateTimeFormat  = "%Y-%m-%dT%H:%i:%s.%fZ"
+	MapOrgNamesFile = "map_org_names.yaml"
 )
 
 var (
@@ -3665,6 +3674,19 @@ func (s *service) MapOrgNames() (status string, err error) {
 	defer func() {
 		log.Info(fmt.Sprintf("MapOrgNames(exit): status:%s err:%v", status, err))
 	}()
+	if !s.mappingsLoaded {
+		// orgNamesMappings allMappings
+		var data []byte
+		data, err = ioutil.ReadFile(MapOrgNamesFile)
+		if err != nil {
+			return
+		}
+		err = yaml.Unmarshal(data, &s.orgNamesMappings)
+		if err != nil {
+			return
+		}
+		s.mappingsLoaded = true
+	}
 	return
 }
 

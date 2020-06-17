@@ -83,6 +83,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` all_projects=true ./sh/curl_put_merge_enrollments.sh proj2 0000142135434a2b963c916185862168806fb1f5 'Intel Corporation' | jq ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_merge_all.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_hide_emails.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_map_org_names.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_get_all_yaml.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_post_bulk_update.sh ``.
 - Some special utils:
