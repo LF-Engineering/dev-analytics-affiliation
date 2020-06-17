@@ -1354,6 +1354,37 @@ paths:
         - all
       parameters:
         - $ref: '#/parameters/auth'
+  /affiliation/map_org_names:
+    put:
+      summary: map common incorrect company names to correct ones using definitions from map_org_names.yaml
+      operationId: putMapOrgNames
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully mapped organizations names"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - map_org_names
+        - all
+      parameters:
+        - $ref: '#/parameters/auth'
 parameters:
   auth:
     name: Authorization

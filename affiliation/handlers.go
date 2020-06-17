@@ -989,4 +989,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutHideEmailsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutMapOrgNamesHandler = affiliation.PutMapOrgNamesHandlerFunc(
+		func(params affiliation.PutMapOrgNamesParams) middleware.Responder {
+			log.Info("PutMapOrgNamesHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutMapOrgNamesHandlerFunc: " + info)
+
+			result, err := service.PutMapOrgNames(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutMapOrgNamesHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutMapOrgNamesHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutMapOrgNamesOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

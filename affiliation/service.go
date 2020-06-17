@@ -74,6 +74,7 @@ type Service interface {
 	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
 	PutHideEmails(ctx context.Context, in *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
+	PutMapOrgNames(ctx context.Context, in *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -373,6 +374,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	case *affiliation.PutHideEmailsParams:
 		auth = params.Authorization
 		apiName = "PutHideEmails"
+	case *affiliation.PutMapOrgNamesParams:
+		auth = params.Authorization
+		apiName = "PutMapOrgNames"
 	case *affiliation.GetAllAffiliationsParams:
 		auth = params.Authorization
 		apiName = "GetAllAffiliations"
@@ -2514,7 +2518,7 @@ func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeA
 // For all non-email columns on profiles and identities, if emails value is found
 // name@doman - remove '@domain' part and leave only 'name'
 // ===========================================================================
-// /v1/affiliation/merge_all:
+// /v1/affiliation/hide_emails:
 func (s *service) PutHideEmails(ctx context.Context, params *affiliation.PutHideEmailsParams) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info("PutHideEmails")
@@ -2530,6 +2534,36 @@ func (s *service) PutHideEmails(ctx context.Context, params *affiliation.PutHide
 	// Do the actual API call
 	stat := ""
 	stat, err = s.shDB.HideEmails()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	status.Text = stat
+	return
+}
+
+// PutMapOrgNames: API
+// ===========================================================================
+// common incorrect company names to correct ones using definitions from map_org_names.yaml
+// example: from: Orange Business Services --> to: Orange S.A.
+// 'from' is a regexp while 'to' is a final (correct) organization name.
+// ===========================================================================
+// /v1/affiliation/map_org_names:
+func (s *service) PutMapOrgNames(ctx context.Context, params *affiliation.PutMapOrgNamesParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PutMapOrgNames")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PutMapOrgNames(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	// Do the actual API call
+	stat := ""
+	stat, err = s.shDB.MapOrgNames()
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return

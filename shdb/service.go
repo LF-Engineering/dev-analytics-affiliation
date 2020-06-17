@@ -136,6 +136,7 @@ type Service interface {
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
 	MergeAll() (string, error)
 	HideEmails() (string, error)
+	MapOrgNames() (string, error)
 }
 
 type service struct {
@@ -3654,6 +3655,16 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 			return
 		}
 	}
+	return
+}
+
+func (s *service) MapOrgNames() (status string, err error) {
+	log.Info("MapOrgNames")
+	s.SetOrigin()
+	status = ""
+	defer func() {
+		log.Info(fmt.Sprintf("MapOrgNames(exit): status:%s err:%v", status, err))
+	}()
 	return
 }
 
