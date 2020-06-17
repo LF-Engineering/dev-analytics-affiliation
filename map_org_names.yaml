@@ -1,0 +1,16 @@
+---
+mappings:
+    # regexp format: mysql
+    - ['^[[:space:]]*(samsung|samsung[[:space:]]+(accelerator|electronics?|sds))[[:space:]]*$', 'Samsung Electronics Co. Ltd.']
+    - ['^[[:space:]]*(orange|orange[[:space:]]+(business|services|business[[:space:]]+services|romania|slovensko|sa|romania[[:space:]]+sa))[[:space:]]*$', 'Orange S.A.']
+    - ['^[[:space:]]*(ericsson|ericsson[[:space:]]+(software|technology|software[[:space:]]+technology))[[:space:]]*$', 'Ericsson AB']
+    - ['^[[:space:]]*(bell|bell[[:space:]]+(mobility|media))[[:space:]]*$', 'Bell Canada']
+    - ['^[[:space:]]*(huawei|huawei[[:space:]]+(technology|technologies))[[:space:]]*$', 'Huawei Technologies Co., Ltd.']
+    - ['^[[:space:]]*(nokia|nokia[[:space:]]+(bell|labs|bell[[:space:]]+labs|big|data|big[[:space:]]+data|corp|corporation|networs?|solutions?|networks?[[:space:]&]+solutions?|solutions?[[:space:]&]+networks?))[[:space:]]*$', 'Nokia Corporation']
+    - ['^[[:space:]]*wipro[[:space:]]*$', 'Wipro Limited']
+    - ['^[[:space:]]*(red[[:space:]]+hat|red[[:space:]]+hat+[[:space:]]*,[[:space:]]*inc[[:space:]]*)[[:space:]]*$', 'Red Hat Inc.']
+    - ['^[[:space:]]*(airwatch[[:space:]/]+vmware|vmware|vmware[[:space:],]+inc[[:space:]]*)[[:space:]]*$', 'VMware, Inc.']
+    - ['^[[:space:]]*(canonical|canonical[[:space:],]+(ltd|limited|group)[[:space:].]*)[[:space:]]*$', 'Canonical Group Limited']
+    - ['^[[:space:]]*(juniper|juniper[[:space:]]+networks?[[:space:],]+(inc|incorporated|networks?)[[:space:]]*)[[:space:]]*$', 'Juniper Networks, Inc.']
+    - ['^[[:space:]]*(verizon|verizon[[:space:]]+(business|data|services|data[[:space:]]+services|media|telecom)[[:space:]]*)[[:space:]]*$', 'Verizon Communications']
+    - ['^[[:space:]]*pantheon[[:space:].]+tech[[:space:].]+s\\.?r\\.?o\\.?[[:space:]]*$', 'PANTHEON.tech']
