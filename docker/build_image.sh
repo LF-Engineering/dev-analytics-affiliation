@@ -5,7 +5,13 @@ then
   exit 1
 fi
 
+image="${DOCKER_USER}/dev-analytics-affiliation-api"
+if [ ! -z "${1}" ]
+then
+  image="${image}-${1}"
+fi
+
 make docker || exit 2
-docker build -f ./docker/Dockerfile -t "${DOCKER_USER}/dev-analytics-affiliation-api" . || exit 3
-docker push "${DOCKER_USER}/dev-analytics-affiliation-api" || exit 4
+docker build -f ./docker/Dockerfile -t "${image}" . || exit 3
+docker push "${image}" || exit 4
 echo OK

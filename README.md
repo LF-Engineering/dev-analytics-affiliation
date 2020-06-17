@@ -96,7 +96,7 @@ Start API server using dockerized MariaDB and Postgres databases:
 
 To deploy to docker:
 
-- Build docker image: `DOCKER_USER=... ./docker/build_image.sh`.
+- Build docker image: `DOCKER_USER=... ./docker/build_image.sh [test|prod]`. If you specify `test` or `prod` - image name with that prefix will be created, can be used to build image only fr the `test` env, or only `prod`.
 - Run it: `DOCKER_USER=... [LOG_LEVEL=debug] [N_CPUS=16] ./docker/run.sh`. It will serve on 18080 instead of 8080 port. `N_CPUS` is optional, skipping will use auto-detecting, setting to 1 will enable singlethreaded mode.
 - Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
 
