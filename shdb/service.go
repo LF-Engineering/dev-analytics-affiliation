@@ -3687,6 +3687,104 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		s.mappingsLoaded = true
 	}
+	inf := ""
+	for _, mapping := range s.orgNamesMappings.Mappings {
+		re := mapping[0]
+		to := mapping[1]
+		// fmt.Printf("Processing '%s' -> '%s'\n", re, to)
+		var rows *sql.Rows
+		rows, err = s.Query(s.db, nil, "select id, name from organizations where name = ?", to)
+		if err != nil {
+			return
+		}
+		fetched := false
+		id := int64(0)
+		actualName := ""
+		for rows.Next() {
+			if fetched {
+				err = fmt.Errorf("multiple companies found for name: %s, including %s\n", to, actualName)
+				return
+			}
+			err = rows.Scan(&id, &actualName)
+			if err != nil {
+				return
+			}
+			fetched = true
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if !fetched {
+			var res sql.Result
+			res, err = s.Exec(s.db, nil, "insert into organizations(name) values(?)", to)
+			if err != nil {
+				return
+			}
+			id, err = res.LastInsertId()
+			if err != nil {
+				return
+			}
+			inf = fmt.Sprintf("Added organization '%s' (id=%d)\n", to, id)
+			status += inf + ", "
+			log.Info(inf)
+		} else if actualName != to {
+			_, err = s.Exec(s.db, nil, "update organizations set name = ? where id = ?", to, id)
+			if err != nil {
+				return
+			}
+			inf = fmt.Sprintf("Updated organization name '%s' -> '%s' (id=%d)\n", actualName, to, id)
+			status += inf + ", "
+			log.Info(inf)
+		}
+		rows, err = s.Query(s.db, nil, "select id, name from organizations where name regexp ?", re)
+		if err != nil {
+			return
+		}
+		nid := int64(0)
+		name := ""
+		for rows.Next() {
+			err = rows.Scan(&nid, &name)
+			if err != nil {
+				return
+			}
+			if nid == id {
+				inf = fmt.Sprintf("'%s' (id=%d) matching '%s' already maps into '%s' (id=%d), skipping\n", name, nid, re, to, id)
+				status += inf + ", "
+				log.Info(inf)
+				continue
+			}
+			var res sql.Result
+			res, err = s.Exec(s.db, nil, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
+			if err != nil {
+				return
+			}
+			affected := int64(0)
+			affected, err = res.RowsAffected()
+			if affected > 0 {
+				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d enrollments\n", name, to, affected)
+				status += inf + ", "
+				log.Info(inf)
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+	}
+	if status == "" {
+		status = "Nothing to update"
+	} else {
+		status = status[0 : len(status)-2]
+	}
 	return
 }
 

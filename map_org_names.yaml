@@ -6,7 +6,7 @@ mappings:
     - ['^[[:space:]]*(ericsson|ericsson[[:space:]]+(software|technology|software[[:space:]]+technology))[[:space:]]*$', 'Ericsson AB']
     - ['^[[:space:]]*(bell|bell[[:space:]]+(mobility|media))[[:space:]]*$', 'Bell Canada']
     - ['^[[:space:]]*(huawei|huawei[[:space:]]+(technology|technologies))[[:space:]]*$', 'Huawei Technologies Co., Ltd.']
-    - ['^[[:space:]]*(nokia|nokia[[:space:]]+(bell|labs|bell[[:space:]]+labs|big|data|big[[:space:]]+data|corp|corporation|networs?|solutions?|networks?[[:space:]&]+solutions?|solutions?[[:space:]&]+networks?))[[:space:]]*$', 'Nokia Corporation']
+    - ['^[[:space:]]*(nokia|nokia[[:space:]]+(bell|labs|bell[[:space:]]+labs|big|data|big[[:space:]]+data|corp|networs?|solutions?|networks?[[:space:]&]+solutions?|solutions?[[:space:]&]+networks?))[[:space:]]*$', 'Nokia Corporation']
     - ['^[[:space:]]*wipro[[:space:]]*$', 'Wipro Limited']
     - ['^[[:space:]]*(red[[:space:]]+hat|red[[:space:]]+hat+[[:space:]]*,[[:space:]]*inc[[:space:]]*)[[:space:]]*$', 'Red Hat Inc.']
     - ['^[[:space:]]*(airwatch[[:space:]/]+vmware|vmware|vmware[[:space:],]+inc[[:space:]]*)[[:space:]]*$', 'VMware, Inc.']
