@@ -75,6 +75,7 @@ type Service interface {
 	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
 	PutHideEmails(ctx context.Context, in *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
 	PutMapOrgNames(ctx context.Context, in *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
+	GetListProjects(ctx context.Context, in *affiliation.GetListProjectsParams) (*models.ListProjectsOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -377,6 +378,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	case *affiliation.PutMapOrgNamesParams:
 		auth = params.Authorization
 		apiName = "PutMapOrgNames"
+	case *affiliation.GetListProjectsParams:
+		auth = params.Authorization
+		apiName = "GetListProjects"
 	case *affiliation.GetAllAffiliationsParams:
 		auth = params.Authorization
 		apiName = "GetAllAffiliations"
@@ -2569,5 +2573,33 @@ func (s *service) PutMapOrgNames(ctx context.Context, params *affiliation.PutMap
 		return
 	}
 	status.Text = stat
+	return
+}
+
+// GetListProjects: API
+// ===========================================================================
+// list projects given user has affiliations management access to
+// user is determind from auth token.
+// ===========================================================================
+// /v1/affiliation/list_profiles:
+func (s *service) GetListProjects(ctx context.Context, params *affiliation.GetListProjectsParams) (projects *models.ListProjectsOutput, err error) {
+	projects = &models.ListProjectsOutput{}
+	log.Info("GetListProjects")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("GetListProjects(exit): apiName:%s username:%s projetcs:%+v err:%v", apiName, username, projects, err))
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	// Do the actual API call
+	projects, err = s.apiDB.GetListProjects(username)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	projects.User = username
 	return
 }

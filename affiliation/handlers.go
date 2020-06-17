@@ -1016,4 +1016,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutMapOrgNamesOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetListProjectsHandler = affiliation.GetListProjectsHandlerFunc(
+		func(params affiliation.GetListProjectsParams) middleware.Responder {
+			log.Info("GetListProjectsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetListProjectsHandlerFunc: " + info)
+
+			result, err := service.GetListProjects(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetListProjectsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetListProjectsHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetListProjectsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

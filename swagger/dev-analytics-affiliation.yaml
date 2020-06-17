@@ -1356,7 +1356,7 @@ paths:
         - $ref: '#/parameters/auth'
   /affiliation/map_org_names:
     put:
-      summary: map common incorrect company names to correct ones using definitions from map_org_names.yaml
+      summary: Map common incorrect company names to correct ones using definitions from map_org_names.yaml
       operationId: putMapOrgNames
       produces:
         - application/json
@@ -1383,6 +1383,36 @@ paths:
         - affiliation
         - map_org_names
         - all
+      parameters:
+        - $ref: '#/parameters/auth'
+  /affiliation/list_projects:
+    get:
+      summary: list project_slugs that current user has affiliation management access to
+      operationId: getListProjects
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully fetched project slugs list"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/list-projects-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - list_projects
       parameters:
         - $ref: '#/parameters/auth'
 parameters:
@@ -2325,6 +2355,19 @@ definitions:
         x-go-custom-tag: 'yaml:"R,omitempty"'
         items:
           $ref: "#/definitions/all-output"
+  list-projects-output:
+    title: List projects output
+    description: Array of string, each item is a project slug
+    type: object
+    properties:
+      user:
+        type: string
+        example: lukaszgryglicki
+      project_slugs:
+        type: array
+        items:
+          type: string
+          example: 'lfn/onap'
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call

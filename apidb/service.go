@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
+	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
@@ -21,6 +22,7 @@ type Service interface {
 	shared.ServiceInterface
 	CheckIdentityManagePermission(string, string, *sql.Tx) (bool, error)
 	GetDataSourceTypes(string) ([]string, error)
+	GetListProjects(string) (*models.ListProjectsOutput, error)
 }
 
 type service struct {
@@ -33,6 +35,50 @@ func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
+}
+
+func (s *service) GetListProjects(user string) (projects *models.ListProjectsOutput, err error) {
+	log.Info(fmt.Sprintf("GetListProjects: user:%s", user))
+	projects = &models.ListProjectsOutput{}
+	defer func() {
+		log.Info(fmt.Sprintf("GetListProjects(exit): user:%s projects:%+v", user, projects))
+	}()
+	// insert into access_control_entries(scope, subject, resource, action, effect) select '/projects/' || slug, 'internal-api-user', 'identity', 'manage', 0 from projects;
+	// insert into access_control_entries(scope, subject, resource, action, effect) select slug, 'internal-api-user', 'identity', 'manage', 0 from projects;
+	rows, err := s.Query(
+		s.db,
+		nil,
+		"select distinct ace.scope from access_control_entries ace, projects p "+
+			"where ace.scope = p.slug and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
+			"and ace.scope not like $4 order by ace.scope",
+		user,
+		"identity",
+		"manage",
+		"/projects/%",
+	)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
+		return
+	}
+	project := ""
+	for rows.Next() {
+		err = rows.Scan(&project)
+		if err != nil {
+			return
+		}
+		projects.ProjectSlugs = append(projects.ProjectSlugs, project)
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
+		return
+	}
+	return
 }
 
 func (s *service) GetDataSourceTypes(projectSlug string) (dataSourceTypes []string, err error) {
