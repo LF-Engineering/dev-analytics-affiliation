@@ -48,7 +48,7 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 	rows, err := s.Query(
 		s.db,
 		nil,
-		"select distinct ace.scope from access_control_entries ace, projects p "+
+		"select distinct ace.scope, p.name from access_control_entries ace, projects p "+
 			"where ace.scope = p.slug and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
 			"and ace.scope not like $4 order by ace.scope",
 		user,
@@ -60,13 +60,14 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
 		return
 	}
-	project := ""
+	projectSlug := ""
+	projectName := ""
 	for rows.Next() {
-		err = rows.Scan(&project)
+		err = rows.Scan(&projectSlug, &projectName)
 		if err != nil {
 			return
 		}
-		projects.ProjectSlugs = append(projects.ProjectSlugs, project)
+		projects.Projects = append(projects.Projects, &models.ProjectDataOutput{ProjectSlug: projectSlug, ProjectName: projectName})
 	}
 	err = rows.Err()
 	if err != nil {

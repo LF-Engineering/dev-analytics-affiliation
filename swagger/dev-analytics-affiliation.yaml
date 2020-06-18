@@ -2355,6 +2355,17 @@ definitions:
         x-go-custom-tag: 'yaml:"R,omitempty"'
         items:
           $ref: "#/definitions/all-output"
+  project-data-output:
+    title: Project data
+    description: project data (slug and name)
+    type: object
+    properties:
+      project_slug:
+        type: string
+        example: lfn/onap
+      project_name:
+        type: string
+        example: Kubernetes
   list-projects-output:
     title: List projects output
     description: Array of string, each item is a project slug
@@ -2363,11 +2374,10 @@ definitions:
       user:
         type: string
         example: lukaszgryglicki
-      project_slugs:
+      projects:
         type: array
         items:
-          type: string
-          example: 'lfn/onap'
+          $ref: "#/definitions/project-data-output"
   text-status-output:
     title: Status text for an API call
     description: Status text for an API call
