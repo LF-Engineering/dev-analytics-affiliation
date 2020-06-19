@@ -14,3 +14,4 @@ mappings:
     - ['^[[:space:]]*(juniper|juniper[[:space:]]+networks?[[:space:],]+(inc|incorporated|networks?)[[:space:]]*)[[:space:]]*$', 'Juniper Networks, Inc.']
     - ['^[[:space:]]*(verizon|verizon[[:space:]]+(business|data|services|data[[:space:]]+services|media|telecom)[[:space:]]*)[[:space:]]*$', 'Verizon Communications']
     - ['^[[:space:]]*pantheon[[:space:].]+tech[[:space:].]+s\\.?r\\.?o\\.?[[:space:]]*$', 'PANTHEON.tech']
+    - ['^[[:space:]]*intel[[:space:]]*$', 'Intel Corporation']
