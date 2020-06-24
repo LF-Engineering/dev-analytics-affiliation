@@ -1858,6 +1858,26 @@ definitions:
         type: string
         example: lfn/onap
         x-nullable: true
+  enrollment-project-range:
+    title: Enrollment project range
+    description: Used when determining projects enrollments date ranges using ES contributions date range
+    type: object
+    properties:
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      project_slug:
+        type: string
+        example: lfn/onap
+        x-nullable: true
+      start:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
+      end:
+        type: string
+        format: date-time
+        example: '2019-09-02 03:00:33.000000'
   organization-data-output:
     title: Organization data output
     description: Organization data

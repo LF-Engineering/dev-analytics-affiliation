@@ -112,6 +112,7 @@ type Service interface {
 	Unarchive(string, string) (bool, error)
 	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, string, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
 	EnrichContributors([]*models.ContributorFlatStats, string, int64, *sql.Tx) error
+	GetDetAffRangeSubjects() ([]*models.EnrollmentProjectRange, error)
 	// SSAW related
 	NotifySSAW()
 	SetOrigin()
@@ -6075,6 +6076,10 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	} else {
 		putOrgDomain.Info += ", " + info
 	}
+	return
+}
+
+func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProjectRange, err error) {
 	return
 }
 

@@ -76,6 +76,7 @@ type Service interface {
 	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
 	PutHideEmails(ctx context.Context, in *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
 	PutMapOrgNames(ctx context.Context, in *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
+	PutDetAffRange(ctx context.Context, in *affiliation.PutDetAffRangeParams) (*models.TextStatusOutput, error)
 	GetListProjects(ctx context.Context, in *affiliation.GetListProjectsParams) (*models.ListProjectsOutput, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
@@ -383,6 +384,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	case *affiliation.PutMapOrgNamesParams:
 		auth = params.Authorization
 		apiName = "PutMapOrgNames"
+	case *affiliation.PutDetAffRangeParams:
+		auth = params.Authorization
+		apiName = "PutDetAffRange"
 	case *affiliation.GetListProjectsParams:
 		auth = params.Authorization
 		apiName = "GetListProjects"
@@ -2681,6 +2685,37 @@ func (s *service) PutMapOrgNames(ctx context.Context, params *affiliation.PutMap
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	status.Text = stat
+	return
+}
+
+// PutDetAffRange: API
+// ===========================================================================
+// For all profiles that have a single company affiliation (in a given project or global)
+// detect time range when ES has contributions and use that range to set start/end dates (if not already set)
+// ===========================================================================
+// /v1/affiliation/det_aff_range:
+func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDetAffRangeParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PutDetAffRange")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PutDetAffRange(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	// Do the actual API call
+	subjects := []*models.EnrollmentProjectRange{}
+	subjects, err = s.shDB.GetDetAffRangeSubjects()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	fmt.Printf("subjects:\n%+v\n", subjects)
+	stat := ""
 	status.Text = stat
 	return
 }
