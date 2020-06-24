@@ -33,6 +33,12 @@ var (
 	GSQLOut bool
 	// GSyncURL - used to trigger ssaw sync
 	GSyncURL string
+	// MinPeriodDate - default start data for enrollments
+	MinPeriodDate = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+	// MaxPeriodDate - default end date for enrollments
+	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	// DateFormat - format date as YYYY-MM-DD
+	DateFormat = "2006-01-02"
 )
 
 // ServiceInterface - Shared API interface

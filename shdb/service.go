@@ -170,15 +170,6 @@ const (
 	MapOrgNamesFile = "map_org_names.yaml"
 )
 
-var (
-	// MinPeriodDate - default start data for enrollments
-	MinPeriodDate = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
-	// MaxPeriodDate - default end date for enrollments
-	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	// DateFormat - format date as YYYY-MM-DD
-	DateFormat = "2006-01-02"
-)
-
 func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *models.CountryDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetCountry: countryCode:%s tx:%v", countryCode, tx != nil))
 	defer func() {
@@ -259,25 +250,25 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	for _, data := range sortedDates {
 		st := data[0]
 		en := data[1]
-		if time.Time(st).Before(MinPeriodDate) || time.Time(st).After(MaxPeriodDate) {
-			err = fmt.Errorf("start date %v must be between %v and %v", st, MinPeriodDate, MaxPeriodDate)
+		if time.Time(st).Before(shared.MinPeriodDate) || time.Time(st).After(shared.MaxPeriodDate) {
+			err = fmt.Errorf("start date %v must be between %v and %v", st, shared.MinPeriodDate, shared.MaxPeriodDate)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeDateRanges")
 			return
 		}
-		if time.Time(en).Before(MinPeriodDate) || time.Time(en).After(MaxPeriodDate) {
-			err = fmt.Errorf("end date %v must be between %v and %v", en, MinPeriodDate, MaxPeriodDate)
+		if time.Time(en).Before(shared.MinPeriodDate) || time.Time(en).After(shared.MaxPeriodDate) {
+			err = fmt.Errorf("end date %v must be between %v and %v", en, shared.MinPeriodDate, shared.MaxPeriodDate)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeDateRanges")
 			return
 		}
 		// st <= saved[1]
 		if !time.Time(st).After(time.Time(saved[1])) {
 			// saved[0] == MIN_PERIOD_DATE
-			if !time.Time(saved[0]).After(MinPeriodDate) {
+			if !time.Time(saved[0]).After(shared.MinPeriodDate) {
 				saved[0] = st
 				minRange = true
 			}
 			// if MAX_PERIOD_DATE in (en, saved[1]):
-			if !time.Time(saved[1]).Before(MaxPeriodDate) || !time.Time(en).Before(MaxPeriodDate) {
+			if !time.Time(saved[1]).Before(shared.MaxPeriodDate) || !time.Time(en).Before(shared.MaxPeriodDate) {
 				// if saved1 > en
 				if time.Time(saved[1]).After(time.Time(en)) {
 					saved[1] = en
@@ -298,10 +289,10 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	}
 	mergedDates = append(mergedDates, saved)
 	if minRange {
-		mergedDates[0][0] = strfmt.DateTime(MinPeriodDate)
+		mergedDates[0][0] = strfmt.DateTime(shared.MinPeriodDate)
 	}
 	if maxRange {
-		mergedDates[len(mergedDates)-1][1] = strfmt.DateTime(MaxPeriodDate)
+		mergedDates[len(mergedDates)-1][1] = strfmt.DateTime(shared.MaxPeriodDate)
 	}
 	return
 }
@@ -2572,13 +2563,13 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
 		return
 	}
-	if time.Time(enrollmentData.Start).Before(MinPeriodDate) || time.Time(enrollmentData.Start).After(MaxPeriodDate) {
-		err = fmt.Errorf("enrollment '%+v' start date must be between %v and %v", enrollmentData, MinPeriodDate, MaxPeriodDate)
+	if time.Time(enrollmentData.Start).Before(shared.MinPeriodDate) || time.Time(enrollmentData.Start).After(shared.MaxPeriodDate) {
+		err = fmt.Errorf("enrollment '%+v' start date must be between %v and %v", enrollmentData, shared.MinPeriodDate, shared.MaxPeriodDate)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
 		return
 	}
-	if time.Time(enrollmentData.End).Before(MinPeriodDate) || time.Time(enrollmentData.End).After(MaxPeriodDate) {
-		err = fmt.Errorf("enrollment '%+v' end date must be between %v and %v", enrollmentData, MinPeriodDate, MaxPeriodDate)
+	if time.Time(enrollmentData.End).Before(shared.MinPeriodDate) || time.Time(enrollmentData.End).After(shared.MaxPeriodDate) {
+		err = fmt.Errorf("enrollment '%+v' end date must be between %v and %v", enrollmentData, shared.MinPeriodDate, shared.MaxPeriodDate)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
 		return
 	}
@@ -4966,8 +4957,8 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		}
 		if rolID != nil && rolOrganization != nil {
 			rol = &models.EnrollmentShortOutput{
-				Start:        time.Time(*rolStart).Format(DateFormat),
-				End:          time.Time(*rolEnd).Format(DateFormat),
+				Start:        time.Time(*rolStart).Format(shared.DateFormat),
+				End:          time.Time(*rolEnd).Format(shared.DateFormat),
 				Organization: *rolOrganization,
 				ProjectSlug:  rolProjectSlug,
 			}
@@ -6080,6 +6071,44 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 }
 
 func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProjectRange, err error) {
+	log.Info(fmt.Sprintf("GetDetAffRangeSubjects"))
+	defer func() {
+		log.Info(fmt.Sprintf("GetDetAffRangeSubjects(exit): subjects:%d err:%+v", len(subjects), err))
+	}()
+	// FIXME: remove limit
+	rows, err := s.Query(
+		s.db,
+		nil,
+		"select distinct sub.uuid, sub.project_slug, e.start, e.end from ("+
+			"select uuid, project_slug, count(distinct id) as cnt from enrollments "+
+			"group by uuid, project_slug having cnt = 1) sub, enrollments e "+
+			"where e.uuid = sub.uuid and (e.project_slug = sub.project_slug or "+
+			"(e.project_slug is null and sub.project_slug is null)) limit 10",
+	)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		subject := &models.EnrollmentProjectRange{}
+		err = rows.Scan(
+			&subject.UUID,
+			&subject.ProjectSlug,
+			&subject.Start,
+			&subject.End,
+		)
+		if err != nil {
+			return
+		}
+		subjects = append(subjects, subject)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -6484,8 +6513,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						mOrgName[organization.Name] = organization
 					}
 					rol := &models.EnrollmentShortOutput{
-						Start:        time.Time(enrollment.Start).Format(DateFormat),
-						End:          time.Time(enrollment.End).Format(DateFormat),
+						Start:        time.Time(enrollment.Start).Format(shared.DateFormat),
+						End:          time.Time(enrollment.End).Format(shared.DateFormat),
 						Organization: organization.Name,
 						ProjectSlug:  enrollment.ProjectSlug,
 					}

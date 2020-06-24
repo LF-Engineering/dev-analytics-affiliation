@@ -434,22 +434,22 @@ func (s *service) toNoDates(in *models.UniqueIdentityNestedDataOutput) (out *mod
 	/*
 		emptyStart := false
 		emptyEnd := false
-		if start == nil || (start != nil && time.Time(*start) == shdb.MinPeriodDate) {
+		if start == nil || (start != nil && time.Time(*start) == shared.MinPeriodDate) {
 			emptyStart = true
 		}
-		if end == nil || (end != nil && time.Time(*end) == shdb.MaxPeriodDate) {
+		if end == nil || (end != nil && time.Time(*end) == shared.MaxPeriodDate) {
 			emptyEnd = true
 		}
 	*/
 	for _, enrollment := range in.Enrollments {
 		enrollmentStart := enrollment.Start.String()
 		enrollmentEnd := enrollment.End.String()
-		//if emptyStart && time.Time(enrollment.Start) == shdb.MinPeriodDate {
-		if time.Time(enrollment.Start) == shdb.MinPeriodDate {
+		//if emptyStart && time.Time(enrollment.Start) == shared.MinPeriodDate {
+		if time.Time(enrollment.Start) == shared.MinPeriodDate {
 			enrollmentStart = ""
 		}
-		//if emptyEnd && time.Time(enrollment.End) == shdb.MaxPeriodDate {
-		if time.Time(enrollment.End) == shdb.MaxPeriodDate {
+		//if emptyEnd && time.Time(enrollment.End) == shared.MaxPeriodDate {
+		if time.Time(enrollment.End) == shared.MaxPeriodDate {
 			enrollmentEnd = ""
 		}
 		out.Enrollments = append(
@@ -797,12 +797,12 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	if params.Start != nil {
 		enrollment.Start = *(params.Start)
 	} else {
-		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+		enrollment.Start = strfmt.DateTime(shared.MinPeriodDate)
 	}
 	if params.End != nil {
 		enrollment.End = *(params.End)
 	} else {
-		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+		enrollment.End = strfmt.DateTime(shared.MaxPeriodDate)
 	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
 		enrollment.ProjectSlug = &project
@@ -928,12 +928,12 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 	if params.NewStart != nil {
 		enrollment.Start = *(params.NewStart)
 	} else {
-		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+		enrollment.Start = strfmt.DateTime(shared.MinPeriodDate)
 	}
 	if params.NewEnd != nil {
 		enrollment.End = *(params.NewEnd)
 	} else {
-		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+		enrollment.End = strfmt.DateTime(shared.MaxPeriodDate)
 	}
 	if params.NewIsProjectSpecific != nil {
 		if *(params.NewIsProjectSpecific) == true {
@@ -1019,12 +1019,12 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 	if params.NewStart != nil {
 		enrollment.Start = *(params.NewStart)
 	} else {
-		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+		enrollment.Start = strfmt.DateTime(shared.MinPeriodDate)
 	}
 	if params.NewEnd != nil {
 		enrollment.End = *(params.NewEnd)
 	} else {
-		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+		enrollment.End = strfmt.DateTime(shared.MaxPeriodDate)
 	}
 	if params.NewIsProjectSpecific != nil {
 		if *(params.NewIsProjectSpecific) == true {
@@ -1126,12 +1126,12 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	if params.Start != nil {
 		enrollment.Start = *(params.Start)
 	} else {
-		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+		enrollment.Start = strfmt.DateTime(shared.MinPeriodDate)
 	}
 	if params.End != nil {
 		enrollment.End = *(params.End)
 	} else {
-		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+		enrollment.End = strfmt.DateTime(shared.MaxPeriodDate)
 	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
 		enrollment.ProjectSlug = &project
@@ -2714,7 +2714,13 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	fmt.Printf("subjects:\n%+v\n", subjects)
+	updates := []*models.EnrollmentProjectRange{}
+	updates, err = s.es.DetAffRange(subjects)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	fmt.Printf("updates: %d\n", len(updates))
 	stat := ""
 	status.Text = stat
 	return
