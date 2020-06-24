@@ -61,6 +61,7 @@ type Service interface {
 	GetProfileEnrollments(ctx context.Context, in *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
 	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutputNoDates, error)
 	PutEditEnrollment(ctx context.Context, in *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutEditEnrollmentByID(ctx context.Context, in *affiliation.PutEditEnrollmentByIDParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteEnrollments(ctx context.Context, in *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteEnrollment(ctx context.Context, in *affiliation.DeleteEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMergeEnrollments(ctx context.Context, in *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -325,6 +326,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		auth = params.Authorization
 		project = params.ProjectSlug
 		apiName = "PutEditEnrollment"
+	case *affiliation.PutEditEnrollmentByIDParams:
+		auth = params.Authorization
+		project = params.ProjectSlug
+		apiName = "PutEditEnrollmentByID"
 	case *affiliation.DeleteEnrollmentsParams:
 		auth = params.Authorization
 		project = params.ProjectSlug
@@ -954,6 +959,110 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 	}
 	if len(ary) == 0 {
 		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", params.UUID), apiName)
+		return
+	}
+	uid = ary[0]
+	return
+}
+
+// PutEditEnrollmentByID: API params:
+// /v1/affiliation/{projectSlug}/edit_enrollment_by_id/{enrollment_id}
+// {projectSlug} - required path parameter: project to edit enrollment for (project slug URL encoded, can be prefixed with "/projects/")
+// {enrollment_id} - required path parameter: Enrollment ID to edit
+// new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
+// new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
+// merge - optional query parameter: if set it will merge enrollment dates for organization edited
+// new_is_project_specific - ooptional query parameter, if set - will update is_project_specific value
+func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation.PutEditEnrollmentByIDParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+	enrollment := &models.EnrollmentDataOutput{ID: params.EnrollmentID}
+	uid = &models.UniqueIdentityNestedDataOutput{}
+	log.Info(fmt.Sprintf("PutEditEnrollmentByID: enrollment_id:%d enrollment:%+v uid:%+v", params.EnrollmentID, enrollment, s.ToLocalNestedUniqueIdentity(uid)))
+	// Check token and permission
+	apiName, project, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutEditEnrollmentByID(exit): enrollment_id:%d enrollment:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				params.EnrollmentID,
+				enrollment,
+				apiName,
+				project,
+				username,
+				s.ToLocalNestedUniqueIdentity(uid),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	enrollment, err = s.shDB.GetEnrollment(enrollment.ID, true, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if enrollment.ProjectSlug != nil && *enrollment.ProjectSlug != project {
+		err = errs.Wrap(
+			fmt.Errorf(
+				"cannot edit '%s' project enrollment: current project is '%s'",
+				*enrollment.ProjectSlug,
+				project,
+			),
+			apiName,
+		)
+		return
+	}
+	if params.NewStart != nil {
+		enrollment.Start = *(params.NewStart)
+	} else {
+		enrollment.Start = strfmt.DateTime(shdb.MinPeriodDate)
+	}
+	if params.NewEnd != nil {
+		enrollment.End = *(params.NewEnd)
+	} else {
+		enrollment.End = strfmt.DateTime(shdb.MaxPeriodDate)
+	}
+	if params.NewIsProjectSpecific != nil {
+		if *(params.NewIsProjectSpecific) == true {
+			enrollment.ProjectSlug = &project
+		} else {
+			enrollment.ProjectSlug = nil
+		}
+	}
+	uuid := enrollment.UUID
+	defer func() { s.shDB.NotifySSAW() }()
+	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if params.Merge != nil && *(params.Merge) {
+		uniqueIdentity := &models.UniqueIdentityDataOutput{}
+		uniqueIdentity, err = s.shDB.GetUniqueIdentity(uuid, true, nil)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+		organization := &models.OrganizationDataOutput{}
+		organization, err = s.shDB.GetOrganization(enrollment.OrganizationID, true, nil)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, nil)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+	}
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, project, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
 		return
 	}
 	uid = ary[0]

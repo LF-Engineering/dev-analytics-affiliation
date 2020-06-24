@@ -1114,7 +1114,7 @@ paths:
           $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
-        - add_enrollment
+        - edit_enrollment
         - post
       parameters:
         - $ref: '#/parameters/auth'
@@ -1124,6 +1124,54 @@ paths:
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
         - $ref: '#/parameters/is-project-specific'
+        - $ref: '#/parameters/merge'
+        - name: new_start
+          in: query
+          type: string
+          format: date-time
+          description: Optional date from (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new start date for the existing enrollment
+        - name: new_end
+          in: query
+          type: string
+          format: date-time
+          description: Optional date to (default is 2100-01-01), must be in format 2015-05-05T15:15[:05Z], this is a new end date for the existing enrollment
+        - name: new_is_project_specific
+          in: query
+          type: boolean
+          description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
+  /affiliation/{projectSlug}/edit_enrollment_by_id/{enrollment_id}:
+    put:
+      summary: Edit enrollment (using enrollment ID)
+      operationId: putEditEnrollmentByID
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identity-nested-data-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - edit_enrollment
+        - post
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/enrollment-id'
         - $ref: '#/parameters/merge'
         - name: new_start
           in: query
@@ -1437,6 +1485,12 @@ parameters:
     type: string
     required: true
     description: UUID
+  enrollment-id:
+    name: enrollment_id
+    in: path
+    type: integer
+    required: true
+    description: Enrollment ID
   unix-millis-from:
     name: from
     in: query
