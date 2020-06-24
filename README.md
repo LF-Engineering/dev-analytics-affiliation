@@ -76,7 +76,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05Z' end='2015-05-05T18:30:08Z' is_project_specific=true merge=1 ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05' end='2015-05-05T19:19' ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 new_is_project_specific=false ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` new_start='2012-08-01T00:00' new_end='2013-10-15T00:00' new_is_project_specific=false ./sh/curl_put_edit_enrollment_by_id.sh odpi/egeria 12632 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` new_start='2012-08-01T00:00' new_end='2013-10-15T00:00' new_is_project_specific=false merge=1 ./sh/curl_put_edit_enrollment_by_id.sh odpi/egeria 12632 ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2000-01-01T00:00' end='2021-01-01T00:00' ./sh/curl_delete_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.test.token` is_project_specific=true ./sh/curl_delete_enrollments.sh project1 f1dd198c9d0427f603789b5a8cc7e0bc3ca66649 'Intel Corporation' | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_enrollment.sh project1 79523 | jq ``.
