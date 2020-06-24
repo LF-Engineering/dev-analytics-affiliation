@@ -201,7 +201,13 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		}
 		return
 	}
+	processed := 0
+	all := len(inSubjects)
 	processResult := func(res rangeResult) {
+		processed++
+		if processed%20 == 0 {
+			log.Info(fmt.Sprintf("Processed %d/%d", processed, all))
+		}
 		if !res.setStart && !res.setEnd {
 			return
 		}
@@ -216,7 +222,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	}
 	thrN := s.GetThreadsNum()
 	if thrN > 1 {
-		thrN := int(math.Sqrt(float64(thrN)))
+		thrN := int(math.Sqrt(float64(thrN+1))) + 1
 		log.Info(fmt.Sprintf("Using %d parallel ES queries\n", thrN))
 		ch := make(chan rangeResult)
 		nThreads := 0

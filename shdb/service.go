@@ -113,6 +113,7 @@ type Service interface {
 	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, string, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
 	EnrichContributors([]*models.ContributorFlatStats, string, int64, *sql.Tx) error
 	GetDetAffRangeSubjects() ([]*models.EnrollmentProjectRange, error)
+	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
 	// SSAW related
 	NotifySSAW()
 	SetOrigin()
@@ -3793,7 +3794,6 @@ func (s *service) HideEmails() (status string, err error) {
 		{"identities", "username"},
 	}
 	thrN := runtime.NumCPU()
-	runtime.GOMAXPROCS(thrN)
 	var mtx *sync.Mutex
 	if thrN > 1 {
 		mtx = &sync.Mutex{}
@@ -6083,7 +6083,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 			"select uuid, project_slug, count(distinct id) as cnt from enrollments "+
 			"group by uuid, project_slug having cnt = 1) sub, enrollments e "+
 			"where e.uuid = sub.uuid and (e.project_slug = sub.project_slug or "+
-			"(e.project_slug is null and sub.project_slug is null)) limit 10",
+			"(e.project_slug is null and sub.project_slug is null)) limit 300",
 	)
 	if err != nil {
 		return
@@ -6109,6 +6109,97 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 	if err != nil {
 		return
 	}
+	return
+}
+
+func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (status string, err error) {
+	log.Info(fmt.Sprintf("UpdateAffRange: updates:%d", len(updates)))
+	defer func() {
+		log.Info(fmt.Sprintf("UpdateAffRange(exit): updates:%d err:%+v", len(updates), err))
+	}()
+	thrN := runtime.NumCPU()
+	updateFunc := func(ch chan error, update models.EnrollmentProjectRange) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		// FIXME aupdate -> fix and continue
+		query := "aupdate enrollments set "
+		args := []interface{}{}
+		ts := time.Time(update.Start)
+		if ts.After(shared.MinPeriodDate) && ts.Before(shared.MaxPeriodDate) {
+			query += "start = ? "
+			args = append(args, ts)
+		}
+		te := time.Time(update.End)
+		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) {
+			if len(args) > 0 {
+				query += ", "
+			}
+			query += "end = ? "
+			args = append(args, te)
+		}
+		query += "where uuid = ? "
+		args = append(args, update.UUID)
+		if update.ProjectSlug == nil {
+			query += "and project_slug is null"
+		} else {
+			query += "and project_slug = ?"
+			args = append(args, *update.ProjectSlug)
+		}
+		_, err = s.Exec(s.db, nil, query, args...)
+		return
+	}
+	processed := 0
+	all := len(updates)
+	progressInfo := func() {
+		processed++
+		if processed%50 == 0 {
+			log.Info(fmt.Sprintf("Updated %d/%d\n", processed, all))
+		}
+	}
+	e := 0
+	ch := make(chan error)
+	nThreads := 0
+	if thrN > 0 {
+		for _, update := range updates {
+			go updateFunc(ch, *update)
+			nThreads++
+			if nThreads == thrN {
+				err = <-ch
+				nThreads--
+				if err != nil {
+					log.Warn(err.Error())
+					e++
+					continue
+				}
+				progressInfo()
+			}
+		}
+		for nThreads > 0 {
+			err = <-ch
+			nThreads--
+			if err != nil {
+				log.Warn(err.Error())
+				e++
+				continue
+			}
+			progressInfo()
+		}
+	} else {
+		for _, update := range updates {
+			err = updateFunc(nil, *update)
+			if err != nil {
+				log.Warn(err.Error())
+				e++
+				continue
+			}
+		}
+		progressInfo()
+	}
+	fmt.Sprintf(status, "Processed: %d, errors: %d", processed, e)
+	log.Warn(status)
 	return
 }
 

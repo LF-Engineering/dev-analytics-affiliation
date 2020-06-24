@@ -2720,8 +2720,12 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	fmt.Printf("updates: %d\n", len(updates))
 	stat := ""
+	stat, err = s.shDB.UpdateAffRange(updates)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
 	status.Text = stat
 	return
 }
