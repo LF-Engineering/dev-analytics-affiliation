@@ -237,6 +237,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 					res = append(res, r)
 					continue
 				}
+				start = s.DayStart(start)
 				r.start = strfmt.DateTime(start)
 				r.setStart = true
 			}
@@ -248,6 +249,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 					continue
 				}
 				secs := now.Sub(end).Seconds()
+				end = s.DayStart(end)
 				// 24 * 90 * 3600 (1 quarter ago)
 				if secs >= 7776000 {
 					r.end = strfmt.DateTime(end)
@@ -313,7 +315,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			processResult(getRange(nil, subjectMap))
 		}
 	}
-	status = fmt.Sprintf("Found items %d/%d, processed packs %d/%d, detected ranges: %d, errors: %d, threads: %e", processed, all, processedPacks, allPacks, len(outSubjects), ers, thrN)
+	status = fmt.Sprintf("Found items %d/%d, processed packs %d/%d, detected ranges: %d, errors: %d, ES parallel threads: %d", processed, all, processedPacks, allPacks, len(outSubjects), ers, thrN)
 	log.Info(status)
 	return
 }

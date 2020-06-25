@@ -74,6 +74,7 @@ type ServiceInterface interface {
 	GetThreadsNum() int
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
+	DayStart(time.Time) time.Time
 	JSONEscape(string) string
 	StripUnicode(str string) string
 	ToCaseInsensitiveRegexp(string) string
@@ -679,6 +680,19 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 	err := fmt.Errorf("cannot parse datetime: '%s'\n", dtStr)
 	err = errs.Wrap(errs.New(err, errs.ErrServerError), "TimeParseAny")
 	return time.Now(), err
+}
+
+func (s *ServiceStruct) DayStart(dt time.Time) time.Time {
+	return time.Date(
+		dt.Year(),
+		dt.Month(),
+		dt.Day(),
+		0,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
 }
 
 // ToCaseInsensitiveRegexp - transform string say "abc" to ".*[aA][bB][cC].*"
