@@ -220,49 +220,41 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			if n == 1 {
 				continue
 			}
+			r := rangeResult{}
 			//fmt.Printf("%s: %+v\n", inf, row)
 			subject, ok := subjectMap[row[0]]
 			if !ok {
-				err = fmt.Errorf("uuid: %s not found in sourceMap", row[0])
-				retErr(err)
-				return
+				r.err = fmt.Errorf("uuid: %s not found in sourceMap", row[0])
+				res = append(res, r)
+				continue
 			}
+			r.uuid = subject.UUID
+			r.project = subject.ProjectSlug
 			if row[1] != "" && time.Time(subject.Start) == shared.MinPeriodDate {
 				start, err := s.TimeParseAny(row[1])
 				if err != nil {
-					retErr(err)
-					return
+					r.err = err
+					res = append(res, r)
+					continue
 				}
-				res = append(
-					res,
-					rangeResult{
-						uuid:     subject.UUID,
-						project:  subject.ProjectSlug,
-						start:    strfmt.DateTime(start),
-						setStart: true,
-					},
-				)
+				r.start = strfmt.DateTime(start)
+				r.setStart = true
 			}
 			if row[2] != "" && time.Time(subject.End) == shared.MaxPeriodDate {
 				end, err := s.TimeParseAny(row[2])
 				if err != nil {
-					retErr(err)
-					return
+					r.err = err
+					res = append(res, r)
+					continue
 				}
 				secs := now.Sub(end).Seconds()
 				// 24 * 90 * 3600 (1 quarter ago)
 				if secs >= 7776000 {
-					res = append(
-						res,
-						rangeResult{
-							uuid:    subject.UUID,
-							project: subject.ProjectSlug,
-							end:     strfmt.DateTime(end),
-							setEnd:  true,
-						},
-					)
+					r.end = strfmt.DateTime(end)
+					r.setEnd = true
 				}
 			}
+			res = append(res, r)
 		}
 		return
 	}
@@ -279,7 +271,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			}
 			processed++
 			if processed%100 == 0 {
-				log.Info(fmt.Sprintf("Processed items %d/%d, packs %d/%d", processed, all, processedPacks, allPacks))
+				log.Info(fmt.Sprintf("Processed items %d/%d, packs %d/%d, detected ranges: %d", processed, all, processedPacks, allPacks, len(outSubjects)))
 			}
 			if !res.setStart && !res.setEnd {
 				continue
