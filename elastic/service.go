@@ -37,7 +37,7 @@ type Service interface {
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
 	GetTopContributors(string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
-	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, error)
+	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -80,10 +80,10 @@ func New(client *elasticsearch.Client, url string) Service {
 	}
 }
 
-func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outSubjects []*models.EnrollmentProjectRange, err error) {
+func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outSubjects []*models.EnrollmentProjectRange, status string, err error) {
 	log.Info(fmt.Sprintf("DetAffRange: in:%d", len(inSubjects)))
 	defer func() {
-		log.Info(fmt.Sprintf("DetAffRange(exit): in:%d out:%d err:%v", len(inSubjects), len(outSubjects), err))
+		log.Info(fmt.Sprintf("DetAffRange(exit): in:%d out:%d status:%s err:%v", len(inSubjects), len(outSubjects), status, err))
 	}()
 	packSize := 500
 	type rangeResult struct {
@@ -262,16 +262,18 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	allPacks := len(subjects)
 	processed := 0
 	processedPacks := 0
+	ers := 0
 	processResult := func(resAry []rangeResult) {
 		processedPacks++
 		for _, res := range resAry {
 			if res.err != nil {
 				log.Warn(res.err.Error())
+				ers++
 				continue
 			}
 			processed++
 			if processed%100 == 0 {
-				log.Info(fmt.Sprintf("Found items %d/%d, processed packs %d/%d, detected ranges: %d", processed, all, processedPacks, allPacks, len(outSubjects)))
+				log.Info(fmt.Sprintf("Found items %d/%d, processed packs %d/%d, detected ranges: %d, errors: %d", processed, all, processedPacks, allPacks, len(outSubjects), ers))
 			}
 			if !res.setStart && !res.setEnd {
 				continue
@@ -288,7 +290,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	}
 	thrN := s.GetThreadsNum()
 	if thrN > 1 {
-		thrN := int(math.Round(math.Sqrt(float64(thrN))))
+		thrN = int(math.Round(math.Sqrt(float64(thrN))))
 		log.Info(fmt.Sprintf("Using %d parallel ES queries\n", thrN))
 		ch := make(chan []rangeResult)
 		nThreads := 0
@@ -311,6 +313,8 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			processResult(getRange(nil, subjectMap))
 		}
 	}
+	status = fmt.Sprintf("Found items %d/%d, processed packs %d/%d, detected ranges: %d, errors: %d, threads: %e", processed, all, processedPacks, allPacks, len(outSubjects), ers, thrN)
+	log.Info(status)
 	return
 }
 

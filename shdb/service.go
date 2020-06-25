@@ -6216,7 +6216,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 		}
 		progressInfo()
 	}
-	status = fmt.Sprintf("Processed: %d, errors: %d", processed, e)
+	status = fmt.Sprintf("Updated: %d, errors: %d", processed, e)
 	log.Warn(status)
 	return
 }

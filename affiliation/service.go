@@ -2714,19 +2714,20 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	stat1 := ""
 	updates := []*models.EnrollmentProjectRange{}
-	updates, err = s.es.DetAffRange(subjects)
+	updates, stat1, err = s.es.DetAffRange(subjects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	stat := ""
-	stat, err = s.shDB.UpdateAffRange(updates)
+	stat2 := ""
+	stat2, err = s.shDB.UpdateAffRange(updates)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	status.Text = stat
+	status.Text = fmt.Sprintf("Subjects: %d, Detected Ranges: %s, Update status: %s", len(subjects), stat1, stat2)
 	return
 }
 
