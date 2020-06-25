@@ -85,7 +85,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	defer func() {
 		log.Info(fmt.Sprintf("DetAffRange(exit): in:%d out:%d err:%v", len(inSubjects), len(outSubjects), err))
 	}()
-	packSize := 100
+	packSize := 250
 	type rangeResult struct {
 		uuid     string
 		project  *string
@@ -278,7 +278,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				continue
 			}
 			processed++
-			if processed%20 == 0 {
+			if processed%100 == 0 {
 				log.Info(fmt.Sprintf("Processed items %d/%d, packs %d/%d", processed, all, processedPacks, allPacks))
 			}
 			if !res.setStart && !res.setEnd {

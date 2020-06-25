@@ -6075,7 +6075,6 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 	defer func() {
 		log.Info(fmt.Sprintf("GetDetAffRangeSubjects(exit): subjects:%d err:%+v", len(subjects), err))
 	}()
-	// FIXME: remove limit
 	rows, err := s.Query(
 		s.db,
 		nil,
@@ -6083,7 +6082,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 			"select uuid, project_slug, count(distinct id) as cnt from enrollments "+
 			"group by uuid, project_slug having cnt = 1) sub, enrollments e "+
 			"where e.uuid = sub.uuid and (e.project_slug = sub.project_slug or "+
-			"(e.project_slug is null and sub.project_slug is null)) limit 300",
+			"(e.project_slug is null and sub.project_slug is null))",
 	)
 	if err != nil {
 		return
@@ -6115,9 +6114,15 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (status string, err error) {
 	log.Info(fmt.Sprintf("UpdateAffRange: updates:%d", len(updates)))
 	defer func() {
-    log.Info(fmt.Sprintf("UpdateAffRange(exit): updates:%d status:%s err:%+v", len(updates), status, err))
+		log.Info(fmt.Sprintf("UpdateAffRange(exit): updates:%d status:%s err:%+v", len(updates), status, err))
 	}()
 	thrN := runtime.NumCPU()
+	var mtx *sync.Mutex
+	var umtx map[string]*sync.Mutex
+	if thrN > 1 {
+		mtx = &sync.Mutex{}
+		umtx = make(map[string]*sync.Mutex)
+	}
 	updateFunc := func(ch chan error, update models.EnrollmentProjectRange) (err error) {
 		defer func() {
 			if ch != nil {
@@ -6140,12 +6145,26 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 			args = append(args, te)
 		}
 		query += "where uuid = ? "
-		args = append(args, update.UUID)
+		uuid := update.UUID
+		args = append(args, uuid)
 		if update.ProjectSlug == nil {
 			query += "and project_slug is null"
 		} else {
 			query += "and project_slug = ?"
 			args = append(args, *update.ProjectSlug)
+		}
+		if mtx != nil {
+			mtx.Lock()
+			m, ok := umtx[uuid]
+			if !ok {
+				umtx[uuid] = &sync.Mutex{}
+			}
+			m = umtx[uuid]
+			mtx.Unlock()
+			m.Lock()
+			defer func() {
+				m.Unlock()
+			}()
 		}
 		_, err = s.Exec(s.db, nil, query, args...)
 		return
@@ -6154,7 +6173,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 	all := len(updates)
 	progressInfo := func() {
 		processed++
-		if processed%20 == 0 {
+		if processed%100 == 0 {
 			log.Info(fmt.Sprintf("Updated %d/%d\n", processed, all))
 		}
 	}
