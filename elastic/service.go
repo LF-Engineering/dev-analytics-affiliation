@@ -148,10 +148,10 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 						pattern = pattern[10:]
 					}
 					pattern = "sds-" + strings.Replace(pattern, "/", "-", -1)
-					pattern = pattern + "-*,-*raw,-*for-merge"
+					pattern = pattern + "-*,-*-raw,-*-for-merge"
 					inf = fmt.Sprintf("getRange(%s:%d)", *subject.ProjectSlug, len(subjectMap))
 				} else {
-					pattern = "sds-*,-*raw,-*for-merge"
+					pattern = "sds-*,-*-raw,-*-for-merge"
 					inf = fmt.Sprintf("getRange(%d)", len(subjectMap))
 				}
 				patternSet = true
@@ -330,7 +330,7 @@ func (s *service) projectSlugToIndexPattern(projectSlug string) (pattern string)
 		pattern = pattern[10:]
 	}
 	pattern = "sds-" + strings.Replace(pattern, "/", "-", -1)
-	pattern = pattern + "-*,-*raw,-*for-merge"
+	pattern = pattern + "-*,-*-raw,-*-for-merge"
 	return
 }
 
@@ -346,7 +346,7 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
-		patterns = append(patterns, patternRoot+dataSourceType+"*,-*raw,-*for-merge")
+		patterns = append(patterns, patternRoot+dataSourceType+"*,-*-raw,-*-for-merge")
 	}
 	return
 }
