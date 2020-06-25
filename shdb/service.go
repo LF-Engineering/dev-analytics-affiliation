@@ -6082,7 +6082,8 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 			"select uuid, project_slug, count(distinct id) as cnt from enrollments "+
 			"group by uuid, project_slug having cnt = 1) sub, enrollments e "+
 			"where e.uuid = sub.uuid and (e.project_slug = sub.project_slug or "+
-			"(e.project_slug is null and sub.project_slug is null))",
+			"(e.project_slug is null and sub.project_slug is null)) and "+
+			"(cast(e.start as time) != '00:00:07' or cast(e.end as time) != '00:00:07')", // skip special marked dates
 	)
 	if err != nil {
 		return
