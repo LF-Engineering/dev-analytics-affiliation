@@ -85,6 +85,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	defer func() {
 		log.Info(fmt.Sprintf("DetAffRange(exit): in:%d out:%d err:%v", len(inSubjects), len(outSubjects), err))
 	}()
+	packSize := 100
 	type rangeResult struct {
 		uuid     string
 		project  *string
@@ -94,8 +95,40 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		setEnd   bool
 		err      error
 	}
+	mp := make(map[string]map[string]*models.EnrollmentProjectRange)
+	for _, subject := range inSubjects {
+		var project string
+		if subject.ProjectSlug != nil {
+			project = *subject.ProjectSlug
+		}
+		_, ok := mp[project]
+		if !ok {
+			//fmt.Printf("New project: %+v\n", project)
+			mp[project] = make(map[string]*models.EnrollmentProjectRange)
+		}
+		mp[project][subject.UUID] = subject
+	}
+	var subjects []map[string]models.EnrollmentProjectRange
+	for _, data := range mp {
+		//fmt.Printf("Project %s has %d uuids\n", project, len(data))
+		projectSubjects := make(map[string]models.EnrollmentProjectRange)
+		n := 0
+		for uuid, subject := range data {
+			projectSubjects[uuid] = *subject
+			n++
+			if n == packSize {
+				subjects = append(subjects, projectSubjects)
+				projectSubjects = make(map[string]models.EnrollmentProjectRange)
+				n = 0
+			}
+		}
+		if n > 0 {
+			subjects = append(subjects, projectSubjects)
+		}
+	}
+	//fmt.Printf("subjects(%d): %+v\n", len(subjects), subjects)
 	now := time.Now()
-	getRange := func(ch chan rangeResult, subject models.EnrollmentProjectRange) (res rangeResult) {
+	getRange := func(ch chan []rangeResult, subjectMap map[string]models.EnrollmentProjectRange) (res []rangeResult) {
 		defer func() {
 			if ch != nil {
 				ch <- res
@@ -105,23 +138,38 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			pattern string
 			inf     string
 		)
-		if subject.ProjectSlug != nil {
-			pattern = strings.TrimSpace(*subject.ProjectSlug)
-			if strings.HasPrefix(pattern, "/projects/") {
-				pattern = pattern[10:]
+		patternSet := false
+		uuidsCond := "author_uuid in ("
+		for uuid, subject := range subjectMap {
+			if !patternSet {
+				if subject.ProjectSlug != nil {
+					pattern = strings.TrimSpace(*subject.ProjectSlug)
+					if strings.HasPrefix(pattern, "/projects/") {
+						pattern = pattern[10:]
+					}
+					pattern = "sds-" + strings.Replace(pattern, "/", "-", -1)
+					pattern = pattern + "-*,-*raw,-*for-merge"
+					inf = fmt.Sprintf("getRange(%s:%d)", *subject.ProjectSlug, len(subjectMap))
+				} else {
+					pattern = "sds-*,-*raw,-*for-merge"
+					inf = fmt.Sprintf("getRange(%d)", len(subjectMap))
+				}
+				patternSet = true
 			}
-			pattern = "sds-" + strings.Replace(pattern, "/", "-", -1)
-			pattern = pattern + "-*,-*raw,-*for-merge"
-			inf = "getRange(" + subject.UUID + "," + *subject.ProjectSlug + ")"
-		} else {
-			pattern = "sds-*,-*raw,-*for-merge"
-			inf = "getRange(" + subject.UUID + ")"
+			uuidsCond += "'" + s.JSONEscape(uuid) + "',"
 		}
+		uuidsCond = uuidsCond[0:len(uuidsCond)-1] + ")"
 		data := fmt.Sprintf(
-			`{"query":"select author_uuid, min(date), max(date) from \"%s\" where author_uuid = '%s' group by author_uuid"}`,
+			`{"query":"select author_uuid, min(date), max(date) from \"%s\" where %s group by author_uuid"}`,
 			s.JSONEscape(pattern),
-			s.JSONEscape(subject.UUID),
+			uuidsCond,
 		)
+		retErr := func(e error) {
+			er := errs.Wrap(errs.New(e, errs.ErrBadRequest), inf)
+			for uuid, subject := range subjectMap {
+				res = append(res, rangeResult{uuid: uuid, project: subject.ProjectSlug, err: er})
+			}
+		}
 		payloadBytes := []byte(data)
 		payloadBody := bytes.NewReader(payloadBytes)
 		method := "POST"
@@ -129,15 +177,15 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		req, err := http.NewRequest(method, url, payloadBody)
 		if err != nil {
 			err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
-			res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+			retErr(err)
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
-		// fmt.Printf("%s\n", data)
+		//fmt.Printf("%s: %s\n", inf, data)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
-			res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+			retErr(err)
 			return
 		}
 		defer func() {
@@ -148,11 +196,11 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			body, err = ioutil.ReadAll(resp.Body)
 			if err != nil {
 				err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
-				res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+				retErr(err)
 				return
 			}
 			err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
-			res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+			retErr(err)
 			return
 		}
 		reader := csv.NewReader(resp.Body)
@@ -165,97 +213,110 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				break
 			} else if err != nil {
 				err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
-				res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+				retErr(err)
 				return
 			}
 			n++
 			if n == 1 {
 				continue
 			}
+			//fmt.Printf("%s: %+v\n", inf, row)
+			subject, ok := subjectMap[row[0]]
+			if !ok {
+				err = fmt.Errorf("uuid: %s not found in sourceMap", row[0])
+				retErr(err)
+				return
+			}
 			if row[1] != "" && time.Time(subject.Start) == shared.MinPeriodDate {
 				start, err := s.TimeParseAny(row[1])
 				if err != nil {
-					res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+					retErr(err)
 					return
 				}
-				res.uuid = subject.UUID
-				res.project = subject.ProjectSlug
-				res.start = strfmt.DateTime(start)
-				res.setStart = true
+				res = append(
+					res,
+					rangeResult{
+						uuid:     subject.UUID,
+						project:  subject.ProjectSlug,
+						start:    strfmt.DateTime(start),
+						setStart: true,
+					},
+				)
 			}
 			if row[2] != "" && time.Time(subject.End) == shared.MaxPeriodDate {
 				end, err := s.TimeParseAny(row[2])
 				if err != nil {
-					res.err = errs.Wrap(errs.New(err, errs.ErrBadRequest), inf)
+					retErr(err)
 					return
 				}
 				secs := now.Sub(end).Seconds()
 				// 24 * 90 * 3600 (1 quarter ago)
 				if secs >= 7776000 {
-					res.uuid = subject.UUID
-					res.project = subject.ProjectSlug
-					res.end = strfmt.DateTime(end)
-					res.setEnd = true
+					res = append(
+						res,
+						rangeResult{
+							uuid:    subject.UUID,
+							project: subject.ProjectSlug,
+							end:     strfmt.DateTime(end),
+							setEnd:  true,
+						},
+					)
 				}
 			}
 		}
 		return
 	}
-	processed := 0
 	all := len(inSubjects)
-	processResult := func(res rangeResult) {
-		processed++
-		if processed%20 == 0 {
-			log.Info(fmt.Sprintf("Processed %d/%d", processed, all))
+	allPacks := len(subjects)
+	processed := 0
+	processedPacks := 0
+	processResult := func(resAry []rangeResult) {
+		processedPacks++
+		for _, res := range resAry {
+			if res.err != nil {
+				log.Warn(res.err.Error())
+				continue
+			}
+			processed++
+			if processed%20 == 0 {
+				log.Info(fmt.Sprintf("Processed items %d/%d, packs %d/%d", processed, all, processedPacks, allPacks))
+			}
+			if !res.setStart && !res.setEnd {
+				continue
+			}
+			subject := &models.EnrollmentProjectRange{UUID: res.uuid, ProjectSlug: res.project}
+			if res.setStart {
+				subject.Start = res.start
+			}
+			if res.setEnd {
+				subject.End = res.end
+			}
+			outSubjects = append(outSubjects, subject)
 		}
-		if !res.setStart && !res.setEnd {
-			return
-		}
-		subject := &models.EnrollmentProjectRange{UUID: res.uuid, ProjectSlug: res.project}
-		if res.setStart {
-			subject.Start = res.start
-		}
-		if res.setEnd {
-			subject.End = res.end
-		}
-		outSubjects = append(outSubjects, subject)
 	}
 	thrN := s.GetThreadsNum()
 	if thrN > 1 {
-		thrN := int(math.Sqrt(float64(thrN+1))) + 1
+		thrN := int(math.Round(math.Sqrt(float64(thrN))))
 		log.Info(fmt.Sprintf("Using %d parallel ES queries\n", thrN))
-		ch := make(chan rangeResult)
+		ch := make(chan []rangeResult)
 		nThreads := 0
-		for _, subject := range inSubjects {
-			go getRange(ch, *subject)
+		for _, subjectMap := range subjects {
+			go getRange(ch, subjectMap)
 			nThreads++
 			if nThreads == thrN {
 				res := <-ch
 				nThreads--
-				if res.err != nil {
-					log.Warn(res.err.Error())
-					continue
-				}
 				processResult(res)
 			}
 		}
 		for nThreads > 0 {
 			res := <-ch
 			nThreads--
-			if res.err != nil {
-				log.Warn(res.err.Error())
-				continue
-			}
 			processResult(res)
 		}
 	} else {
-		for _, subject := range inSubjects {
-			res := getRange(nil, *subject)
-			if res.err != nil {
-				log.Warn(res.err.Error())
-				continue
-			}
-			processResult(res)
+		for _, subjectMap := range subjects {
+			processResult(getRange(nil, subjectMap))
 		}
 	}
 	return

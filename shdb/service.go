@@ -6115,7 +6115,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (status string, err error) {
 	log.Info(fmt.Sprintf("UpdateAffRange: updates:%d", len(updates)))
 	defer func() {
-		log.Info(fmt.Sprintf("UpdateAffRange(exit): updates:%d err:%+v", len(updates), err))
+    log.Info(fmt.Sprintf("UpdateAffRange(exit): updates:%d status:%s err:%+v", len(updates), status, err))
 	}()
 	thrN := runtime.NumCPU()
 	updateFunc := func(ch chan error, update models.EnrollmentProjectRange) (err error) {
@@ -6124,8 +6124,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 				ch <- err
 			}
 		}()
-		// FIXME aupdate -> fix and continue
-		query := "aupdate enrollments set "
+		query := "update enrollments set "
 		args := []interface{}{}
 		ts := time.Time(update.Start)
 		if ts.After(shared.MinPeriodDate) && ts.Before(shared.MaxPeriodDate) {
@@ -6155,7 +6154,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 	all := len(updates)
 	progressInfo := func() {
 		processed++
-		if processed%50 == 0 {
+		if processed%20 == 0 {
 			log.Info(fmt.Sprintf("Updated %d/%d\n", processed, all))
 		}
 	}
@@ -6198,7 +6197,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 		}
 		progressInfo()
 	}
-	fmt.Sprintf(status, "Processed: %d, errors: %d", processed, e)
+	status = fmt.Sprintf("Processed: %d, errors: %d", processed, e)
 	log.Warn(status)
 	return
 }
