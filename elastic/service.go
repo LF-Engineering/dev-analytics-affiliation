@@ -237,6 +237,8 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 					res = append(res, r)
 					continue
 				}
+        // select * from enrollments where (minute(cast(end as time)) != 0 or second(cast(end as time)) != 0) and end < '2020-06-01' and end > '2014-01-01' and cast(end as time) not in ('18:30:00');
+        // add second to mark this as a special date that was calculated
 				start = s.DayStart(start)
 				r.start = strfmt.DateTime(start)
 				r.setStart = true
@@ -249,6 +251,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 					continue
 				}
 				secs := now.Sub(end).Seconds()
+        // add second to mark this as a special date that was calculated
 				end = s.DayStart(end)
 				// 24 * 90 * 3600 (1 quarter ago)
 				if secs >= 7776000 {
