@@ -2631,7 +2631,7 @@ func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeA
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	stat := ""
-	stat, err = s.shDB.MergeAll()
+	stat, err = s.shDB.MergeAll(debug, dry)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return

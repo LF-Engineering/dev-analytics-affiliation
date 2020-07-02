@@ -138,7 +138,7 @@ type Service interface {
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
-	MergeAll() (string, error)
+	MergeAll(int, bool) (string, error)
 	HideEmails() (string, error)
 	MapOrgNames() (string, error)
 }
@@ -3907,11 +3907,11 @@ func (s *service) HideEmails() (status string, err error) {
 	return
 }
 
-func (s *service) MergeAll() (status string, err error) {
-	log.Info("MergeAll")
+func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
+	log.Info(fmt.Sprintf("MergeAll: debug:%d dry:%v", debug, dry))
 	s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MergeAll(exit): status:%s err:%v", status, err))
+		log.Info(fmt.Sprintf("MergeAll(exit): debug:%d dry:%v status:%s err:%v", debug, dry, status, err))
 	}()
 	emailRE := `^[^@]+@[^@]+$`
 	//reVal := `[[:^alpha:]]`
