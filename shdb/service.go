@@ -3928,8 +3928,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			reStr,
 			table,
 		)
-		// debug
-		// fmt.Printf("main query[%s, %s]: %s\n", reVal, emailRE, query)
+		if debug > 0 {
+			log.Info(fmt.Sprintf("main query[%s, %s]: %s\n", reVal, emailRE, query))
+		}
 		rows, err = s.Query(s.db, nil, query, reVal, emailRE)
 		if err != nil {
 			return
@@ -3951,8 +3952,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			if strings.HasSuffix(key, "@@@") {
 				key = rawKey
 			}
-			// debug
-			// fmt.Printf("%s --> %d\n", key, cnt)
+			if debug > 0 {
+				log.Info(fmt.Sprintf("%s --> %d\n", key, cnt))
+			}
 			keys = append(keys, key)
 			n++
 			if n == packSize {
@@ -3961,8 +3963,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				n = 0
 			}
 			if key != rawKey {
-				// debug
-				// fmt.Printf("special %s,%s --> %d\n", rawKey, key, cnt)
+				if debug > 0 {
+					log.Info(fmt.Sprintf("special %s,%s --> %d\n", rawKey, key, cnt))
+				}
 				keys = append(keys, rawKey)
 				n++
 				if n == packSize {
@@ -4011,8 +4014,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			}
 			query = query[0:len(query)-1] + ")"
 			var rows *sql.Rows
-			// debug
-			// fmt.Printf("#%d pack query:\n%s\n%+v\n", i, query, args)
+			if debug > 0 {
+				log.Info(fmt.Sprintf("#%d pack query:\n%s\n%+v\n", i, query, args))
+			}
 			rows, err = s.Query(s.db, nil, query, args...)
 			if err != nil {
 				return
@@ -4031,16 +4035,18 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				if strings.HasSuffix(key, "@@@") {
 					key = rawKey
 				}
-				// debug
-				// fmt.Printf("key: %s: uuid: %s\n", key, uuid)
+				if debug > 0 {
+					log.Info(fmt.Sprintf("key: %s: uuid: %s\n", key, uuid))
+				}
 				_, ok := uuids[key]
 				if !ok {
 					uuids[key] = make(map[string]struct{})
 				}
 				uuids[key][uuid] = struct{}{}
 				if key != rawKey {
-					// debug
-					// fmt.Printf("special rawKey: %s key: %s: uuid: %s\n", rawKey, key, uuid)
+					if debug > 0 {
+						log.Info(fmt.Sprintf("special rawKey: %s key: %s: uuid: %s\n", rawKey, key, uuid))
+					}
 					_, ok := uuids[rawKey]
 					if !ok {
 						uuids[rawKey] = make(map[string]struct{})
@@ -4112,10 +4118,8 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				delete(merges, key)
 				continue
 			}
-			// debug
-			// fmt.Printf("Key %+v has %d uuids: %+v\n", strings.Split(key, "@@@"), l, uuids)
-			if l > 10 {
-				log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, "@@@"), l, uuids))
+			if debug > 0 || l > 10 {
+				log.Info(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, "@@@"), l, uuids))
 			}
 		}
 		nMergeOps := len(merges)
@@ -4139,11 +4143,13 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			iter++
 			hits := 0
 			for key, uuids := range merges {
-				// debug
-				// fmt.Printf("> key:%s\n", key)
+				if debug > 0 {
+					log.Info(fmt.Sprintf("merge key:%s\n", key))
+				}
 				for uuid := range uuids {
-					// debug
-					// fmt.Printf(">> key:%s,uuid:%s\n", key, uuid)
+					if debug > 0 {
+						log.Info(fmt.Sprintf(">> key:%s,uuid:%s\n", key, uuid))
+					}
 					for key2, uuids2 := range merges {
 						if key2 == key {
 							continue
@@ -4155,8 +4161,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 						_, ok = merges[key2][uuid]
 						if ok {
 							hits++
-							// debug
-							// fmt.Printf("iter #%d (hits %d) %s present in %+v\n", iter, hits, uuid, uuids2)
+							if debug > 1 {
+								log.Info(fmt.Sprintf("iter #%d (hits %d) %s present in %+v\n", iter, hits, uuid, uuids2))
+							}
 							for uuid2 := range uuids2 {
 								merges[key][uuid2] = struct{}{}
 							}
@@ -4190,9 +4197,10 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				delete(merges, key)
 				continue
 			}
-			// debug
-			// fmt.Printf("Key %+v has %d uuids: %+v\n", strings.Split(key, "@@@"), l, uuids)
-			if l > 10 {
+			if debug > 0 {
+				log.Info(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, "@@@"), l, uuids))
+			}
+			if debug > 0 || l > 10 {
 				log.Warn(fmt.Sprintf("Key %+v has %d uuids: %+v\n", strings.Split(key, "@@@"), l, uuids))
 			}
 		}
@@ -4228,8 +4236,13 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					ch <- result
 				}
 			}()
-			// debug
-			// fmt.Printf("merging %+v\n", uuids)
+			if dry {
+				log.Info(fmt.Sprintf("dry-run: would merge %+v\n", uuids))
+				return
+			}
+			if debug > 0 {
+				log.Info(fmt.Sprintf("merging %+v\n", uuids))
+			}
 			tx, err := s.db.Begin()
 			if err != nil {
 				return
@@ -4355,8 +4368,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					}
 				}
 				didMerges++
-				debug := false
-				if debug {
+				if debug > 0 {
 					fmt.Printf("merged %d/%d %s --> %s\n", idx+1, nUUIDs, fromUUID, toUUID)
 				}
 			}
@@ -4376,8 +4388,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			if mtx != nil {
 				mtx.Unlock()
 			}
-			// debug
-			// fmt.Printf("merged %d %+v\n", nUUIDs, uuids)
+			if debug > 0 {
+				log.Info(fmt.Sprintf("merged %d %+v\n", nUUIDs, uuids))
+			}
 			log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles, %d merges so far)\n", i, nMergeOps, key, nUUIDs, soFar))
 			return
 		}
@@ -4386,8 +4399,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 		merging := make(map[string]struct{})
 		nProc := 0
 		infoMerging := func() {
-			// debug
-			if nProc%10 == 0 {
+			if debug > 0 && nProc%10 == 0 {
 				log.Info(fmt.Sprintf("currently merging %d (%d/%d finished): %+v\n", len(merging), nProc, nMergeOps, merging))
 			}
 		}
@@ -4459,6 +4471,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			status += fmt.Sprintf("%sMerged %d profiles, %d errors: %s", sep, actualMerges, nErrs, errsStr)
 		} else {
 			status += fmt.Sprintf("%sMerged %d profiles", sep, actualMerges)
+		}
+		if dry {
+			status = "Dry-run: " + status
 		}
 	}
 	return
