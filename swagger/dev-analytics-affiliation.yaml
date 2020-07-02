@@ -924,6 +924,8 @@ paths:
         - all
       parameters:
         - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/debug'
+        - $ref: '#/parameters/dry'
   /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID
@@ -1641,6 +1643,16 @@ parameters:
     in: query
     type: boolean
     description: 'false: global enrollment (project_slug = null), true: project specific (project_slug non-null)'
+  debug:
+    name: debug
+    in: query
+    type: integer
+    description: debug setting
+  dry:
+    name: dry
+    in: query
+    type: boolean
+    description: dry-run setting
 definitions:
   health:
     type: object

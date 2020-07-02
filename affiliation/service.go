@@ -2607,13 +2607,23 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 // Then merge such profiles
 // ===========================================================================
 // /v1/affiliation/merge_all:
+// debug - optional query parameter: integer debug level, 0 if not specified
+// dry - optional query parameter: boolean, dry-mode setting
 func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeAllParams) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
-	log.Info("PutMergeAll")
+	debug := 0
+	dry := false
+	if params.Debug != nil {
+		debug = int(*params.Debug)
+	}
+	if params.Dry != nil {
+		dry = *params.Dry
+	}
+	log.Info(fmt.Sprintf("PutMergeAll: debug:%d dry:%v", debug, dry))
 	// Check token and permission
 	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {
-		log.Info(fmt.Sprintf("PutMergeAll(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+		log.Info(fmt.Sprintf("PutMergeAll(exit): debug:%d dry:%v apiName:%s username:%s status:%s err:%v", debug, dry, apiName, username, status.Text, err))
 	}()
 	if err != nil {
 		return
