@@ -3662,10 +3662,19 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 }
 
 func (s *service) DedupEnrollments() (err error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
 	var rows *sql.Rows
 	rows, err = s.Query(
 		s.db,
-		nil,
+		tx,
 		"select uuid, organization_id, start, end, project_slug, count(id) as cnt "+
 			"from enrollments where project_slug is null "+
 			"group by uuid, organization_id, start, end, project_slug "+
@@ -3690,7 +3699,7 @@ func (s *service) DedupEnrollments() (err error) {
 		var rows2 *sql.Rows
 		rows2, err = s.Query(
 			s.db,
-			nil,
+			tx,
 			"select id from enrollments where uuid = ? and organization_id = ? "+
 				"and start = ? and end = ? and project_slug is null order by id desc limit ?",
 			uuid,
@@ -3708,7 +3717,7 @@ func (s *service) DedupEnrollments() (err error) {
 			if err != nil {
 				return
 			}
-			_, err = s.Exec(s.db, nil, "delete from enrollments where id = ?", rid)
+			_, err = s.Exec(s.db, tx, "delete from enrollments where id = ?", rid)
 			if err != nil {
 				return
 			}
@@ -3730,6 +3739,11 @@ func (s *service) DedupEnrollments() (err error) {
 	if err != nil {
 		return
 	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
 	return
 }
 
