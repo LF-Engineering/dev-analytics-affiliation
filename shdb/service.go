@@ -114,6 +114,7 @@ type Service interface {
 	EnrichContributors([]*models.ContributorFlatStats, string, int64, *sql.Tx) error
 	GetDetAffRangeSubjects() ([]*models.EnrollmentProjectRange, error)
 	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
+	DedupEnrollments() error
 	// SSAW related
 	NotifySSAW()
 	SetOrigin()
@@ -3660,6 +3661,78 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	return
 }
 
+func (s *service) DedupEnrollments() (err error) {
+	var rows *sql.Rows
+	rows, err = s.Query(
+		s.db,
+		nil,
+		"select uuid, organization_id, start, end, project_slug, count(id) as cnt "+
+			"from enrollments where project_slug is null "+
+			"group by uuid, organization_id, start, end, project_slug "+
+			"having cnt > 1",
+	)
+	if err != nil {
+		return
+	}
+	var (
+		uuid        string
+		orgID       int64
+		start       strfmt.DateTime
+		end         strfmt.DateTime
+		projectSlug *string
+		cnt         int
+	)
+	for rows.Next() {
+		err = rows.Scan(&uuid, &orgID, &start, &end, &projectSlug, &cnt)
+		if err != nil {
+			return
+		}
+		var rows2 *sql.Rows
+		rows2, err = s.Query(
+			s.db,
+			nil,
+			"select id from enrollments where uuid = ? and organization_id = ? "+
+				"and start = ? and end = ? and project_slug is null order by id desc limit ?",
+			uuid,
+			orgID,
+			time.Time(start),
+			time.Time(end),
+			cnt-1,
+		)
+		if err != nil {
+			return
+		}
+		rid := 0
+		for rows2.Next() {
+			err = rows2.Scan(&rid)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, nil, "delete from enrollments where id = ?", rid)
+			if err != nil {
+				return
+			}
+		}
+		err = rows2.Err()
+		if err != nil {
+			return
+		}
+		err = rows2.Close()
+		if err != nil {
+			return
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	return
+}
+
 func (s *service) MapOrgNames() (status string, err error) {
 	log.Info("MapOrgNames")
 	s.SetOrigin()
@@ -3667,6 +3740,10 @@ func (s *service) MapOrgNames() (status string, err error) {
 	defer func() {
 		log.Info(fmt.Sprintf("MapOrgNames(exit): status:%s err:%v", status, err))
 	}()
+	e := s.DedupEnrollments()
+	if e != nil {
+		log.Warn(fmt.Sprintf("dedupEnrollments: %v", e))
+	}
 	if !s.mappingsLoaded {
 		// orgNamesMappings allMappings
 		var data []byte
@@ -3734,7 +3811,6 @@ func (s *service) MapOrgNames() (status string, err error) {
 			status += inf + ", "
 			log.Info(inf)
 		}
-		fmt.Printf("RE: %s\n", re)
 		rows, err = s.Query(s.db, nil, "select id, name from organizations where name regexp ?", re)
 		if err != nil {
 			return
@@ -3743,7 +3819,6 @@ func (s *service) MapOrgNames() (status string, err error) {
 		name := ""
 		for rows.Next() {
 			err = rows.Scan(&nid, &name)
-			fmt.Printf("'%s' (%d)\n", name, nid)
 			if err != nil {
 				return
 			}
