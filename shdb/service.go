@@ -3754,7 +3754,8 @@ func (s *service) MapOrgNames() (status string, err error) {
 			var res sql.Result
 			res, err = s.Exec(s.db, nil, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
 			if err != nil {
-				return
+				log.Warn(fmt.Sprintf("Error: cannot update enrollments organization '%s' (id=%d) to '%s' (id=%d)", name, nid, to, id))
+				continue
 			}
 			affected := int64(0)
 			affected, err = res.RowsAffected()
@@ -3762,6 +3763,10 @@ func (s *service) MapOrgNames() (status string, err error) {
 				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d enrollments", name, to, affected)
 				status += inf + ", "
 				log.Info(inf)
+			}
+			res, err = s.Exec(s.db, nil, "delete from organizations where id = ?", nid)
+			if err != nil {
+				log.Warn(fmt.Sprintf("Error: cannot delete organization '%s' (id=%d)", name, nid))
 			}
 		}
 		err = rows.Err()
@@ -3930,6 +3935,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 		)
 		if debug > 0 {
 			log.Info(fmt.Sprintf("main query[%s, %s]: %s\n", reVal, emailRE, query))
+			fmt.Printf("main query[%s, %s]: %s\n", reVal, emailRE, query)
 		}
 		rows, err = s.Query(s.db, nil, query, reVal, emailRE)
 		if err != nil {
@@ -4236,12 +4242,39 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					ch <- result
 				}
 			}()
+			query := "select uuid, count(distinct id) as cnt from identities where uuid in ("
+			args := []interface{}{}
+			for _, uuid := range uuids {
+				query += "?,"
+				args = append(args, uuid)
+			}
+			query = query[0:len(query)-1] + ") group by uuid order by cnt desc limit 1"
+			var rows *sql.Rows
+			rows, err = s.Query(s.db, nil, query, args...)
+			if err != nil {
+				return
+			}
+			cnt := 0
+			for rows.Next() {
+				err = rows.Scan(&toUUID, &cnt)
+				if err != nil {
+					return
+				}
+			}
+			err = rows.Err()
+			if err != nil {
+				return
+			}
+			err = rows.Close()
+			if err != nil {
+				return
+			}
 			if dry {
-				log.Info(fmt.Sprintf("dry-run: would merge %+v\n", uuids))
+				log.Info(fmt.Sprintf("dry-run: would merge %+v into %s (which has %d identities)\n", uuids, toUUID, cnt))
 				return
 			}
 			if debug > 0 {
-				log.Info(fmt.Sprintf("merging %+v\n", uuids))
+				log.Info(fmt.Sprintf("merging %+v into %s (which has %d identities)\n", uuids, toUUID, cnt))
 			}
 			tx, err := s.db.Begin()
 			if err != nil {
@@ -4254,7 +4287,10 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			}()
 			didMerges := 0
 			nUUIDs := len(uuids)
-			for idx, fromUUID := range uuids[1:] {
+			for idx, fromUUID := range uuids {
+				if fromUUID == toUUID {
+					continue
+				}
 				_, e := s.GetUniqueIdentity(fromUUID, true, nil)
 				if e != nil {
 					err = e
@@ -4472,9 +4508,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 		} else {
 			status += fmt.Sprintf("%sMerged %d profiles", sep, actualMerges)
 		}
-		if dry {
-			status = "Dry-run: " + status
-		}
+	}
+	if dry {
+		status = "Dry-run: " + status
 	}
 	return
 }
