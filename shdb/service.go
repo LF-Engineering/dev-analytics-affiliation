@@ -3734,6 +3734,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			status += inf + ", "
 			log.Info(inf)
 		}
+		fmt.Printf("RE: %s\n", re)
 		rows, err = s.Query(s.db, nil, "select id, name from organizations where name regexp ?", re)
 		if err != nil {
 			return
@@ -3742,6 +3743,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		name := ""
 		for rows.Next() {
 			err = rows.Scan(&nid, &name)
+			fmt.Printf("'%s' (%d)\n", name, nid)
 			if err != nil {
 				return
 			}
@@ -3752,13 +3754,42 @@ func (s *service) MapOrgNames() (status string, err error) {
 				continue
 			}
 			var res sql.Result
+			affected := int64(0)
 			res, err = s.Exec(s.db, nil, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
 			if err != nil {
-				log.Warn(fmt.Sprintf("Error: cannot update enrollments organization '%s' (id=%d) to '%s' (id=%d)", name, nid, to, id))
-				continue
+				if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+					log.Warn(fmt.Sprintf("Error: cannot update enrollments organization '%s' (id=%d) to '%s' (id=%d): %v", name, nid, to, id, err))
+					return
+				}
+				var rows2 *sql.Rows
+				rows2, err = s.Query(s.db, nil, "select id from enrollments where organization_id = ?", nid)
+				if err != nil {
+					return
+				}
+				rid := 0
+				for rows2.Next() {
+					err = rows2.Scan(&rid)
+					if err != nil {
+						return
+					}
+					res, err = s.Exec(s.db, nil, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
+						return
+					}
+				}
+				err = rows2.Err()
+				if err != nil {
+					return
+				}
+				err = rows2.Close()
+				if err != nil {
+					return
+				}
+				affected++
+			} else {
+				affected, err = res.RowsAffected()
 			}
-			affected := int64(0)
-			affected, err = res.RowsAffected()
 			if affected > 0 {
 				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d enrollments", name, to, affected)
 				status += inf + ", "
@@ -3767,6 +3798,12 @@ func (s *service) MapOrgNames() (status string, err error) {
 			res, err = s.Exec(s.db, nil, "delete from organizations where id = ?", nid)
 			if err != nil {
 				log.Warn(fmt.Sprintf("Error: cannot delete organization '%s' (id=%d)", name, nid))
+			}
+			affected, err = res.RowsAffected()
+			if affected > 0 {
+				inf = fmt.Sprintf("Deleted organization '%s' (id=%d)", name, nid)
+				status += inf + ", "
+				log.Info(inf)
 			}
 		}
 		err = rows.Err()
