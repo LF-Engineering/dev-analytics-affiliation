@@ -2731,7 +2731,7 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		return
 	}
 	if 1 == 1 {
-		status.Text = fmt.Sprintf("stat3:%s, uuidsProjs: %d", stat3, len(uuidsProjs))
+		status.Text = fmt.Sprintf("stat3: %s, uuidsProjs: %d", stat3, len(uuidsProjs))
 	}
 	subjects := []*models.EnrollmentProjectRange{}
 	subjects, err = s.shDB.GetDetAffRangeSubjects()

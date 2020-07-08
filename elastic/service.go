@@ -84,8 +84,9 @@ func New(client *elasticsearch.Client, url string) Service {
 func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string][]string, status string, err error) {
 	log.Info(fmt.Sprintf("GetUUIDsProjects: projects:%d", len(projects)))
 	uuidsProjects = make(map[string][]string)
+	projectsUUIDs := make(map[string][]string)
 	defer func() {
-		log.Info(fmt.Sprintf("GetUUIDsProjects(exit): projects:%d uuidsProjects:%d status:%s err:%v", len(projects), len(uuidsProjects), status, err))
+		log.Info(fmt.Sprintf("GetUUIDsProjects(exit): projects:%d projectsUUIDs:%d uuidsProjects:%d status:%s err:%v", len(projects), len(projectsUUIDs), len(uuidsProjects), status, err))
 	}()
 	type projectsResult struct {
 		project string
@@ -143,7 +144,6 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		for _, row := range result.Rows {
 			res.uuids = append(res.uuids, row[0])
 		}
-		fmt.Printf("%s: initial %d rows\n", project, len(result.Rows))
 		for {
 			data = `{"cursor":"` + result.Cursor + `"}`
 			payloadBytes = []byte(data)
@@ -180,7 +180,6 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			for _, row := range result.Rows {
 				res.uuids = append(res.uuids, row[0])
 			}
-			fmt.Printf("%s: %d rows\n", project, len(result.Rows))
 		}
 		url = fmt.Sprintf("%s/_sql/close", s.url)
 		data = `{"cursor":"` + result.Cursor + `"}`
@@ -207,6 +206,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
 			return
 		}
+		// fmt.Printf("%s: %d rows\n", project, len(res.uuids))
 		return
 	}
 	thrN := s.GetThreadsNum()
@@ -223,7 +223,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 				nThreads--
 				if res.err == nil {
 					if len(res.uuids) > 0 {
-						uuidsProjects[res.project] = res.uuids
+						projectsUUIDs[res.project] = res.uuids
 					}
 				} else {
 					log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
@@ -235,7 +235,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			nThreads--
 			if res.err == nil {
 				if len(res.uuids) > 0 {
-					uuidsProjects[res.project] = res.uuids
+					projectsUUIDs[res.project] = res.uuids
 				}
 			} else {
 				log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
@@ -246,13 +246,34 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			res := getProjectsUUIDs(nil, project)
 			if res.err == nil {
 				if len(res.uuids) > 0 {
-					uuidsProjects[res.project] = res.uuids
+					projectsUUIDs[res.project] = res.uuids
 				}
 			} else {
 				log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
 			}
 		}
 	}
+	uuidsProjs := make(map[string]map[string]struct{})
+	for project, uuids := range projectsUUIDs {
+		for _, uuid := range uuids {
+			_, ok := uuidsProjs[uuid]
+			if !ok {
+				uuidsProjs[uuid] = make(map[string]struct{})
+			}
+			uuidsProjs[uuid][project] = struct{}{}
+		}
+	}
+	for uuid, projects := range uuidsProjs {
+		for project := range projects {
+			_, ok := uuidsProjects[uuid]
+			if !ok {
+				uuidsProjects[uuid] = []string{}
+			}
+			uuidsProjects[uuid] = append(uuidsProjects[uuid], project)
+		}
+		// fmt.Printf("%s: %+v\n", uuid, uuidsProjects[uuid])
+	}
+	status = fmt.Sprintf("Projects: %d, UUIDs: %d", len(projectsUUIDs), len(uuidsProjects))
 	return
 }
 
