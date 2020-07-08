@@ -3772,6 +3772,12 @@ func (s *service) MapOrgNames() (status string, err error) {
 		s.mappingsLoaded = true
 	}
 	inf := ""
+	added := 0
+	updated := 0
+	deleted := 0
+	skipped := 0
+	conflicts := 0
+	rolsUpdated := int64(0)
 	for _, mapping := range s.orgNamesMappings.Mappings {
 		re := mapping[0]
 		to := mapping[1]
@@ -3816,6 +3822,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			inf = fmt.Sprintf("Added organization '%s' (id=%d)", to, id)
 			status += inf + ", "
 			log.Info(inf)
+			added++
 		} else if actualName != to {
 			_, err = s.Exec(s.db, nil, "update organizations set name = ? where id = ?", to, id)
 			if err != nil {
@@ -3824,8 +3831,14 @@ func (s *service) MapOrgNames() (status string, err error) {
 			inf = fmt.Sprintf("Updated organization name '%s' -> '%s' (id=%d)", actualName, to, id)
 			status += inf + ", "
 			log.Info(inf)
+			updated++
 		}
+		// Because sql.Query escapes \ --> \\ and mysql special characters regexp is '\\.'
+		re = strings.Replace(re, "\\\\", "\\", -1)
+		//fmt.Printf("RE: %s\n", re)
 		rows, err = s.Query(s.db, nil, "select id, name from organizations where name regexp ?", re)
+		//rows, err = s.Query(s.db, nil, "select id, name from organizations where name = ?", re)
+		//rows, err = s.Query(s.db, nil, `select id, name from organizations where name regexp '` + re + `'`)
 		if err != nil {
 			return
 		}
@@ -3836,10 +3849,12 @@ func (s *service) MapOrgNames() (status string, err error) {
 			if err != nil {
 				return
 			}
+			//fmt.Printf("'%s'(%d)\n", name, nid)
 			if nid == id {
 				inf = fmt.Sprintf("'%s' (id=%d) matching '%s' already maps into '%s' (id=%d), skipping", name, nid, re, to, id)
 				status += inf + ", "
 				log.Info(inf)
+				skipped++
 				continue
 			}
 			var res sql.Result
@@ -3866,6 +3881,9 @@ func (s *service) MapOrgNames() (status string, err error) {
 						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
 						return
 					}
+					if err != nil {
+						conflicts++
+					}
 				}
 				err = rows2.Err()
 				if err != nil {
@@ -3880,6 +3898,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 				affected, err = res.RowsAffected()
 			}
 			if affected > 0 {
+				rolsUpdated += affected
 				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d enrollments", name, to, affected)
 				status += inf + ", "
 				log.Info(inf)
@@ -3893,6 +3912,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 				inf = fmt.Sprintf("Deleted organization '%s' (id=%d)", name, nid)
 				status += inf + ", "
 				log.Info(inf)
+				deleted++
 			}
 		}
 		err = rows.Err()
@@ -3907,7 +3927,15 @@ func (s *service) MapOrgNames() (status string, err error) {
 	if status == "" {
 		status = "Nothing to update"
 	} else {
-		status = status[0 : len(status)-2]
+		status += fmt.Sprintf(
+			"Organizations: added:%d renamed:%d deleted:%d skipped:%d, Enrollments: conflicts:%d updated:%d",
+			added,
+			updated,
+			deleted,
+			skipped,
+			conflicts,
+			rolsUpdated,
+		)
 	}
 	return
 }

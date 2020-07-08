@@ -14,6 +14,7 @@ Start local SortingHat DB instance:
 - `./sh/mariadb.sh docker`.
 - Once docker instance is accepting connections: `./sh/mariadb.sh` to pupulate default data.
 - You can shell into dockerized DB instance: `SH_USR=sortinghat SH_PASS=pwd SH_DB=sortinghat ./sh/mariadb_sortinghat_shell.sh`.
+- You can also use root account: `SH_USR=root SH_PASS=rootpwd SH_DB=sortinghat ./sh/mariadb_sortinghat_shell.sh`.
 - After doing this you have MariaDB DSN that can be passed to API: `SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'`.
 
 Start local Postgres API DB instance:
