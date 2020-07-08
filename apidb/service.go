@@ -23,6 +23,7 @@ type Service interface {
 	CheckIdentityManagePermission(string, string, *sql.Tx) (bool, error)
 	GetDataSourceTypes(string) ([]string, error)
 	GetListProjects(string) (*models.ListProjectsOutput, error)
+	GetAllProjects() ([]string, error)
 }
 
 type service struct {
@@ -35,6 +36,37 @@ func New(db *sqlx.DB) Service {
 	return &service{
 		db: db,
 	}
+}
+
+func (s *service) GetAllProjects() (projects []string, err error) {
+	log.Info("GetAllProjects")
+	defer func() {
+		log.Info(fmt.Sprintf("GetAllProjects(exit): projects:%+v", projects))
+	}()
+	rows, err := s.Query(s.db, nil, "select distinct slug from projects where project_type = 0")
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetAllProjects")
+		return
+	}
+	projectSlug := ""
+	for rows.Next() {
+		err = rows.Scan(&projectSlug)
+		if err != nil {
+			return
+		}
+		projects = append(projects, projectSlug)
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetAllProjects")
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetAllProjects")
+		return
+	}
+	return
 }
 
 func (s *service) GetListProjects(user string) (projects *models.ListProjectsOutput, err error) {

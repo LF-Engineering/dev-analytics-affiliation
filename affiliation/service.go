@@ -2717,7 +2717,22 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		return
 	}
 	defer func() { s.shDB.NotifySSAW() }()
-	// Do the actual API call
+	projects := []string{}
+	projects, err = s.apiDB.GetAllProjects()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	var uuidsProjs map[string][]string
+	stat3 := ""
+	uuidsProjs, stat3, err = s.es.GetUUIDsProjects(projects)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if 1 == 1 {
+		status.Text = fmt.Sprintf("stat3:%s, uuidsProjs: %d", stat3, len(uuidsProjs))
+	}
 	subjects := []*models.EnrollmentProjectRange{}
 	subjects, err = s.shDB.GetDetAffRangeSubjects()
 	if err != nil {
@@ -2737,7 +2752,7 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	status.Text = fmt.Sprintf("Subjects: %d, Detected Ranges: %s, Update status: %s", len(subjects), stat1, stat2)
+	status.Text = fmt.Sprintf("Projects status: %s, Subjects: %d, Detected Ranges: %s, Update status: %s", len(subjects), stat1, stat2)
 	return
 }
 

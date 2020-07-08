@@ -38,6 +38,7 @@ type Service interface {
 	GetTopContributors(string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
+	GetUUIDsProjects([]string) (map[string][]string, string, error)
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -78,6 +79,181 @@ func New(client *elasticsearch.Client, url string) Service {
 		client: client,
 		url:    url,
 	}
+}
+
+func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string][]string, status string, err error) {
+	log.Info(fmt.Sprintf("GetUUIDsProjects: projects:%d", len(projects)))
+	uuidsProjects = make(map[string][]string)
+	defer func() {
+		log.Info(fmt.Sprintf("GetUUIDsProjects(exit): projects:%d uuidsProjects:%d status:%s err:%v", len(projects), len(uuidsProjects), status, err))
+	}()
+	type projectsResult struct {
+		project string
+		uuids   []string
+		err     error
+	}
+	getProjectsUUIDs := func(ch chan projectsResult, project string) (res projectsResult) {
+		defer func() {
+			if ch != nil {
+				ch <- res
+			}
+		}()
+		res.project = project
+		pattern := "sds-" + strings.Replace(strings.TrimSpace(project), "/", "-", -1) + "-*,-*-raw,-*-for-merge"
+		data := fmt.Sprintf(
+			`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' group by author_uuid order by author_uuid","fetch_size":20000}`,
+			s.JSONEscape(pattern),
+		)
+		payloadBytes := []byte(data)
+		payloadBody := bytes.NewReader(payloadBytes)
+		method := "POST"
+		url := fmt.Sprintf("%s/_sql?format=json", s.url)
+		req, err := http.NewRequest(method, url, payloadBody)
+		if err != nil {
+			res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			return
+		}
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			res.err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			return
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != 200 {
+			res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+			return
+		}
+		type uuidsResult struct {
+			Cursor string     `json:"cursor"`
+			Rows   [][]string `json:"rows"`
+		}
+		var result uuidsResult
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			res.err = fmt.Errorf("Unmarshal error: %+v", err)
+			return
+		}
+		for _, row := range result.Rows {
+			res.uuids = append(res.uuids, row[0])
+		}
+		fmt.Printf("%s: initial %d rows\n", project, len(result.Rows))
+		for {
+			data = `{"cursor":"` + result.Cursor + `"}`
+			payloadBytes = []byte(data)
+			payloadBody = bytes.NewReader(payloadBytes)
+			req, err = http.NewRequest(method, url, payloadBody)
+			if err != nil {
+				res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			resp, err = http.DefaultClient.Do(req)
+			if err != nil {
+				res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				return
+			}
+			body, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				res.err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				return
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode != 200 {
+				res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+				return
+			}
+			err = json.Unmarshal(body, &result)
+			if err != nil {
+				res.err = fmt.Errorf("Unmarshal error: %+v", err)
+				return
+			}
+			if len(result.Rows) == 0 {
+				break
+			}
+			for _, row := range result.Rows {
+				res.uuids = append(res.uuids, row[0])
+			}
+			fmt.Printf("%s: %d rows\n", project, len(result.Rows))
+		}
+		url = fmt.Sprintf("%s/_sql/close", s.url)
+		data = `{"cursor":"` + result.Cursor + `"}`
+		payloadBytes = []byte(data)
+		payloadBody = bytes.NewReader(payloadBytes)
+		req, err = http.NewRequest(method, url, payloadBody)
+		if err != nil {
+			res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			return
+		}
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			res.err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			return
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != 200 {
+			res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+			return
+		}
+		return
+	}
+	thrN := s.GetThreadsNum()
+	if thrN > 1 {
+		thrN = int(math.Round(math.Sqrt(float64(thrN))))
+		log.Info(fmt.Sprintf("Using %d parallel ES queries\n", thrN))
+		ch := make(chan projectsResult)
+		nThreads := 0
+		for _, project := range projects {
+			go getProjectsUUIDs(ch, project)
+			nThreads++
+			if nThreads == thrN {
+				res := <-ch
+				nThreads--
+				if res.err == nil {
+					if len(res.uuids) > 0 {
+						uuidsProjects[res.project] = res.uuids
+					}
+				} else {
+					log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
+				}
+			}
+		}
+		for nThreads > 0 {
+			res := <-ch
+			nThreads--
+			if res.err == nil {
+				if len(res.uuids) > 0 {
+					uuidsProjects[res.project] = res.uuids
+				}
+			} else {
+				log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
+			}
+		}
+	} else {
+		for _, project := range projects {
+			res := getProjectsUUIDs(nil, project)
+			if res.err == nil {
+				if len(res.uuids) > 0 {
+					uuidsProjects[res.project] = res.uuids
+				}
+			} else {
+				log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
+			}
+		}
+	}
+	return
 }
 
 func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outSubjects []*models.EnrollmentProjectRange, status string, err error) {
