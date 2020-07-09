@@ -2724,14 +2724,17 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		return
 	}
 	var uuidsProjs map[string][]string
-	stat3 := ""
-	uuidsProjs, stat3, err = s.es.GetUUIDsProjects(projects)
+	st1 := ""
+	uuidsProjs, st1, err = s.es.GetUUIDsProjects(projects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	if 1 == 1 {
-		status.Text = fmt.Sprintf("stat3: %s, uuidsProjs: %d", stat3, len(uuidsProjs))
+	st2 := ""
+	st2, err = s.shDB.UpdateProjectSlugs(uuidsProjs)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
 	}
 	subjects := []*models.EnrollmentProjectRange{}
 	subjects, err = s.shDB.GetDetAffRangeSubjects()
@@ -2739,20 +2742,28 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	stat1 := ""
+	st3 := ""
 	updates := []*models.EnrollmentProjectRange{}
-	updates, stat1, err = s.es.DetAffRange(subjects)
+	updates, st3, err = s.es.DetAffRange(subjects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	stat2 := ""
-	stat2, err = s.shDB.UpdateAffRange(updates)
+	st4 := ""
+	st4, err = s.shDB.UpdateAffRange(updates)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	status.Text = fmt.Sprintf("Projects status: %s, Subjects: %d, Detected Ranges: %s, Update status: %s", len(subjects), stat1, stat2)
+	status.Text = fmt.Sprintf(
+		"Projects status: %s, Project slugs update(%d): %s, Subjects: %d, Detected Ranges: %s, Update status: %s",
+		st1,
+		len(uuidsProjs),
+		st2,
+		len(subjects),
+		st3,
+		st4,
+	)
 	return
 }
 

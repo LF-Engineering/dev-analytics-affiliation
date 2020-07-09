@@ -114,6 +114,7 @@ type Service interface {
 	EnrichContributors([]*models.ContributorFlatStats, string, int64, *sql.Tx) error
 	GetDetAffRangeSubjects() ([]*models.EnrollmentProjectRange, error)
 	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
+	UpdateProjectSlugs(map[string][]string) (string, error)
 	DedupEnrollments() error
 	// SSAW related
 	NotifySSAW()
@@ -6288,6 +6289,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 			"group by uuid, project_slug having cnt = 1) sub, enrollments e "+
 			"where e.uuid = sub.uuid and (e.project_slug = sub.project_slug or "+
 			"(e.project_slug is null and sub.project_slug is null)) and "+
+			// "e.uuid = '20caea59977c497bad6bd1f33d6e8c9e54275bc2' and "+
 			"(cast(e.start as time) != '00:00:07' or cast(e.end as time) != '00:00:07')", // skip special marked dates
 	)
 	if err != nil {
@@ -6317,6 +6319,234 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 	return
 }
 
+func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status string, err error) {
+	log.Info(fmt.Sprintf("UpdateProjectSlugs: uuids:%d", len(uuidsProjs)))
+	defer func() {
+		log.Info(fmt.Sprintf("UpdateProjectSlugs(exit): uuids:%d status:%s err:%+v", len(uuidsProjs), status, err))
+	}()
+	type updateResult struct {
+		err     error
+		uuid    string
+		added   int
+		deleted int
+	}
+	updateProjectSlug := func(ch chan updateResult, uuid string, projects []string) (res updateResult) {
+		var err error
+		defer func() {
+			res.err = err
+			if ch != nil {
+				ch <- res
+			}
+		}()
+		res.uuid = uuid
+		var rows *sql.Rows
+		rows, err = s.Query(
+			s.db,
+			nil,
+			"select id, organization_id, start, end from enrollments where uuid = ? and project_slug is null",
+			uuid,
+		)
+		if err != nil {
+			return
+		}
+		type rolData struct {
+			id    int64
+			orgID int64
+			start strfmt.DateTime
+			end   strfmt.DateTime
+		}
+		var (
+			rol  rolData
+			rols []rolData
+		)
+		uni := make(map[string]struct{})
+		for rows.Next() {
+			err = rows.Scan(&rol.id, &rol.orgID, &rol.start, &rol.end)
+			if err != nil {
+				return
+			}
+			key := fmt.Sprintf("%d-%v-%v", rol.orgID, rol.start, rol.end)
+			_, ok := uni[key]
+			if !ok {
+				rols = append(rols, rol)
+				uni[key] = struct{}{}
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if len(rols) == 0 {
+			return
+		}
+		slugs := []string{}
+		for _, project := range projects {
+			var rows2 *sql.Rows
+			rows2, err = s.Query(s.db, nil, "select id from enrollments where uuid = ? and project_slug = ? limit 1", uuid, project)
+			if err != nil {
+				return
+			}
+			dummy := 0
+			fetched := false
+			for rows2.Next() {
+				err = rows2.Scan(&dummy)
+				if err != nil {
+					return
+				}
+				fetched = true
+				break
+			}
+			err = rows2.Err()
+			if err != nil {
+				return
+			}
+			err = rows2.Close()
+			if err != nil {
+				return
+			}
+			if !fetched {
+				slugs = append(slugs, project)
+			}
+		}
+		if len(slugs) == 0 {
+			return
+		}
+		args := []interface{}{}
+		nRols := 0
+		query := "insert into enrollments(uuid, organization_id, start, end, project_slug) values"
+		for _, rol := range rols {
+			start := time.Time(rol.start)
+			end := time.Time(rol.end)
+			for _, slug := range slugs {
+				query += "(?,?,?,?,?),"
+				args = append(args, uuid, rol.orgID, start, end, slug)
+				nRols++
+			}
+		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		query = query[0 : len(query)-1]
+		_, err = s.Exec(s.db, nil, query, args...)
+		if err != nil {
+			return
+		}
+		args = []interface{}{}
+		query = "delete from enrollments where id in ("
+		nDels := 0
+		for _, rol := range rols {
+			query += "?,"
+			args = append(args, rol.id)
+			nDels++
+		}
+		query = query[0:len(query)-1] + ")"
+		_, err = s.Exec(s.db, nil, query, args...)
+		if err != nil {
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		res.added = nRols
+		res.deleted = nDels
+		return
+	}
+	processed := 0
+	all := len(uuidsProjs)
+	progressInfo := func() {
+		processed++
+		if processed%1000 == 0 {
+			log.Info(fmt.Sprintf("Updated %d/%d\n", processed, all))
+		}
+	}
+	thrN := s.GetThreadsNum()
+	ern := 0
+	oks := 0
+	nuuids := 0
+	rols := 0
+	dels := 0
+	if thrN > 1 {
+		log.Info(fmt.Sprintf("Using %d parallel SH queries\n", thrN))
+		ch := make(chan updateResult)
+		nThreads := 0
+		for uuid, projects := range uuidsProjs {
+			go updateProjectSlug(ch, uuid, projects)
+			nThreads++
+			if nThreads == thrN {
+				res := <-ch
+				nThreads--
+				if res.err != nil {
+					log.Warn(res.err.Error())
+					ern++
+				} else {
+					oks++
+					if res.added > 0 {
+						nuuids++
+						rols += res.added
+						dels += res.deleted
+					}
+				}
+				progressInfo()
+			}
+		}
+		for nThreads > 0 {
+			res := <-ch
+			nThreads--
+			if res.err != nil {
+				log.Warn(res.err.Error())
+				ern++
+			} else {
+				oks++
+				if res.added > 0 {
+					nuuids++
+					rols += res.added
+					dels += res.deleted
+				}
+			}
+			progressInfo()
+		}
+	} else {
+		for uuid, projects := range uuidsProjs {
+			res := updateProjectSlug(nil, uuid, projects)
+			if res.err != nil {
+				log.Warn(res.err.Error())
+				ern++
+			} else {
+				oks++
+				if res.added > 0 {
+					nuuids++
+					rols += res.added
+					dels += res.deleted
+				}
+			}
+			progressInfo()
+		}
+	}
+	status = fmt.Sprintf(
+		"All UUIDs: %d, Updated: %d (added %d rols, deleted %d rols), processed: %d, errors: %d",
+		len(uuidsProjs),
+		nuuids,
+		rols,
+		dels,
+		oks,
+		ern,
+	)
+	log.Info(status)
+	return
+}
+
 func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (status string, err error) {
 	log.Info(fmt.Sprintf("UpdateAffRange: updates:%d", len(updates)))
 	defer func() {
@@ -6343,7 +6573,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 			args = append(args, ts)
 		}
 		te := time.Time(update.End)
-		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) {
+		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) && !te.Before(ts) {
 			if len(args) > 0 {
 				query += ", "
 			}

@@ -209,6 +209,14 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		// fmt.Printf("%s: %d rows\n", project, len(res.uuids))
 		return
 	}
+	processed := 0
+	all := len(projects)
+	progressInfo := func() {
+		processed++
+		if processed%10 == 0 {
+			log.Info(fmt.Sprintf("processed %d/%d\n", processed, all))
+		}
+	}
 	thrN := s.GetThreadsNum()
 	if thrN > 1 {
 		thrN = int(math.Round(math.Sqrt(float64(thrN))))
@@ -228,6 +236,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 				} else {
 					log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
 				}
+				progressInfo()
 			}
 		}
 		for nThreads > 0 {
@@ -240,6 +249,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			} else {
 				log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
 			}
+			progressInfo()
 		}
 	} else {
 		for _, project := range projects {
@@ -251,6 +261,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			} else {
 				log.Info(fmt.Sprintf("%s: %v\n", res.project, res.err))
 			}
+			progressInfo()
 		}
 	}
 	uuidsProjs := make(map[string]map[string]struct{})
@@ -323,7 +334,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			subjects = append(subjects, projectSubjects)
 		}
 	}
-	//fmt.Printf("subjects(%d): %+v\n", len(subjects), subjects)
+	// fmt.Printf("subjects(%d): %+v\n", len(subjects), subjects)
 	now := time.Now()
 	getRange := func(ch chan []rangeResult, subjectMap map[string]models.EnrollmentProjectRange) (res []rangeResult) {
 		defer func() {
@@ -356,8 +367,11 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			uuidsCond += "'" + s.JSONEscape(uuid) + "',"
 		}
 		uuidsCond = uuidsCond[0:len(uuidsCond)-1] + ")"
+		// metadata__updated_on: the only column that is present across different data sources
+		// and stores 'date of creation or last update of an item in its data source (git, gerrit, etc.)'
+		// See: https://chaoss.github.io/grimoirelab-sigils/panels/data-status/
 		data := fmt.Sprintf(
-			`{"query":"select author_uuid, min(date), max(date) from \"%s\" where %s group by author_uuid"}`,
+			`{"query":"select author_uuid, min(metadata__updated_on), max(metadata__updated_on) from \"%s\" where %s group by author_uuid"}`,
 			s.JSONEscape(pattern),
 			uuidsCond,
 		)
@@ -438,10 +452,11 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				// select * from enrollments where (minute(cast(end as time)) != 0 or second(cast(end as time)) != 0) and end < '2020-06-01' and end > '2014-01-01' and cast(end as time) not in ('18:30:00');
 				// add 7 seconds to mark this as a special date that was calculated
 				start = s.DayStart(start).Add(time.Second * time.Duration(7))
-				// 24 * 90 * 3600 (1 quarter ago)
-				if secs >= 7776000 {
+				// 365.25 * 24 * 3600 = 31557600 (1 year ago)
+				if secs >= 31557600 {
 					r.start = strfmt.DateTime(start)
 					r.setStart = true
+					// fmt.Printf("%s: new start date: %+v\n", inf, start)
 				}
 			}
 			if row[2] != "" && time.Time(subject.End) == shared.MaxPeriodDate {
@@ -454,10 +469,12 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				secs := now.Sub(end).Seconds()
 				// add 7 seconds to mark this as a special date that was calculated
 				end = s.DayStart(end).Add(time.Second * time.Duration(7))
-				// 24 * 90 * 3600 (1 quarter ago)
-				if secs >= 7776000 && (!r.setStart || (r.setStart && end.After(time.Time(r.start)))) {
+				// fmt.Printf("%s: secs: %f\n", inf, secs)
+				// 365.25 * 24 * 3600 = 31557600 (1 year ago)
+				if secs >= 31557600 && (!r.setStart || (r.setStart && end.After(time.Time(r.start)))) {
 					r.end = strfmt.DateTime(end)
 					r.setEnd = true
+					//fmt.Printf("%s: new end date: %+v\n", inf, end)
 				}
 			}
 			res = append(res, r)
@@ -491,6 +508,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			if res.setEnd {
 				subject.End = res.end
 			}
+			// fmt.Printf("Adding: %+v\n", subject)
 			outSubjects = append(outSubjects, subject)
 		}
 	}
