@@ -6610,7 +6610,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 	all := len(updates)
 	progressInfo := func() {
 		processed++
-		if processed%100 == 0 {
+		if processed%500 == 0 {
 			log.Info(fmt.Sprintf("Updated %d/%d\n", processed, all))
 		}
 	}

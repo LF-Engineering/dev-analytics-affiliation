@@ -508,7 +508,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				continue
 			}
 			processed++
-			if processed%100 == 0 {
+			if processed%500 == 0 {
 				log.Info(fmt.Sprintf("Found items %d/%d, processed packs %d/%d, detected ranges: %d, errors: %d", processed, all, processedPacks, allPacks, len(outSubjects), ers))
 			}
 			if !res.setStart && !res.setEnd {
