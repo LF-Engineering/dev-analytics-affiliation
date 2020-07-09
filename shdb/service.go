@@ -6602,6 +6602,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 				m.Unlock()
 			}()
 		}
+		// fmt.Printf("%s: %+v\n", query, args)
 		_, err = s.Exec(s.db, nil, query, args...)
 		return
 	}

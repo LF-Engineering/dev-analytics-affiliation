@@ -293,7 +293,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	defer func() {
 		log.Info(fmt.Sprintf("DetAffRange(exit): in:%d out:%d status:%s err:%v", len(inSubjects), len(outSubjects), status, err))
 	}()
-	packSize := 500
+	packSize := 1000
 	type rangeResult struct {
 		uuid     string
 		project  *string
@@ -452,8 +452,9 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				// select * from enrollments where (minute(cast(end as time)) != 0 or second(cast(end as time)) != 0) and end < '2020-06-01' and end > '2014-01-01' and cast(end as time) not in ('18:30:00');
 				// add 7 seconds to mark this as a special date that was calculated
 				start = s.DayStart(start).Add(time.Second * time.Duration(7))
-				// 365.25 * 24 * 3600 = 31557600 (1 year ago)
-				if secs >= 31557600 {
+				// we can set start date if that is more than 24 hours in the past (86400)
+				// we can set start date if mor ethan a quarter ago (7776000)
+				if secs >= 7776000 {
 					r.start = strfmt.DateTime(start)
 					r.setStart = true
 					// fmt.Printf("%s: new start date: %+v\n", inf, start)
@@ -467,11 +468,23 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 					continue
 				}
 				secs := now.Sub(end).Seconds()
+				var start time.Time
+				if row[1] != "" {
+					start, err = s.TimeParseAny(row[1])
+					if err != nil {
+						r.err = err
+						res = append(res, r)
+						continue
+					}
+				} else {
+					start = time.Time(subject.Start)
+				}
+				start = s.DayStart(start).Add(time.Second * time.Duration(7))
 				// add 7 seconds to mark this as a special date that was calculated
 				end = s.DayStart(end).Add(time.Second * time.Duration(7))
 				// fmt.Printf("%s: secs: %f\n", inf, secs)
 				// 365.25 * 24 * 3600 = 31557600 (1 year ago)
-				if secs >= 31557600 && (!r.setStart || (r.setStart && end.After(time.Time(r.start)))) {
+				if secs >= 31557600 && end.After(start) {
 					r.end = strfmt.DateTime(end)
 					r.setEnd = true
 					//fmt.Printf("%s: new end date: %+v\n", inf, end)
