@@ -1088,6 +1088,7 @@ paths:
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
         - $ref: '#/parameters/is-project-specific'
+        - $ref: '#/parameters/role'
         - $ref: '#/parameters/merge'
   /affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}:
     put:
@@ -1126,6 +1127,7 @@ paths:
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
         - $ref: '#/parameters/is-project-specific'
+        - $ref: '#/parameters/role'
         - $ref: '#/parameters/merge'
         - name: new_start
           in: query
@@ -1141,6 +1143,10 @@ paths:
           in: query
           type: boolean
           description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
+        - name: new_role
+          in: query
+          type: string
+          description: 'Role: Contributor, Maintainer, ...'
   /affiliation/{projectSlug}/edit_enrollment_by_id/{enrollment_id}:
     put:
       summary: Edit enrollment (using enrollment ID)
@@ -1189,6 +1195,10 @@ paths:
           in: query
           type: boolean
           description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
+        - name: new_role
+          in: query
+          type: string
+          description: 'Role: Contributor, Maintainer, ...'
   /affiliation/{projectSlug}/delete_enrollment/{id}:
     delete:
       summary: Delete enrollment from profile
@@ -1263,6 +1273,7 @@ paths:
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
         - $ref: '#/parameters/is-project-specific'
+        - $ref: '#/parameters/role'
   /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
     put:
       summary: Merge overlapping enrollments for UUID/orgName
@@ -1643,6 +1654,11 @@ parameters:
     in: query
     type: boolean
     description: 'false: global enrollment (project_slug = null), true: project specific (project_slug non-null)'
+  role:
+    name: role
+    in: query
+    type: string
+    description: 'Role: Contributor, Maintainer, ...'
   debug:
     name: debug
     in: query
@@ -1815,6 +1831,9 @@ definitions:
         type: string
         example: lfn/onap
         x-nullable: true
+      role:
+        type: string
+        example: Maintainer
   enrollment-nested-data-output-no-dates:
     title: Enrollment data output (only to support hiding default start/end dates)
     description: Enrollment data
@@ -1844,6 +1863,9 @@ definitions:
         type: string
         example: lfn/onap
         x-nullable: true
+      role:
+        type: string
+        example: Maintainer
   enrollment-data-output:
     title: Enrollment data output
     description: Enrollment data
@@ -1870,6 +1892,9 @@ definitions:
         type: string
         example: lfn/onap
         x-nullable: true
+      role:
+        type: string
+        example: Maintainer
   enrollment-project-range:
     title: Enrollment project range
     description: Used when determining projects enrollments date ranges using ES contributions date range
@@ -2394,6 +2419,10 @@ definitions:
         type: string
         example: 2019-09-02
         x-go-custom-tag: 'yaml:"T"'
+      role:
+        type: string
+        example: Maintainer
+        x-go-custom-tag: 'yaml:"R"'
       project_slug:
         type: string
         example: lfn/onap

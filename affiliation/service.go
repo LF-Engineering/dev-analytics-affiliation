@@ -748,6 +748,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 // {orgName} - required path parameter: enrollment organization to add (must exist)
 // start - optional query parameter: enrollment start date, 1900-01-01 if not set
 // end - optional query parameter: enrollment end date, 2100-01-01 if not set
+// role - optional query parameter: enrollment role, for example Contributor, Maintainer
 // merge - optional query parameter: if set it will merge enrollment dates for organization added
 // is_project_specific - optional query parameter, if set - enrollment will be marked as {projectSlug} specific (its "project_slug" column will be {projectSlug}
 //   else enrollment will be global (its "project_slug" column will be set to null)
@@ -804,6 +805,11 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	} else {
 		enrollment.End = strfmt.DateTime(shared.MaxPeriodDate)
 	}
+	if params.Role != nil {
+		enrollment.Role = *(params.Role)
+	} else {
+		enrollment.Role = shared.DefaultRole
+	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
 		enrollment.ProjectSlug = &project
 	}
@@ -843,8 +849,10 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 // {orgName} - required path parameter: enrollment organization to edt (must exist) (if that organization is affiliated to given profile more than once, start and/or end date must be given too)
 // start - optional query parameter: current enrollment start date to edit, not used if not specified, start or end must be specified if organization is enrolled more than once on the profile
 // end - optional query parameter: current enrollment end date, not used if not specified, start or end must be specified if organization is enrolled more than once on the profile
+// role - optional query parameter: current enrollment role
 // new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
 // new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
+// new_role - optional query parameter - new enrollment role
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
 // is_project_specific - optional query parameter, if set - enrollment specific to this project will be edited
 //   else global enrollment will be edited
@@ -907,6 +915,11 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		values = append(values, *(params.End))
 		isDates = append(isDates, true)
 	}
+	if params.Role != nil {
+		columns = append(columns, "role")
+		values = append(values, *(params.Role))
+		isDates = append(isDates, false)
+	}
 	rols := []*models.EnrollmentDataOutput{}
 	rols, err = s.shDB.FindEnrollments(columns, values, isDates, true, nil)
 	if err != nil {
@@ -942,6 +955,11 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 			enrollment.ProjectSlug = nil
 		}
 	}
+	if params.NewRole != nil {
+		enrollment.Role = *(params.NewRole)
+	} else {
+		enrollment.Role = shared.DefaultRole
+	}
 	defer func() { s.shDB.NotifySSAW() }()
 	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
 	if err != nil {
@@ -975,6 +993,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 // {enrollment_id} - required path parameter: Enrollment ID to edit
 // new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
 // new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
+// new_role - optional query parameter: new enrollment role
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
 // new_is_project_specific - ooptional query parameter, if set - will update is_project_specific value
 func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation.PutEditEnrollmentByIDParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
@@ -1033,6 +1052,11 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 			enrollment.ProjectSlug = nil
 		}
 	}
+	if params.NewRole != nil {
+		enrollment.Role = *(params.NewRole)
+	} else {
+		enrollment.Role = shared.DefaultRole
+	}
 	uuid := enrollment.UUID
 	defer func() { s.shDB.NotifySSAW() }()
 	_, err = s.shDB.EditEnrollment(enrollment, false, nil)
@@ -1080,6 +1104,7 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 // {orgName} - required path parameter: enrollments organization to delete (must exist)
 // start - optional query parameter: enrollments start date, 1900-01-01 if not set
 // end - optional query parameter: enrollments end date, 2100-01-01 if not set
+// role - optional query parameter: enrollments role
 // is_project_specific - optional query parameter, if set - enrollemnt specific to this project will be deleted
 //   else global enrollment will be deleted
 func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.DeleteEnrollmentsParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
@@ -1135,6 +1160,11 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
 		enrollment.ProjectSlug = &project
+	}
+	if params.Role != nil {
+		enrollment.Role = *(params.Role)
+	} else {
+		enrollment.Role = shared.DefaultRole
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call

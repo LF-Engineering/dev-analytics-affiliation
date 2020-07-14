@@ -39,6 +39,10 @@ var (
 	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 	// DateFormat - format date as YYYY-MM-DD
 	DateFormat = "2006-01-02"
+	// DefaultRole - default enrollment role
+	DefaultRole = "Contributor"
+	// Roles - all currently defined roles
+	Roles = []string{"Contributor", "Maintainer"}
 )
 
 // ServiceInterface - Shared API interface
@@ -682,6 +686,7 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 	return time.Now(), err
 }
 
+// DayStart - round date to day start
 func (s *ServiceStruct) DayStart(dt time.Time) time.Time {
 	return time.Date(
 		dt.Year(),

@@ -335,56 +335,58 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 		}
 	}
 	log.Info(fmt.Sprintf("Merging projects %+v organization %+v uniqueIdentity %+v", projectSlugsInf, organization, s.ToLocalUniqueIdentity(uniqueIdentity)))
-	for slug := range projectSlugs {
-		var disjoint []*models.EnrollmentDataOutput
-		disjoint, err = s.FindEnrollments([]string{"uuid", "organization_id", "project_slug"}, []interface{}{uniqueIdentity.UUID, organization.ID, slug}, []bool{false, false, false}, false, tx)
-		if err != nil {
-			return
-		}
-		pS := ""
-		if slug != nil {
-			pS = *slug
-		}
-		if len(disjoint) == 0 {
-			err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pS, allProjectSlugs)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
-			return
-		}
-		dates := [][]strfmt.DateTime{}
-		for _, rol := range disjoint {
-			dates = append(dates, []strfmt.DateTime{rol.Start, rol.End})
-		}
-		var mergedDates [][]strfmt.DateTime
-		mergedDates, err = s.MergeDateRanges(dates)
-		if err != nil {
-			return
-		}
-		for _, data := range mergedDates {
-			st := data[0]
-			en := data[1]
-			isDup := func(x *models.EnrollmentDataOutput, st, en strfmt.DateTime) bool {
-				return x.Start == st && x.End == en
+	for _, role := range shared.Roles {
+		for slug := range projectSlugs {
+			var disjoint []*models.EnrollmentDataOutput
+			disjoint, err = s.FindEnrollments([]string{"uuid", "organization_id", "project_slug", "role"}, []interface{}{uniqueIdentity.UUID, organization.ID, slug, role}, []bool{false, false, false, false}, false, tx)
+			if err != nil {
+				return
 			}
-			filtered := []*models.EnrollmentDataOutput{}
+			pS := ""
+			if slug != nil {
+				pS = *slug
+			}
+			if len(disjoint) == 0 {
+				err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pS, allProjectSlugs)
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
+				return
+			}
+			dates := [][]strfmt.DateTime{}
 			for _, rol := range disjoint {
-				if !isDup(rol, st, en) {
-					filtered = append(filtered, rol)
+				dates = append(dates, []strfmt.DateTime{rol.Start, rol.End})
+			}
+			var mergedDates [][]strfmt.DateTime
+			mergedDates, err = s.MergeDateRanges(dates)
+			if err != nil {
+				return
+			}
+			for _, data := range mergedDates {
+				st := data[0]
+				en := data[1]
+				isDup := func(x *models.EnrollmentDataOutput, st, en strfmt.DateTime) bool {
+					return x.Start == st && x.End == en
+				}
+				filtered := []*models.EnrollmentDataOutput{}
+				for _, rol := range disjoint {
+					if !isDup(rol, st, en) {
+						filtered = append(filtered, rol)
+					}
+				}
+				if len(filtered) != len(disjoint) {
+					disjoint = filtered
+					continue
+				}
+				newEnrollment := &models.EnrollmentDataOutput{UUID: uniqueIdentity.UUID, OrganizationID: organization.ID, Start: st, End: en, ProjectSlug: slug, Role: role}
+				_, err = s.AddEnrollment(newEnrollment, false, false, tx)
+				if err != nil {
+					return
 				}
 			}
-			if len(filtered) != len(disjoint) {
-				disjoint = filtered
-				continue
-			}
-			newEnrollment := &models.EnrollmentDataOutput{UUID: uniqueIdentity.UUID, OrganizationID: organization.ID, Start: st, End: en, ProjectSlug: slug}
-			_, err = s.AddEnrollment(newEnrollment, false, false, tx)
-			if err != nil {
-				return
-			}
-		}
-		for _, rol := range disjoint {
-			err = s.DeleteEnrollment(rol.ID, false, true, nil, tx)
-			if err != nil {
-				return
+			for _, rol := range disjoint {
+				err = s.DeleteEnrollment(rol.ID, false, true, nil, tx)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}
@@ -6285,7 +6287,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 		s.db,
 		nil,
 		"select distinct sub.uuid, sub.project_slug, e.start, e.end from ("+
-			"select uuid, project_slug, count(distinct id) as cnt from enrollments "+
+			"select uuid, project_slug, count(distinct organization_id) as cnt from enrollments "+ // was count(distinct id)
 			"group by uuid, project_slug having cnt = 1) sub, enrollments e "+
 			"where e.uuid = sub.uuid and (e.project_slug = sub.project_slug or "+
 			"(e.project_slug is null and sub.project_slug is null)) and "+
@@ -6565,30 +6567,50 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 				ch <- err
 			}
 		}()
-		query := "update enrollments set "
-		args := []interface{}{}
+		queries := []string{}
+		argss := [][]interface{}{}
+		uuid := update.UUID
 		ts := time.Time(update.Start)
 		if ts.After(shared.MinPeriodDate) && ts.Before(shared.MaxPeriodDate) {
-			query += "start = ? "
-			args = append(args, ts)
-		}
-		te := time.Time(update.End)
-		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) && !te.Before(ts) {
-			if len(args) > 0 {
-				query += ", "
+			query := "update enrollments set start = ? where uuid = ? "
+			args := []interface{}{ts, uuid}
+			if update.ProjectSlug == nil {
+				query += "and project_slug is null "
+			} else {
+				query += "and project_slug = ? "
+				args = append(args, *update.ProjectSlug)
 			}
-			query += "end = ? "
-			args = append(args, te)
+			query += "and start < ?"
+			args = append(args, ts)
+			queries = append(queries, query)
+			argss = append(argss, args)
 		}
-		query += "where uuid = ? "
-		uuid := update.UUID
-		args = append(args, uuid)
+		te := time.Time(update.Start)
+		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) && !te.Before(ts) {
+			query := "update enrollments set end = ? where uuid = ? "
+			args := []interface{}{te, uuid}
+			if update.ProjectSlug == nil {
+				query += "and project_slug is null "
+			} else {
+				query += "and project_slug = ? "
+				args = append(args, *update.ProjectSlug)
+			}
+			query += "and end > ?"
+			args = append(args, te)
+			queries = append(queries, query)
+			argss = append(argss, args)
+		}
+		query := "delete from enrollments where uuid = ? "
+		args := []interface{}{uuid}
 		if update.ProjectSlug == nil {
-			query += "and project_slug is null"
+			query += "and project_slug is null "
 		} else {
-			query += "and project_slug = ?"
+			query += "and project_slug = ? "
 			args = append(args, *update.ProjectSlug)
 		}
+		query += "and end <= start"
+		queries = append(queries, query)
+		argss = append(argss, args)
 		if mtx != nil {
 			mtx.Lock()
 			m, ok := umtx[uuid]
@@ -6602,8 +6624,41 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 				m.Unlock()
 			}()
 		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
 		// fmt.Printf("%s: %+v\n", query, args)
-		_, err = s.Exec(s.db, nil, query, args...)
+		var (
+			res      sql.Result
+			affected int64
+		)
+		for idx, query := range queries {
+			args := argss[idx]
+			res, err = s.Exec(s.db, tx, query, args...)
+			if err != nil {
+				return
+			}
+			affected, err = res.RowsAffected()
+			if err != nil {
+				return
+			}
+			// FIXME: check this
+			if idx == 2 && affected > 0 {
+				log.Info(fmt.Sprintf("Would delete data on UUID '%s'\n", uuid))
+				return
+			}
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
 		return
 	}
 	processed := 0
