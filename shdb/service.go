@@ -6650,7 +6650,11 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 			}
 			// FIXME: check this
 			if idx == 2 && affected > 0 {
-				log.Info(fmt.Sprintf("Would delete data on UUID '%s'\n", uuid))
+				s := ""
+				for i, q := range queries {
+					s += fmt.Sprintf("[%+v]: %s\n", argss[i], q)
+				}
+				log.Info(s)
 				return
 			}
 		}

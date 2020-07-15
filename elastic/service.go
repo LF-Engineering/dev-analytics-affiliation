@@ -371,7 +371,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		// and stores 'date of creation or last update of an item in its data source (git, gerrit, etc.)'
 		// See: https://chaoss.github.io/grimoirelab-sigils/panels/data-status/
 		data := fmt.Sprintf(
-			`{"query":"select author_uuid, min(metadata__updated_on), max(metadata__updated_on) from \"%s\" where %s group by author_uuid"}`,
+			`{"query":"select author_uuid, min(metadata__updated_on), max(metadata__updated_on), min(grimoire_creation_date), max(grimoire_creation_date) from \"%s\" where %s group by author_uuid"}`,
 			s.JSONEscape(pattern),
 			uuidsCond,
 		)
@@ -441,12 +441,22 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			}
 			r.uuid = subject.UUID
 			r.project = subject.ProjectSlug
-			if row[1] != "" && time.Time(subject.Start) == shared.MinPeriodDate {
-				start, err := s.TimeParseAny(row[1])
+			if row[1] != "" && row[3] != "" && time.Time(subject.Start) == shared.MinPeriodDate {
+				start1, err := s.TimeParseAny(row[1])
 				if err != nil {
 					r.err = err
 					res = append(res, r)
 					continue
+				}
+				start2, err := s.TimeParseAny(row[3])
+				if err != nil {
+					r.err = err
+					res = append(res, r)
+					continue
+				}
+				start := start1
+				if start2.Before(start1) {
+					start = start2
 				}
 				secs := now.Sub(start).Seconds()
 				// select * from enrollments where (minute(cast(end as time)) != 0 or second(cast(end as time)) != 0) and end < '2020-06-01' and end > '2014-01-01' and cast(end as time) not in ('18:30:00');
@@ -460,21 +470,41 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 					// fmt.Printf("%s: new start date: %+v\n", inf, start)
 				}
 			}
-			if row[2] != "" && time.Time(subject.End) == shared.MaxPeriodDate {
-				end, err := s.TimeParseAny(row[2])
+			if row[2] != "" && row[4] != "" && time.Time(subject.End) == shared.MaxPeriodDate {
+				end1, err := s.TimeParseAny(row[2])
 				if err != nil {
 					r.err = err
 					res = append(res, r)
 					continue
 				}
+				end2, err := s.TimeParseAny(row[4])
+				if err != nil {
+					r.err = err
+					res = append(res, r)
+					continue
+				}
+				end := end1
+				if end2.After(end1) {
+					end = end2
+				}
 				secs := now.Sub(end).Seconds()
 				var start time.Time
-				if row[1] != "" {
-					start, err = s.TimeParseAny(row[1])
+				if row[1] != "" && row[3] != "" {
+					start1, err := s.TimeParseAny(row[1])
 					if err != nil {
 						r.err = err
 						res = append(res, r)
 						continue
+					}
+					start2, err := s.TimeParseAny(row[3])
+					if err != nil {
+						r.err = err
+						res = append(res, r)
+						continue
+					}
+					start = start1
+					if start2.Before(start1) {
+						start = start2
 					}
 				} else {
 					start = time.Time(subject.Start)
