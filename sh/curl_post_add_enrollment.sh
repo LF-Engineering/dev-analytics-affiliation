@@ -14,7 +14,7 @@ uuid=$(rawurlencode "${2}")
 orgName=$(rawurlencode "${3}")
 extra=''
 
-for prop in start end merge is_project_specific
+for prop in start end merge is_project_specific role
 do
   if [ ! -z "${!prop}" ]
   then

@@ -8,7 +8,7 @@ fi
 enrollment_id=$(rawurlencode "${2}")
 extra=''
 
-for prop in merge new_start new_end new_is_project_specific
+for prop in merge new_start new_end new_is_project_specific new_role
 do
   if [ ! -z "${!prop}" ]
   then
