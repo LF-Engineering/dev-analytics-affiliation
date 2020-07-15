@@ -43,6 +43,10 @@ var (
 	DefaultRole = "Contributor"
 	// Roles - all currently defined roles
 	Roles = []string{"Contributor", "Maintainer"}
+	// ContributorRole - Contributor
+	ContributorRole = "Contributor"
+	// MaintainerRole - Maintainer
+	MaintainerRole = "Maintainer"
 )
 
 // ServiceInterface - Shared API interface
@@ -84,7 +88,7 @@ type ServiceInterface interface {
 	ToCaseInsensitiveRegexp(string) string
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
-	SanitizeShortEnrollment(*models.EnrollmentShortOutput)
+	SanitizeShortEnrollment(*models.EnrollmentShortOutput, bool)
 	SanitizeIdentity(*models.IdentityDataOutput)
 	SanitizeProfile(*models.ProfileDataOutput)
 }
@@ -130,7 +134,7 @@ type LocalAllOutput struct {
 
 // SortKey - defines sort order for enrollments
 func (e *LocalEnrollmentShortOutput) SortKey() (key string) {
-	key = e.Start + ":" + e.End + ":" + e.Organization + ":"
+	key = e.Start + ":" + e.End + ":" + e.Organization + ":" + e.Role + ":"
 	if e.ProjectSlug != nil {
 		key += *(e.ProjectSlug)
 	}
@@ -225,10 +229,10 @@ func (s *ServiceStruct) SanitizeIdentity(identity *models.IdentityDataOutput) {
 }
 
 // SanitizeShortIdentity - trim white spaces and email @/!
-func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutput, atToExcl bool) {
+func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutput, isGet bool) {
 	from := "@"
 	to := "!"
-	if !atToExcl {
+	if !isGet {
 		from, to = to, from
 	}
 	identity.Source = strings.TrimSpace(identity.Source)
@@ -247,7 +251,27 @@ func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutp
 }
 
 // SanitizeShortEnrollment - trim white spaces
-func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentShortOutput) {
+func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentShortOutput, isGet bool) {
+	enrollment.Role = strings.TrimSpace(enrollment.Role)
+	if isGet {
+		if enrollment.Role == ContributorRole {
+			enrollment.Role = "C"
+		} else if enrollment.Role == MaintainerRole {
+			enrollment.Role = "M"
+		} else {
+			log.Info("WARNING: unknown role: " + enrollment.Role)
+			enrollment.Role = "C"
+		}
+	} else {
+		if enrollment.Role == "C" {
+			enrollment.Role = ContributorRole
+		} else if enrollment.Role == "M" {
+			enrollment.Role = MaintainerRole
+		} else {
+			log.Info("WARNING: unknown role: " + enrollment.Role)
+			enrollment.Role = ContributorRole
+		}
+	}
 	enrollment.Organization = strings.TrimSpace(enrollment.Organization)
 	enrollment.Start = strings.TrimSpace(enrollment.Start)
 	enrollment.End = strings.TrimSpace(enrollment.End)
@@ -279,10 +303,10 @@ func (s *ServiceStruct) SanitizeProfile(prof *models.ProfileDataOutput) {
 }
 
 // SanitizeShortProfile - trim white spaces, email @/! and dependent objects
-func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, atToExcl bool) {
+func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, isGet bool) {
 	from := "@"
 	to := "!"
-	if !atToExcl {
+	if !isGet {
 		from, to = to, from
 	}
 	if prof.Email != nil {
@@ -302,10 +326,10 @@ func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, atToExcl bo
 		prof.CountryCode = &countryCode
 	}
 	for _, identity := range prof.Identities {
-		s.SanitizeShortIdentity(identity, atToExcl)
+		s.SanitizeShortIdentity(identity, isGet)
 	}
 	for _, enrollment := range prof.Enrollments {
-		s.SanitizeShortEnrollment(enrollment)
+		s.SanitizeShortEnrollment(enrollment, isGet)
 	}
 }
 
@@ -550,6 +574,7 @@ func (s *ServiceStruct) ToLocalNestedEnrollments(ia []*models.EnrollmentNestedDa
 			"Start":          i.Start,
 			"End":            i.End,
 			"OrganizationID": i.OrganizationID,
+			"Role":           i.Role,
 		}
 		if i.Organization != nil {
 			m["Organization"] = *(i.Organization)

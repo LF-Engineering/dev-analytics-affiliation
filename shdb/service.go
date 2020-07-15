@@ -335,21 +335,20 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 		}
 	}
 	log.Info(fmt.Sprintf("Merging projects %+v organization %+v uniqueIdentity %+v", projectSlugsInf, organization, s.ToLocalUniqueIdentity(uniqueIdentity)))
-	for _, role := range shared.Roles {
-		for slug := range projectSlugs {
+	for slug := range projectSlugs {
+		pS := ""
+		if slug != nil {
+			pS = *slug
+		}
+		merged := 0
+		for _, role := range shared.Roles {
 			var disjoint []*models.EnrollmentDataOutput
 			disjoint, err = s.FindEnrollments([]string{"uuid", "organization_id", "project_slug", "role"}, []interface{}{uniqueIdentity.UUID, organization.ID, slug, role}, []bool{false, false, false, false}, false, tx)
 			if err != nil {
 				return
 			}
-			pS := ""
-			if slug != nil {
-				pS = *slug
-			}
 			if len(disjoint) == 0 {
-				err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pS, allProjectSlugs)
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
-				return
+				continue
 			}
 			dates := [][]strfmt.DateTime{}
 			for _, rol := range disjoint {
@@ -388,6 +387,12 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 					return
 				}
 			}
+			merged++
+		}
+		if merged == 0 {
+			err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pS, allProjectSlugs)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
+			return
 		}
 	}
 	return
@@ -1027,7 +1032,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 			),
 		)
 	}()
-	sel := "select e.id, e.uuid, e.start, e.end, e.project_slug, o.id, o.name from enrollments e, organizations o where e.organization_id = o.id"
+	sel := "select e.id, e.uuid, e.start, e.end, e.project_slug, e.role, o.id, o.name from enrollments e, organizations o where e.organization_id = o.id"
 	vals := []interface{}{}
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -1079,6 +1084,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 			&enrollmentData.Start,
 			&enrollmentData.End,
 			&enrollmentData.ProjectSlug,
+			&enrollmentData.Role,
 			&enrollmentData.OrganizationID,
 			&oName,
 		)
@@ -1120,7 +1126,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 			),
 		)
 	}()
-	sel := "select id, uuid, organization_id, start, end, project_slug from enrollments"
+	sel := "select id, uuid, organization_id, start, end, project_slug, role from enrollments"
 	vals := []interface{}{}
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -1168,6 +1174,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 			&enrollmentData.Start,
 			&enrollmentData.End,
 			&enrollmentData.ProjectSlug,
+			&enrollmentData.Role,
 		)
 		if err != nil {
 			return
@@ -1266,7 +1273,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select id, uuid, organization_id, start, end, project_slug from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
+		"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
 		uuid,
 		tm,
 	)
@@ -1282,6 +1289,7 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 			&enrollmentData.Start,
 			&enrollmentData.End,
 			&enrollmentData.ProjectSlug,
+			&enrollmentData.Role,
 		)
 		if err != nil {
 			return
@@ -1376,7 +1384,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select id, uuid, organization_id, start, end, project_slug from enrollments where uuid = ? order by start asc, end asc",
+		"select id, uuid, organization_id, start, end, project_slug, role from enrollments where uuid = ? order by start asc, end asc",
 		uuid,
 	)
 	if err != nil {
@@ -1391,6 +1399,7 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 			&enrollmentData.Start,
 			&enrollmentData.End,
 			&enrollmentData.ProjectSlug,
+			&enrollmentData.Role,
 		)
 		if err != nil {
 			return
@@ -1431,7 +1440,7 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select id, uuid, organization_id, start, end, project_slug from enrollments where id = ? limit 1",
+		"select id, uuid, organization_id, start, end, project_slug, role from enrollments where id = ? limit 1",
 		id,
 	)
 	if err != nil {
@@ -1446,6 +1455,7 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 			&enrollmentData.Start,
 			&enrollmentData.End,
 			&enrollmentData.ProjectSlug,
+			&enrollmentData.Role,
 		)
 		if err != nil {
 			return
@@ -2084,13 +2094,13 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx 
 	var res sql.Result
 	s.SetOrigin()
 	if tm != nil {
-		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug) " +
-			"select id, uuid, organization_id, start, end, project_slug from enrollments_archive " +
+		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role) " +
+			"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive " +
 			"where id = ? and archived_at = ?"
 		res, err = s.Exec(s.db, tx, insert, id, tm)
 	} else {
-		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug) " +
-			"select id, uuid, organization_id, start, end, project_slug from enrollments_archive " +
+		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role) " +
+			"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive " +
 			"where id = ? order by archived_at desc limit 1"
 		res, err = s.Exec(s.db, tx, insert, id)
 	}
@@ -2122,8 +2132,8 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, project_slug, archived_at) " +
-		"select id, uuid, organization_id, start, end, project_slug, ? from enrollments where id = ? limit 1"
+	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, project_slug, role, archived_at) " +
+		"select id, uuid, organization_id, start, end, project_slug, role, ? from enrollments where id = ? limit 1"
 	res, err := s.Exec(s.db, tx, insert, tm, id)
 	if err != nil {
 		return
@@ -2149,7 +2159,7 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 	s.SetOrigin()
 	var res sql.Result
 	if enrollment.ProjectSlug == nil {
-		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug is null"
+		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug is null and role = ?"
 		res, err = s.Exec(
 			s.db,
 			tx,
@@ -2160,9 +2170,10 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 			DateTimeFormat,
 			enrollment.End,
 			DateTimeFormat,
+			enrollment.Role,
 		)
 	} else {
-		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug = ?"
+		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug = ? and role = ?"
 		res, err = s.Exec(
 			s.db,
 			tx,
@@ -2174,6 +2185,7 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 			enrollment.End,
 			DateTimeFormat,
 			enrollment.ProjectSlug,
+			enrollment.Role,
 		)
 	}
 	if err != nil {
@@ -2553,6 +2565,21 @@ func (s *service) ValidateEnrollment(enrollmentData *models.EnrollmentDataOutput
 	defer func() {
 		log.Info(fmt.Sprintf("ValidateEnrollment(exit): enrollmentData:%+v forUpdate:%v err:%v", enrollmentData, forUpdate, err))
 	}()
+	if enrollmentData.Role == "" {
+		enrollmentData.Role = shared.DefaultRole
+	}
+	correctRole := false
+	for _, role := range shared.Roles {
+		if enrollmentData.Role == role {
+			correctRole = true
+			break
+		}
+	}
+	if !correctRole {
+		err = fmt.Errorf("enrollment '%+v' incorrect role, allowed: %+v", enrollmentData, shared.Roles)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
+		return
+	}
 	if forUpdate && enrollmentData.ID < 1 {
 		err = fmt.Errorf("enrollment '%+v' missing id", enrollmentData)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateEnrollment")
@@ -3312,6 +3339,9 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 			),
 		)
 	}()
+	if enrollmentData.Role == "" {
+		enrollmentData.Role = shared.DefaultRole
+	}
 	err = s.ValidateEnrollment(enrollmentData, true)
 	if err != nil {
 		err = fmt.Errorf("enrollment '%+v' didn't pass update validation", enrollmentData)
@@ -3319,7 +3349,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		enrollmentData = nil
 		return
 	}
-	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ? where id = ?"
+	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ?, role = ? where id = ?"
 	var res sql.Result
 	s.SetOrigin()
 	res, err = s.Exec(
@@ -3333,6 +3363,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		enrollmentData.End,
 		DateTimeFormat,
 		enrollmentData.ProjectSlug,
+		enrollmentData.Role,
 		enrollmentData.ID,
 	)
 	if err != nil {
@@ -4528,9 +4559,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				for _, rol := range enrollments {
 					rols := []*models.EnrollmentDataOutput{}
 					rols, e = s.FindEnrollments(
-						[]string{"uuid", "organization_id", "start", "end", "project_slug"},
-						[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End, rol.ProjectSlug},
-						[]bool{false, false, true, true, false},
+						[]string{"uuid", "organization_id", "start", "end", "project_slug", "role"},
+						[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End, rol.ProjectSlug, rol.Role},
+						[]bool{false, false, true, true, false, false},
 						false,
 						tx,
 					)
@@ -4774,9 +4805,9 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 	for _, rol := range enrollments {
 		rols := []*models.EnrollmentDataOutput{}
 		rols, err = s.FindEnrollments(
-			[]string{"uuid", "organization_id", "start", "end", "project_slug"},
-			[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End, rol.ProjectSlug},
-			[]bool{false, false, true, true, false},
+			[]string{"uuid", "organization_id", "start", "end", "project_slug", "role"},
+			[]interface{}{toUUID, rol.OrganizationID, rol.Start, rol.End, rol.ProjectSlug, rol.Role},
+			[]bool{false, false, true, true, false, false},
 			false,
 			tx,
 		)
@@ -5094,9 +5125,9 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
 	}()
 	sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
-	sel += "i.id, i.name, i.email, i.username, i.source, s.id, s.start, s.end, s.project_slug, s.oname "
+	sel += "i.id, i.name, i.email, i.username, i.source, s.id, s.start, s.end, s.project_slug, s.role, s.oname "
 	sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
-	sel += "e.id, e.start, e.end, e.project_slug, o.name as oname from uidentities u, profiles p "
+	sel += "e.id, e.start, e.end, e.project_slug, e.role, o.name as oname from uidentities u, profiles p "
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
 	var rows *sql.Rows
@@ -5115,6 +5146,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		rolEnd          *strfmt.DateTime
 		rolOrganization *string
 		rolProjectSlug  *string
+		rolRole         *string
 	)
 	uidsMap := make(map[string]*models.AllOutput)
 	idsMap := make(map[string]*models.IdentityShortOutput)
@@ -5127,7 +5159,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		err = rows.Scan(
 			&uuid, &prof.Name, &prof.Email, &prof.Gender, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource,
-			&rolID, &rolStart, &rolEnd, &rolProjectSlug, &rolOrganization,
+			&rolID, &rolStart, &rolEnd, &rolProjectSlug, &rolRole, &rolOrganization,
 		)
 		if err != nil {
 			return
@@ -5173,6 +5205,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 				End:          time.Time(*rolEnd).Format(shared.DateFormat),
 				Organization: *rolOrganization,
 				ProjectSlug:  rolProjectSlug,
+				Role:         *rolRole,
 			}
 		}
 		existingProf, ok := uidsMap[uuid]
@@ -5297,15 +5330,15 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	uuid := ""
 	if identityRequired {
 		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
-		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, e.project_slug, o.name "
+		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, e.project_slug, e.role, o.name "
 		sel += "from uidentities u, identities i, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
 	} else {
 		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
-		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.project_slug, s.oname "
+		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.project_slug, s.role, s.oname "
 		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
-		sel += "e.id, e.start, e.end, e.organization_id, e.project_slug, o.name as oname from uidentities u, profiles p "
+		sel += "e.id, e.start, e.end, e.organization_id, e.project_slug, e.role, o.name as oname from uidentities u, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = p.uuid and u.uuid in ("
 	}
@@ -5353,6 +5386,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		rolOrganizationID *int64
 		rolOrganization   *string
 		rolProjectSlug    *string
+		rolRole           *string
 		iID               *string
 		iName             *string
 		iEmail            *string
@@ -5372,7 +5406,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 			&uid.UUID, &uid.LastModified,
 			&prof.Name, &prof.Email, &prof.Gender, &prof.GenderAcc, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource, &iLastModified,
-			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolProjectSlug, &rolOrganization,
+			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolProjectSlug, &rolRole, &rolOrganization,
 		)
 		if err != nil {
 			return
@@ -5386,6 +5420,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 				Start:          *rolStart,
 				End:            *rolEnd,
 				ProjectSlug:    rolProjectSlug,
+				Role:           *rolRole,
 				OrganizationID: *rolOrganizationID,
 				Organization: &models.OrganizationDataOutput{
 					ID:   *rolOrganizationID,
@@ -6978,15 +7013,16 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						mOrgID[organization.ID] = organization
 					}
 					enrollments, err = s.FindEnrollments(
-						[]string{"uuid", "start", "end", "organization_id", "project_slug"},
+						[]string{"uuid", "start", "end", "organization_id", "project_slug", "role"},
 						[]interface{}{
 							foundProf.UUID,
 							strfmt.DateTime(start),
 							strfmt.DateTime(end),
 							organization.ID,
 							rol.ProjectSlug,
+							rol.Role,
 						},
-						[]bool{false, true, true, false, false},
+						[]bool{false, true, true, false, false, false},
 						false,
 						tx,
 					)
@@ -7132,6 +7168,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						End:          time.Time(enrollment.End).Format(shared.DateFormat),
 						Organization: organization.Name,
 						ProjectSlug:  enrollment.ProjectSlug,
+						Role:         enrollment.Role,
 					}
 					del.Enrollments = append(del.Enrollments, rol)
 				}
@@ -7241,6 +7278,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				End:            strfmt.DateTime(end),
 				OrganizationID: organization.ID,
 				ProjectSlug:    rol.ProjectSlug,
+				Role:           rol.Role,
 			}
 			_, err = s.AddEnrollment(enrollment, false, false, tx)
 			if err != nil {
@@ -7368,15 +7406,16 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 						mOrgID[organization.ID] = organization
 					}
 					enrollments, err = s.FindEnrollments(
-						[]string{"uuid", "start", "end", "organization_id", "project_slug"},
+						[]string{"uuid", "start", "end", "organization_id", "project_slug", "role"},
 						[]interface{}{
 							foundProf.UUID,
 							strfmt.DateTime(start),
 							strfmt.DateTime(end),
 							organization.ID,
 							rol.ProjectSlug,
+							rol.Role,
 						},
-						[]bool{false, true, true, false, false},
+						[]bool{false, true, true, false, false, false},
 						false,
 						tx,
 					)
@@ -7484,15 +7523,16 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					mOrgID[organization.ID] = organization
 				}
 				enrollments, err = s.FindEnrollments(
-					[]string{"uuid", "start", "end", "organization_id", "project_slug"},
+					[]string{"uuid", "start", "end", "organization_id", "project_slug", "role"},
 					[]interface{}{
 						uuid,
 						strfmt.DateTime(start),
 						strfmt.DateTime(end),
 						organization.ID,
 						rol.ProjectSlug,
+						rol.Role,
 					},
-					[]bool{false, true, true, false, false},
+					[]bool{false, true, true, false, false, false},
 					false,
 					tx,
 				)
@@ -7559,6 +7599,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					End:            strfmt.DateTime(end),
 					OrganizationID: organization.ID,
 					ProjectSlug:    rol.ProjectSlug,
+					Role:           rol.Role,
 				}
 				_, err = s.AddEnrollment(enrollment, true, false, tx)
 				if err != nil {
