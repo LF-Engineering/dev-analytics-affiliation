@@ -252,26 +252,27 @@ func (s *ServiceStruct) SanitizeShortIdentity(identity *models.IdentityShortOutp
 
 // SanitizeShortEnrollment - trim white spaces
 func (s *ServiceStruct) SanitizeShortEnrollment(enrollment *models.EnrollmentShortOutput, isGet bool) {
-	enrollment.Role = strings.TrimSpace(enrollment.Role)
+	role := strings.TrimSpace(enrollment.Role)
 	if isGet {
 		if enrollment.Role == ContributorRole {
-			enrollment.Role = "C"
+			role = "C"
 		} else if enrollment.Role == MaintainerRole {
-			enrollment.Role = "M"
-		} else {
+			role = "M"
+		} else if role != "C" && role != "M" {
 			log.Info("WARNING: unknown role: " + enrollment.Role)
-			enrollment.Role = "C"
+			role = "C"
 		}
 	} else {
 		if enrollment.Role == "C" {
-			enrollment.Role = ContributorRole
+			role = ContributorRole
 		} else if enrollment.Role == "M" {
-			enrollment.Role = MaintainerRole
-		} else {
+			role = MaintainerRole
+		} else if role != ContributorRole && role != MaintainerRole {
 			log.Info("WARNING: unknown role: " + enrollment.Role)
-			enrollment.Role = ContributorRole
+			role = ContributorRole
 		}
 	}
+	enrollment.Role = role
 	enrollment.Organization = strings.TrimSpace(enrollment.Organization)
 	enrollment.Start = strings.TrimSpace(enrollment.Start)
 	enrollment.End = strings.TrimSpace(enrollment.End)
