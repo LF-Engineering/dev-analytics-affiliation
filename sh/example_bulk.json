@@ -10,48 +10,56 @@
         {
           "start": "1900-01-01",
           "end": "2006-03-01",
-          "organization": "Independent"
+          "organization": "Independent",
+          "role" : "M"
         },
         {
           "project_slug": "pl",
           "start": "2006-03-01",
           "end": "2012-08-01",
+          "role" : "M",
           "organization": "IGF PAN Hornsund Expedition"
         },
         {
           "project_slug": "cs",
           "start": "2012-08-01",
           "end": "2013-10-15",
+          "role" : "C",
           "organization": "Cleverstep"
         },
         {
           "project_slug": "sg",
           "start": " 2013-10-15  ",
           "end": "  2014-04-15 ",
+          "role" : "M",
           "organization": "Societe Generale "
         },
         {
           "project_slug": "cs",
           "start": "2014-04-15",
           "end": "2015-11-20",
+          "role" : "C",
           "organization": "  Cleverstep"
         },
         {
           "project_slug": "lf",
           "start": "2015-11-20",
           "end": "2017-03-15",
+          "role" : "M",
           "organization": " Google "
         },
         {
           "project_slug": "cncf",
           "start": "2017-03-15",
           "end": "2020-05-01",
+          "role" : "C",
           "organization": "CNCF  "
         },
         {
           "project_slug": "lf",
           "start": "2020-05-01",
           "end": "2100-01-01",
+          "role" : "M",
           "organization": " The Linux foundation  "
         }
       ],
@@ -89,46 +97,67 @@
       "is_bot": 0,
       "enrollments": [
         {
+          "start": "1900-01-01",
+          "end": "2006-03-01",
+          "organization": "Independent",
+          "role" : "M"
+        },
+        {
           "start": "1970-01-01",
           "end": "2006-03-01",
           "project_slug": "cncf",
+          "role" : "C",
           "organization": "Independent"
         },
         {
           "start": "2006-03-01",
           "end": "2011-06-15",
+          "role" : "C",
           "organization": "Innsoft"
         },
         {
           "start": "2011-06-15",
           "end": "2012-08-01",
+          "role" : "C",
           "organization": "IGF PAN Hornsund Expedition"
         },
         {
           "start": "2012-08-01",
           "end": "2013-10-15",
           "project_slug": "cncf",
+          "role" : "C",
           "organization": "Cleverstep"
         },
         {
           "start": "2013-10-15",
           "end": "2014-04-15",
+          "role" : "C",
           "organization": "Societe Generale"
+        },
+        {
+          "project_slug": "sg",
+          "start": " 2013-10-15  ",
+          "end": "  2014-04-15 ",
+          "role" : "C",
+          "organization": "Societe Generale "
         },
         {
           "start": "2014-04-15",
           "end": "2015-11-20",
+          "role" : "C",
           "organization": "Cleverstep"
         },
         {
           "start": "2015-11-20",
           "end": "2017-03-15",
           "project_slug": "cncf",
+          "role" : "C",
           "organization": "Spreemo"
         },
         {
           "start": "2017-03-15",
           "end": "2099-01-01",
+          "role" : "C",
           "organization": "CNCF"
         }
       ],
