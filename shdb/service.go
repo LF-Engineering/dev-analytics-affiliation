@@ -6297,6 +6297,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 	if err != nil {
 		return
 	}
+	mp := make(map[string][]*models.EnrollmentProjectRange)
 	for rows.Next() {
 		subject := &models.EnrollmentProjectRange{}
 		err = rows.Scan(
@@ -6308,7 +6309,16 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 		if err != nil {
 			return
 		}
-		subjects = append(subjects, subject)
+		k := subject.UUID
+		if subject.ProjectSlug != nil {
+			k += *subject.ProjectSlug
+		}
+		_, ok := mp[k]
+		if !ok {
+			mp[k] = []*models.EnrollmentProjectRange{subject}
+		} else {
+			mp[k] = append(mp[k], subject)
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -6317,6 +6327,18 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 	err = rows.Close()
 	if err != nil {
 		return
+	}
+	for _, subs := range mp {
+		subject := subs[0]
+		for _, sub := range subs[1:] {
+			if time.Time(sub.Start).Before(time.Time(subject.Start)) {
+				subject.Start = sub.Start
+			}
+			if time.Time(sub.End).After(time.Time(subject.End)) {
+				subject.End = sub.End
+			}
+		}
+		subjects = append(subjects, subject)
 	}
 	return
 }
@@ -6345,7 +6367,7 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 		rows, err = s.Query(
 			s.db,
 			nil,
-			"select id, organization_id, start, end from enrollments where uuid = ? and project_slug is null",
+			"select id, organization_id, role, start, end from enrollments where uuid = ? and project_slug is null",
 			uuid,
 		)
 		if err != nil {
@@ -6354,6 +6376,7 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 		type rolData struct {
 			id    int64
 			orgID int64
+			role  string
 			start strfmt.DateTime
 			end   strfmt.DateTime
 		}
@@ -6363,11 +6386,11 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 		)
 		uni := make(map[string]struct{})
 		for rows.Next() {
-			err = rows.Scan(&rol.id, &rol.orgID, &rol.start, &rol.end)
+			err = rows.Scan(&rol.id, &rol.orgID, &rol.role, &rol.start, &rol.end)
 			if err != nil {
 				return
 			}
-			key := fmt.Sprintf("%d-%v-%v", rol.orgID, rol.start, rol.end)
+			key := fmt.Sprintf("%d-%s-%v-%v", rol.orgID, rol.role, rol.start, rol.end)
 			_, ok := uni[key]
 			if !ok {
 				rols = append(rols, rol)
@@ -6419,13 +6442,13 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 		}
 		args := []interface{}{}
 		nRols := 0
-		query := "insert into enrollments(uuid, organization_id, start, end, project_slug) values"
+		query := "insert into enrollments(uuid, organization_id, role, start, end, project_slug) values"
 		for _, rol := range rols {
 			start := time.Time(rol.start)
 			end := time.Time(rol.end)
 			for _, slug := range slugs {
-				query += "(?,?,?,?,?),"
-				args = append(args, uuid, rol.orgID, start, end, slug)
+				query += "(?,?,?,?,?,?),"
+				args = append(args, uuid, rol.orgID, rol.role, start, end, slug)
 				nRols++
 			}
 		}
@@ -6585,7 +6608,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 			queries = append(queries, query)
 			argss = append(argss, args)
 		}
-		te := time.Time(update.Start)
+		te := time.Time(update.End)
 		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) && !te.Before(ts) {
 			query := "update enrollments set end = ? where uuid = ? "
 			args := []interface{}{te, uuid}
@@ -6634,27 +6657,10 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 			}
 		}()
 		// fmt.Printf("%s: %+v\n", query, args)
-		var (
-			res      sql.Result
-			affected int64
-		)
 		for idx, query := range queries {
 			args := argss[idx]
-			res, err = s.Exec(s.db, tx, query, args...)
+			_, err = s.Exec(s.db, tx, query, args...)
 			if err != nil {
-				return
-			}
-			affected, err = res.RowsAffected()
-			if err != nil {
-				return
-			}
-			// FIXME: check this
-			if idx == 2 && affected > 0 {
-				s := ""
-				for i, q := range queries {
-					s += fmt.Sprintf("[%+v]: %s\n", argss[i], q)
-				}
-				log.Info(s)
 				return
 			}
 		}

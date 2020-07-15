@@ -103,6 +103,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		pattern := "sds-" + strings.Replace(strings.TrimSpace(project), "/", "-", -1) + "-*,-*-raw,-*-for-merge"
 		data := fmt.Sprintf(
 			`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' group by author_uuid order by author_uuid","fetch_size":20000}`,
+			//`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' and author_uuid = 'fd78aef3e68d9f31177e87c1c0ec37a9a77ba6c5' group by author_uuid order by author_uuid","fetch_size":20000}`,
 			s.JSONEscape(pattern),
 		)
 		payloadBytes := []byte(data)
@@ -143,6 +144,9 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		}
 		for _, row := range result.Rows {
 			res.uuids = append(res.uuids, row[0])
+		}
+		if len(result.Rows) == 0 {
+			return
 		}
 		for {
 			data = `{"cursor":"` + result.Cursor + `"}`
