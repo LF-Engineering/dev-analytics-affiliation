@@ -3159,6 +3159,9 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 			),
 		)
 	}()
+	if enrollmentData.Role == "" {
+		enrollmentData.Role = shared.DefaultRole
+	}
 	err = s.ValidateEnrollment(enrollmentData, false)
 	if err != nil {
 		enrollmentData = nil
@@ -3168,7 +3171,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 	if ignore {
 		root += " ignore"
 	}
-	insert := root + " into enrollments(uuid, organization_id, start, end, project_slug) select ?, ?, str_to_date(?, ?), str_to_date(?, ?), ?"
+	insert := root + " into enrollments(uuid, organization_id, role, start, end, project_slug) select ?, ?, ?, str_to_date(?, ?), str_to_date(?, ?), ?"
 	var res sql.Result
 	s.SetOrigin()
 	res, err = s.Exec(
@@ -3177,6 +3180,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 		insert,
 		enrollmentData.UUID,
 		enrollmentData.OrganizationID,
+		enrollmentData.Role,
 		enrollmentData.Start,
 		DateTimeFormat,
 		enrollmentData.End,
