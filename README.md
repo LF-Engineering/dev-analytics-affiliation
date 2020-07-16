@@ -92,6 +92,8 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_get_list_projects.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_get_all_yaml.sh ``.
   - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_post_bulk_update.sh ``.
+  - `` ./sh/curl_get_list_slug_mappings.sh ``.
+  - `` da_name='lfn/onap' sf_name='ONAP' sf_id=1001 ./sh/curl_get_slug_mapping.sh ``.
 - Some special utils:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.

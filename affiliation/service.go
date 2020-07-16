@@ -2875,15 +2875,15 @@ func (s *service) GetSlugMapping(ctx context.Context, params *affiliation.GetSlu
 	var ary []*models.SlugMapping
 	cols := []string{}
 	vals := []interface{}{}
-	if params.DaName != nil {
+	if params.DaName != nil && *params.DaName != "" {
 		cols = append(cols, "da_name")
 		vals = append(vals, *params.DaName)
 	}
-	if params.SfName != nil {
+	if params.SfName != nil && *params.SfName != "" {
 		cols = append(cols, "sf_name")
 		vals = append(vals, *params.SfName)
 	}
-	if params.SfID != nil {
+	if params.SfID != nil && *params.SfID != "" {
 		cols = append(cols, "sf_id")
 		vals = append(vals, *params.SfID)
 	}
@@ -2932,6 +2932,11 @@ func (s *service) PostAddSlugMapping(ctx context.Context, params *affiliation.Po
 	if err != nil {
 		return
 	}
+	if params.DaName == "" || params.SfName == "" || params.SfID == "" {
+		err = fmt.Errorf("you need to provide all 'da_name', 'sf_name' and 'sf_id' values")
+		err = errs.Wrap(err, apiName)
+		return
+	}
 	// FIXME
 	/*
 		defer func() { s.shDB.NotifySSAW() }()
@@ -2969,15 +2974,15 @@ func (s *service) DeleteSlugMapping(ctx context.Context, params *affiliation.Del
 	var ary []*models.SlugMapping
 	cols := []string{}
 	vals := []interface{}{}
-	if params.DaName != nil {
+	if params.DaName != nil && *params.DaName != "" {
 		cols = append(cols, "da_name")
 		vals = append(vals, *params.DaName)
 	}
-	if params.SfName != nil {
+	if params.SfName != nil && *params.SfName != "" {
 		cols = append(cols, "sf_name")
 		vals = append(vals, *params.SfName)
 	}
-	if params.SfID != nil {
+	if params.SfID != nil && *params.SfID != "" {
 		cols = append(cols, "sf_id")
 		vals = append(vals, *params.SfID)
 	}
@@ -3037,15 +3042,15 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 	var ary []*models.SlugMapping
 	cols := []string{}
 	vals := []interface{}{}
-	if params.DaName != nil {
+	if params.DaName != nil && *params.DaName != "" {
 		cols = append(cols, "da_name")
 		vals = append(vals, *params.DaName)
 	}
-	if params.SfName != nil {
+	if params.SfName != nil && *params.SfName != "" {
 		cols = append(cols, "sf_name")
 		vals = append(vals, *params.SfName)
 	}
-	if params.SfID != nil {
+	if params.SfID != nil && *params.SfID != "" {
 		cols = append(cols, "sf_id")
 		vals = append(vals, *params.SfID)
 	}
@@ -3060,13 +3065,13 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 		return
 	}
 	mapping = ary[0]
-	if params.NewDaName != nil {
+	if params.NewDaName != nil && *params.NewDaName != "" {
 		mapping.DaName = *params.NewDaName
 	}
-	if params.NewSfName != nil {
+	if params.NewSfName != nil && *params.NewSfName != "" {
 		mapping.SfName = *params.NewSfName
 	}
-	if params.NewSfID != nil {
+	if params.NewSfID != nil && *params.NewSfID != "" {
 		mapping.SfID = *params.NewSfID
 	}
 	// FIXME

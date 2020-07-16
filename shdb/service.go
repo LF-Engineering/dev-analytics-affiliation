@@ -7637,7 +7637,7 @@ func (s *service) FindSlugMappings(columns []string, values []interface{}, missi
 			),
 		)
 	}()
-	sel := "select da_name, sf_name, sf_id from slug_mappings"
+	sel := "select da_name, sf_name, sf_id from slug_mapping"
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
 	if nColumns > 0 {
