@@ -422,6 +422,13 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
+	err = s.shDB.GetSlugMappings()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+		return
+	}
+	// SF -> DA
+	project = s.SF2DA(project)
 	if !agw {
 		// Check if that user can manage identities for given project/scope
 		var allowed bool
@@ -543,7 +550,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 		return
 	}
 	getListOrganizations.User = username
-	getListOrganizations.Scope = project
+	getListOrganizations.Scope = s.DA2SF(project)
 	return
 }
 
@@ -1652,7 +1659,7 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 		return
 	}
 	getMatchingBlacklist.User = username
-	getMatchingBlacklist.Scope = project
+	getMatchingBlacklist.Scope = s.DA2SF(project)
 	return
 }
 
@@ -1788,7 +1795,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 		return
 	}
 	getListProfiles.User = username
-	getListProfiles.Scope = project
+	getListProfiles.Scope = s.DA2SF(project)
 	return
 }
 
@@ -1875,7 +1882,7 @@ func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation
 	}
 	output.UUID = uuid
 	output.User = username
-	output.Scope = project
+	output.Scope = s.DA2SF(project)
 	output.Enrollments = enrollments
 	return
 }
@@ -1935,7 +1942,7 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 		return
 	}
 	putOrgDomain.User = username
-	putOrgDomain.Scope = project
+	putOrgDomain.Scope = s.DA2SF(project)
 	return
 }
 
@@ -2043,7 +2050,7 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 		return
 	}
 	getListOrganizationsDomains.User = username
-	getListOrganizationsDomains.Scope = project
+	getListOrganizationsDomains.Scope = s.DA2SF(project)
 	return
 }
 
@@ -2274,7 +2281,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	getUnaffiliated.Page = page
 	getUnaffiliated.Rows = rows
 	getUnaffiliated.User = username
-	getUnaffiliated.Scope = project
+	getUnaffiliated.Scope = s.DA2SF(project)
 	return
 }
 
@@ -2414,7 +2421,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.SortField = sortField
 	topContributors.SortOrder = sortOrder
 	topContributors.User = username
-	topContributors.Scope = project
+	topContributors.Scope = s.DA2SF(project)
 	topContributors.Public = public
 	return
 }

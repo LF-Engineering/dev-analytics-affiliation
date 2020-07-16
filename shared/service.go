@@ -47,6 +47,10 @@ var (
 	ContributorRole = "Contributor"
 	// MaintainerRole - Maintainer
 	MaintainerRole = "Maintainer"
+	// GDA2SF - map DA name to SF name
+	GDA2SF map[string]string
+	// GSF2DA - map SF name to DA name
+	GSF2DA map[string]string
 )
 
 // ServiceInterface - Shared API interface
@@ -84,13 +88,16 @@ type ServiceInterface interface {
 	TimeParseAny(string) (time.Time, error)
 	DayStart(time.Time) time.Time
 	JSONEscape(string) string
-	StripUnicode(str string) string
+	StripUnicode(string) string
 	ToCaseInsensitiveRegexp(string) string
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
 	SanitizeShortEnrollment(*models.EnrollmentShortOutput, bool)
 	SanitizeIdentity(*models.IdentityDataOutput)
 	SanitizeProfile(*models.ProfileDataOutput)
+	// Mapping
+	DA2SF(string) string
+	SF2DA(string) string
 }
 
 // ServiceStruct - Shared API Struct
@@ -855,4 +862,18 @@ func (s *ServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...inte
 		return s.ExecDB(db, query, args...)
 	}
 	return s.ExecTX(tx, query, args...)
+}
+
+// DA2SF: map DA name to SF name (fallback to no change)
+func (s *ServiceStruct) DA2SF(da string) (sf string) {
+	sf = da
+	sf, _ = GDA2SF[da]
+	return
+}
+
+// SF2DA: map SF name to DA name (fallback to no change)
+func (s *ServiceStruct) SF2DA(sf string) (da string) {
+	da = sf
+	da, _ = GSF2DA[sf]
+	return
 }

@@ -98,6 +98,7 @@ type Service interface {
 	FetchMatchingBlacklist(string, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
 	DropMatchingBlacklist(string, bool, *sql.Tx) error
 	// Slug Mappings
+	GetSlugMappings() error
 	GetListSlugMappings() (*models.ListSlugMappings, error)
 	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
 	AddSlugMapping(*models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
@@ -7624,6 +7625,36 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	nDeleted = len(mDelProf)
 	nUpdated = len(mUpdProf)
 	return
+}
+
+func (s *service) GetSlugMappings() error {
+	rows, err := s.Query(s.db, nil, "select da_name, sf_name from slug_mapping")
+	if err != nil {
+		return err
+	}
+	shared.GDA2SF = make(map[string]string)
+	shared.GSF2DA = make(map[string]string)
+	var (
+		da string
+		sf string
+	)
+	for rows.Next() {
+		err = rows.Scan(&da, &sf)
+		if err != nil {
+			return err
+		}
+		shared.GDA2SF[da] = sf
+		shared.GSF2DA[sf] = da
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+	err = rows.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *service) FindSlugMappings(columns []string, values []interface{}, missingFatal bool, tx *sql.Tx) (mappings []*models.SlugMapping, err error) {
