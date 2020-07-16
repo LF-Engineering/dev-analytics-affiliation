@@ -101,6 +101,8 @@ type Service interface {
 	GetListSlugMappings() (*models.ListSlugMappings, error)
 	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
 	AddSlugMapping(*models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
+	DeleteSlugMapping(string) (*models.TextStatusOutput, error)
+	DropSlugMapping(string, bool, *sql.Tx) error
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -7724,6 +7726,49 @@ func (s *service) AddSlugMapping(inMapping *models.SlugMapping, tx *sql.Tx) (map
 	)
 	if err != nil {
 		mapping = nil
+		return
+	}
+	return
+}
+
+func (s *service) DeleteSlugMapping(sfID string) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info(fmt.Sprintf("DeleteSlugMapping: sfID:%s", sfID))
+	s.SetOrigin()
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"DeleteSlugMapping(exit): sfID:%s status:%+v err:%v",
+				sfID,
+				status,
+				err,
+			),
+		)
+	}()
+	err = s.DropSlugMapping(sfID, true, nil)
+	if err == nil {
+		status.Text = fmt.Sprintf("Deleted slug mapping sfID: '%s'", sfID)
+	}
+	return
+}
+
+func (s *service) DropSlugMapping(sfID string, missingFatal bool, tx *sql.Tx) (err error) {
+	log.Info(fmt.Sprintf("DropSlugMapping: sfID:%s missingFatal:%v tx:%v", sfID, missingFatal, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("DropSlugMapping(exit): sfID:%s missingFatal:%v tx:%v err:%v", sfID, missingFatal, tx != nil, err))
+	}()
+	del := "delete from slug_mapping where sf_id = ?"
+	res, err := s.Exec(s.db, tx, del, sfID)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	if missingFatal && affected == 0 {
+		err = fmt.Errorf("deleting slug mapping sfID %s had no effect", sfID)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "DropSlugMapping")
 		return
 	}
 	return

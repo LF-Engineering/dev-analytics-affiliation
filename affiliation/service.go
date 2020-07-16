@@ -2993,15 +2993,11 @@ func (s *service) DeleteSlugMapping(ctx context.Context, params *affiliation.Del
 		return
 	}
 	sfID := ary[0].SfID
-	fmt.Printf("sfID to delete %s\n", sfID)
-	// FIXME
-	/*
-		status, err = s.shDB.DeleteSlugMapping(sfID)
-		if err != nil {
-			err = errs.Wrap(err, apiName)
-			return
-		}
-	*/
+	status, err = s.shDB.DeleteSlugMapping(sfID)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
 	return
 }
 
