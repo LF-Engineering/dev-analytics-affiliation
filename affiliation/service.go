@@ -2932,27 +2932,23 @@ func (s *service) PostAddSlugMapping(ctx context.Context, params *affiliation.Po
 	if err != nil {
 		return
 	}
-	if params.DaName == "" || params.SfName == "" || params.SfID == "" {
+	if daName == "" || sfName == "" || sfID == "" {
 		err = fmt.Errorf("you need to provide all 'da_name', 'sf_name' and 'sf_id' values")
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	// FIXME
-	/*
-		defer func() { s.shDB.NotifySSAW() }()
-		// Do the actual API call
-		organization, err = s.shDB.AddOrganization(
-			&models.OrganizationDataOutput{
-				Name: orgName,
-			},
-			true,
-			nil,
-		)
-		if err != nil {
-			err = errs.Wrap(err, apiName)
-			return
-		}
-	*/
+	mapping, err = s.shDB.AddSlugMapping(
+		&models.SlugMapping{
+			DaName: daName,
+			SfName: sfName,
+			SfID:   sfID,
+		},
+		nil,
+	)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
 	return
 }
 

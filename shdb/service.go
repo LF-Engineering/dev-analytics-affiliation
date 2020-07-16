@@ -100,6 +100,7 @@ type Service interface {
 	// Slug Mappings
 	GetListSlugMappings() (*models.ListSlugMappings, error)
 	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
+	AddSlugMapping(*models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -7696,5 +7697,34 @@ func (s *service) GetListSlugMappings() (res *models.ListSlugMappings, err error
 		return
 	}
 	res.Mappings = ary
+	return
+}
+
+func (s *service) AddSlugMapping(inMapping *models.SlugMapping, tx *sql.Tx) (mapping *models.SlugMapping, err error) {
+	log.Info(fmt.Sprintf("AddSlugMapping: inMapping:%+v tx:%v", inMapping, tx != nil))
+	mapping = inMapping
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"AddSlugMapping(exit): inMapping:%+v tx:%v mapping:%+v err:%v",
+				inMapping,
+				tx != nil,
+				mapping,
+				err,
+			),
+		)
+	}()
+	_, err = s.Exec(
+		s.db,
+		tx,
+		"insert into slug_mapping(da_name, sf_name, sf_id) select ?, ?, ?",
+		mapping.DaName,
+		mapping.SfName,
+		mapping.SfID,
+	)
+	if err != nil {
+		mapping = nil
+		return
+	}
 	return
 }
