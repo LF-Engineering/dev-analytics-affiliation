@@ -100,6 +100,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" SEARCH=john SIZE=1 ./sh/curl_get_top_contributors_query.sh lfn ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` da_name='cncf/kubernetes' sf_name='Kubernetes' sf_id=1004 new_da_name='new_cncf/kubernetes' new_sf_name='new_Kubernetes' new_sf_id=new_1004 ./sh/curl_put_edit_slug_mapping.sh ``.
 
 # Docker
 

@@ -3057,6 +3057,11 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 		return
 	}
 	mapping = ary[0]
+	key := &models.SlugMapping{
+		DaName: mapping.DaName,
+		SfName: mapping.SfName,
+		SfID:   mapping.SfID,
+	}
 	if params.NewDaName != nil && *params.NewDaName != "" {
 		mapping.DaName = *params.NewDaName
 	}
@@ -3066,13 +3071,10 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 	if params.NewSfID != nil && *params.NewSfID != "" {
 		mapping.SfID = *params.NewSfID
 	}
-	// FIXME
-	/*
-		mapping, err = s.shDB.EditSlugMapping(mapping, true, nil)
-		if err != nil {
-			err = errs.Wrap(err, apiName)
-			return
-		}
-	*/
+	mapping, err = s.shDB.EditSlugMapping(key, mapping, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
 	return
 }

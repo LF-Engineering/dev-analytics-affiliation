@@ -103,6 +103,7 @@ type Service interface {
 	AddSlugMapping(*models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
 	DeleteSlugMapping(string) (*models.TextStatusOutput, error)
 	DropSlugMapping(string, bool, *sql.Tx) error
+	EditSlugMapping(*models.SlugMapping, *models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -7688,7 +7689,6 @@ func (s *service) FindSlugMappings(columns []string, values []interface{}, missi
 
 func (s *service) GetListSlugMappings() (res *models.ListSlugMappings, err error) {
 	log.Info("GetListSlugMappings")
-	s.SetOrigin()
 	res = &models.ListSlugMappings{}
 	defer func() {
 		log.Info(fmt.Sprintf("GetListSlugMappings(exit): res:%+v err:%v", res, err))
@@ -7734,7 +7734,6 @@ func (s *service) AddSlugMapping(inMapping *models.SlugMapping, tx *sql.Tx) (map
 func (s *service) DeleteSlugMapping(sfID string) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info(fmt.Sprintf("DeleteSlugMapping: sfID:%s", sfID))
-	s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -7770,6 +7769,56 @@ func (s *service) DropSlugMapping(sfID string, missingFatal bool, tx *sql.Tx) (e
 		err = fmt.Errorf("deleting slug mapping sfID %s had no effect", sfID)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "DropSlugMapping")
 		return
+	}
+	return
+}
+
+func (s *service) EditSlugMapping(key, inMapping *models.SlugMapping, tx *sql.Tx) (mapping *models.SlugMapping, err error) {
+	log.Info(fmt.Sprintf("EditSLugMapping: key:%+v inMapping:%+v tx:%v", inMapping, tx != nil))
+	mapping = inMapping
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"EditSlugMapping(exit): inMapping:%+v tx:%v mapping:%+v err:%v",
+				inMapping,
+				tx != nil,
+				mapping,
+				err,
+			),
+		)
+	}()
+	if mapping.DaName == "" || mapping.SfName == "" || mapping.SfID == "" {
+		err = fmt.Errorf("slug mapping '%+v' all columns must be set to non-empty value", mapping)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "EditSLugMapping")
+		mapping = nil
+		return
+	}
+	update := "update slug_mapping set da_name = ?, sf_name = ?, sf_id = ? where da_name = ? and sf_name = ? and sf_id = ?"
+	s.SetOrigin()
+	var res sql.Result
+	res, err = s.Exec(
+		s.db,
+		tx,
+		update,
+		mapping.DaName,
+		mapping.SfName,
+		mapping.SfID,
+		key.DaName,
+		key.SfName,
+		key.SfID,
+	)
+	if err != nil {
+		mapping = nil
+		return
+	}
+	affected := int64(0)
+	affected, err = res.RowsAffected()
+	if err != nil {
+		mapping = nil
+		return
+	}
+	if affected == 0 {
+		log.Info(fmt.Sprintf("EditSlugMapping: slug mapping '%+v' -> '%+v' update didn't affected any rows", key, mapping))
 	}
 	return
 }
