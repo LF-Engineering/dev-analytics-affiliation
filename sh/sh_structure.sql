@@ -172,7 +172,7 @@ CREATE TABLE `enrollments` (
   KEY `organization_id` (`organization_id`),
   CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`uuid`) REFERENCES `uidentities` (`uuid`) ON DELETE CASCADE,
   CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`organization_id`) REFERENCES `organizations` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=148912 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=148947 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
@@ -461,7 +461,7 @@ CREATE TABLE `organizations` (
   `op` varchar(1) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `_name_unique` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=41023 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=41029 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
@@ -698,6 +698,24 @@ CREATE TABLE `profiles_archive` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `slug_mapping`
+--
+
+DROP TABLE IF EXISTS `slug_mapping`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `slug_mapping` (
+  `da_name` varchar(128) NOT NULL,
+  `sf_name` varchar(128) NOT NULL,
+  `sf_id` varchar(64) NOT NULL,
+  PRIMARY KEY (`da_name`,`sf_name`,`sf_id`),
+  UNIQUE KEY `da_name` (`da_name`),
+  UNIQUE KEY `sf_name` (`sf_name`),
+  UNIQUE KEY `sf_id` (`sf_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `sync_orgs`
 --
 
@@ -712,7 +730,7 @@ CREATE TABLE `sync_orgs` (
   `last_modified` datetime(6) NOT NULL DEFAULT current_timestamp(6),
   PRIMARY KEY (`id`),
   KEY `sync_orgs_name_idx` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=3146 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3153 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -730,7 +748,7 @@ CREATE TABLE `sync_uuids` (
   `last_modified` datetime(6) NOT NULL DEFAULT current_timestamp(6),
   PRIMARY KEY (`id`),
   KEY `sync_uuids_uuid_idx` (`uuid`)
-) ENGINE=InnoDB AUTO_INCREMENT=49673677 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50525832 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -866,4 +884,4 @@ CREATE TABLE `uidentities_archive` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2020-07-15  9:23:34
+-- Dump completed on 2020-07-16  6:05:22
