@@ -1507,6 +1507,173 @@ paths:
         - all
       parameters:
         - $ref: '#/parameters/auth'
+  /affiliation//list_slug_mappings:
+    get:
+      summary: 'Get all DA - SF mappings'
+      operationId: getListSlugMappings
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/list-slug-mappings"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - list_slug_mappings
+        - get
+  /affiliation/get_slug_mapping:
+    get:
+      summary: 'Find DA-SF mapping for diven DA anme, SF name or SF ID'
+      operationId: getSlugMapping
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/slug-mapping"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - get_slug_mapping
+        - get
+      parameters:
+        - $ref: '#/parameters/da-name'
+        - $ref: '#/parameters/sf-name'
+        - $ref: '#/parameters/sf-id'
+  /affiliation/add_slug_mapping:
+    post:
+      summary: 'Add LF-DA mapping'
+      operationId: postAddSlugMapping
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/slug-mapping"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - add_slug_mapping
+        - post
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/req-da-name'
+        - $ref: '#/parameters/req-sf-name'
+        - $ref: '#/parameters/req-sf-id'
+  /affiliation/delete_slug_mapping:
+    delete:
+      summary: 'Delete DA-SF mapping'
+      operationId: deleteSlugMapping
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - slug_mapping
+        - delete
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/da-name'
+        - $ref: '#/parameters/sf-name'
+        - $ref: '#/parameters/sf-id'
+  /affiliation/edit_slug_mapping:
+    put:
+      summary: 'Edit DA-SF mapping'
+      operationId: putEditSlugMapping
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/slug-mapping"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - edit_slug_mapping
+        - post
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/da-name'
+        - $ref: '#/parameters/sf-name'
+        - $ref: '#/parameters/sf-id'
+        - $ref: '#/parameters/new-da-name'
+        - $ref: '#/parameters/new-sf-name'
+        - $ref: '#/parameters/new-sf-id'
 parameters:
   auth:
     name: Authorization
@@ -1669,6 +1836,54 @@ parameters:
     in: query
     type: boolean
     description: dry-run setting
+  da-name:
+    name: da_name
+    in: query
+    type: string
+    description: 'For example: lfn/onap'
+  sf-name:
+    name: sf_name
+    in: query
+    type: string
+    description: 'For example: ONAP'
+  sf-id:
+    name: sf_id
+    in: query
+    type: string
+    description: 'For example: 1234-deadbeef'
+  req-da-name:
+    name: da_name
+    in: query
+    type: string
+    required: true
+    description: 'For example: lfn/onap'
+  req-sf-name:
+    name: sf_name
+    in: query
+    type: string
+    required: true
+    description: 'For example: ONAP'
+  req-sf-id:
+    name: sf_id
+    in: query
+    type: string
+    required: true
+    description: 'For example: 1234-deadbeef'
+  new-da-name:
+    name: new_da_name
+    in: query
+    type: string
+    description: 'For example: lfn/onap'
+  new-sf-name:
+    name: new_sf_name
+    in: query
+    type: string
+    description: 'For example: ONAP'
+  new-sf-id:
+    name: new_sf_id
+    in: query
+    type: string
+    description: 'For example: 1234-deadbeef'
 definitions:
   health:
     type: object
@@ -2534,6 +2749,29 @@ definitions:
         x-go-custom-tag: 'yaml:"text"'
         x-omitempty: false
         example: API call was succesfull
+  list-slug-mappings:
+    title: 'List DA-SF mappings'
+    description: 'List DA-SF mappings'
+    type: object
+    properties:
+      mappings:
+        type: array
+        items:
+          $ref: "#/definitions/slug-mapping"
+  slug-mapping:
+    title: 'Single DA-SF mapping'
+    description: 'Single DA-SF mapping'
+    type: object
+    properties:
+      da_name:
+        type: string
+        example: 'lfn/onap'
+      sf_name:
+        type: string
+        example: 'ONAP'
+      sf_id:
+        type: string
+        example: '1234-deadbeef'
 schemes:
   - http
 consumes:
