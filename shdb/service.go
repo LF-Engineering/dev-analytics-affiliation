@@ -97,6 +97,9 @@ type Service interface {
 	AddMatchingBlacklist(*models.MatchingBlacklistOutput, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
 	FetchMatchingBlacklist(string, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
 	DropMatchingBlacklist(string, bool, *sql.Tx) error
+	// Slug Mappings
+	GetListSlugMappings() (*models.ListSlugMappings, error)
+	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -7616,5 +7619,82 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	nAdded = len(mAddProf)
 	nDeleted = len(mDelProf)
 	nUpdated = len(mUpdProf)
+	return
+}
+
+func (s *service) FindSlugMappings(columns []string, values []interface{}, missingFatal bool, tx *sql.Tx) (mappings []*models.SlugMapping, err error) {
+	log.Info(fmt.Sprintf("FindSlugMappings: columns:%+v values:%+v missingFatal:%v tx:%v", columns, values, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"FindSlugMappings(exit): columns:%+v values:%+v missingFatal:%v tx:%v mappings:%+v err:%v",
+				columns,
+				values,
+				missingFatal,
+				tx != nil,
+				mappings,
+				err,
+			),
+		)
+	}()
+	sel := "select da_name, sf_name, sf_id from slug_mappings"
+	nColumns := len(columns)
+	lastIndex := nColumns - 1
+	if nColumns > 0 {
+		sel += " where"
+	}
+	for index := range columns {
+		column := columns[index]
+		sel += " " + column + " = ?"
+		if index < lastIndex {
+			sel += " and"
+		}
+	}
+	sel += " order by da_name asc"
+	rows, err := s.Query(s.db, tx, sel, values...)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		mapping := &models.SlugMapping{}
+		err = rows.Scan(
+			&mapping.DaName,
+			&mapping.SfName,
+			&mapping.SfID,
+		)
+		if err != nil {
+			return
+		}
+		mappings = append(mappings, mapping)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && len(mappings) == 0 {
+		err = fmt.Errorf("cannot find slug mappings for %+v/%+v", columns, values)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "FindSlugMappings")
+		return
+	}
+	return
+}
+
+func (s *service) GetListSlugMappings() (res *models.ListSlugMappings, err error) {
+	log.Info("GetListSlugMappings")
+	s.SetOrigin()
+	res = &models.ListSlugMappings{}
+	defer func() {
+		log.Info(fmt.Sprintf("GetListSlugMappings(exit): res:%+v err:%v", res, err))
+	}()
+	var ary []*models.SlugMapping
+	ary, err = s.FindSlugMappings([]string{}, []interface{}{}, true, nil)
+	if err != nil {
+		return
+	}
+	res.Mappings = ary
 	return
 }

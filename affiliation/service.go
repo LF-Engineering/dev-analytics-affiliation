@@ -78,6 +78,11 @@ type Service interface {
 	PutMapOrgNames(ctx context.Context, in *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
 	PutDetAffRange(ctx context.Context, in *affiliation.PutDetAffRangeParams) (*models.TextStatusOutput, error)
 	GetListProjects(ctx context.Context, in *affiliation.GetListProjectsParams) (*models.ListProjectsOutput, error)
+	GetListSlugMappings(ctx context.Context, in *affiliation.GetListSlugMappingsParams) (*models.ListSlugMappings, error)
+	GetSlugMapping(ctx context.Context, in *affiliation.GetSlugMappingParams) (*models.SlugMapping, error)
+	PostAddSlugMapping(ctx context.Context, in *affiliation.PostAddSlugMappingParams) (*models.SlugMapping, error)
+	DeleteSlugMapping(ctx context.Context, in *affiliation.DeleteSlugMappingParams) (*models.TextStatusOutput, error)
+	PutEditSlugMapping(ctx context.Context, in *affiliation.PutEditSlugMappingParams) (*models.SlugMapping, error)
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -396,6 +401,15 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 	case *affiliation.PostBulkUpdateParams:
 		auth = params.Authorization
 		apiName = "PostBulkUpdate"
+	case *affiliation.PostAddSlugMappingParams:
+		auth = params.Authorization
+		apiName = "PostAddSlugMapping"
+	case *affiliation.DeleteSlugMappingParams:
+		auth = params.Authorization
+		apiName = "DeleteSlugMapping"
+	case *affiliation.PutEditSlugMappingParams:
+		auth = params.Authorization
+		apiName = "PutEditSlugMapping"
 	default:
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
@@ -2822,5 +2836,246 @@ func (s *service) GetListProjects(ctx context.Context, params *affiliation.GetLi
 		return
 	}
 	projects.User = username
+	return
+}
+
+// GetListSlugMappings: API:
+// /v1/affiliation/list_slug_mappings
+func (s *service) GetListSlugMappings(ctx context.Context, params *affiliation.GetListSlugMappingsParams) (mappings *models.ListSlugMappings, err error) {
+	mappings = &models.ListSlugMappings{}
+	apiName := "GetListSlugMappings"
+	log.Info(apiName)
+	defer func() {
+		log.Info(fmt.Sprintf("GetListSlugMappings(exit): apiName:%s mappings:%+v err:%v", apiName, mappings, err))
+	}()
+	mappings, err = s.shDB.GetListSlugMappings()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	return
+}
+
+// GetSlugMapping: API params:
+// /v1/affiliation/get_slug_mapping
+// All params are optional, but at least one must be set
+// da_name - DA name
+// sf_name - SF name
+// sf_id - SF ID
+func (s *service) GetSlugMapping(ctx context.Context, params *affiliation.GetSlugMappingParams) (mapping *models.SlugMapping, err error) {
+	mapping = &models.SlugMapping{}
+	apiName := "GetSlugMapping"
+	log.Info(apiName)
+	defer func() {
+		log.Info(fmt.Sprintf("GetSlugMapping(exit): apiName:%s mapping:%+v err:%v", apiName, mapping, err))
+	}()
+	if err != nil {
+		return
+	}
+	var ary []*models.SlugMapping
+	cols := []string{}
+	vals := []interface{}{}
+	if params.DaName != nil {
+		cols = append(cols, "da_name")
+		vals = append(vals, *params.DaName)
+	}
+	if params.SfName != nil {
+		cols = append(cols, "sf_name")
+		vals = append(vals, *params.SfName)
+	}
+	if params.SfID != nil {
+		cols = append(cols, "sf_id")
+		vals = append(vals, *params.SfID)
+	}
+	if len(cols) == 0 {
+		err = fmt.Errorf("you need to provide at least one of 'da_name', 'sf_name', 'sf_id'")
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	ary, err = s.shDB.FindSlugMappings(cols, vals, true, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	mapping = ary[0]
+	return
+}
+
+// PostAddSlugMapping: API params:
+// /v1/affiliation/add_slug_mapping
+// All parameters are required:
+// da_name - DA name
+// sf_name - SF name
+// sf_id - SF ID
+func (s *service) PostAddSlugMapping(ctx context.Context, params *affiliation.PostAddSlugMappingParams) (mapping *models.SlugMapping, err error) {
+	mapping = &models.SlugMapping{}
+	daName := params.DaName
+	sfName := params.SfName
+	sfID := params.SfID
+	log.Info(fmt.Sprintf("PostAddSlugMapping: daName:%s sfName:%s sfID:%s", daName, sfName, sfID))
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PostAddSlugMapping(exit): aName:%s sfName:%s sfID:%s apiName:%s username:%s mapping:%+v err:%v",
+				daName,
+				sfName,
+				sfID,
+				apiName,
+				username,
+				mapping,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// FIXME
+	/*
+		defer func() { s.shDB.NotifySSAW() }()
+		// Do the actual API call
+		organization, err = s.shDB.AddOrganization(
+			&models.OrganizationDataOutput{
+				Name: orgName,
+			},
+			true,
+			nil,
+		)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+	*/
+	return
+}
+
+// DeleteSlugMapping: API params:
+// /v1/affiliation/delete_slug_mapping
+// All params are optional, but at least one must be set
+// da_name - DA name
+// sf_name - SF name
+// sf_id - SF ID
+func (s *service) DeleteSlugMapping(ctx context.Context, params *affiliation.DeleteSlugMappingParams) (status *models.TextStatusOutput, err error) {
+	apiName := "DeleteSlugMapping"
+	log.Info(apiName)
+	defer func() {
+		log.Info(fmt.Sprintf("DeleteSlugMapping(exit): apiName:%s status:%s err:%v", apiName, status, err))
+	}()
+	if err != nil {
+		return
+	}
+	var ary []*models.SlugMapping
+	cols := []string{}
+	vals := []interface{}{}
+	if params.DaName != nil {
+		cols = append(cols, "da_name")
+		vals = append(vals, *params.DaName)
+	}
+	if params.SfName != nil {
+		cols = append(cols, "sf_name")
+		vals = append(vals, *params.SfName)
+	}
+	if params.SfID != nil {
+		cols = append(cols, "sf_id")
+		vals = append(vals, *params.SfID)
+	}
+	if len(cols) == 0 {
+		err = fmt.Errorf("you need to provide at least one of 'da_name', 'sf_name', 'sf_id'")
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	ary, err = s.shDB.FindSlugMappings(cols, vals, true, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	sfID := ary[0].SfID
+	fmt.Printf("sfID to delete %s\n", sfID)
+	// FIXME
+	/*
+		status, err = s.shDB.DeleteSlugMapping(sfID)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+	*/
+	return
+}
+
+// PutEditSlugMapping: API params:
+// /v1/affiliation/edit_slug_mapping
+// All parameters are optional, but at least 1 need to be defined to find a mapping
+// da_name - DA name
+// sf_name - SF name
+// sf_id - SF ID
+// All new_* parameters are to set new values,you should set at least one of them otherwise no changes will be made
+// new_da_name - DA name
+// new_sf_name - SF name
+// new_sf_id - SF ID
+func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.PutEditSlugMappingParams) (mapping *models.SlugMapping, err error) {
+	mapping = &models.SlugMapping{}
+	log.Info("PutEditSlugMapping")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"PutEditSlugMapping(exit): apiName:%s username:%s mapping:%+v err:%v",
+				apiName,
+				username,
+				mapping,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	defer func() { s.shDB.NotifySSAW() }()
+	var ary []*models.SlugMapping
+	cols := []string{}
+	vals := []interface{}{}
+	if params.DaName != nil {
+		cols = append(cols, "da_name")
+		vals = append(vals, *params.DaName)
+	}
+	if params.SfName != nil {
+		cols = append(cols, "sf_name")
+		vals = append(vals, *params.SfName)
+	}
+	if params.SfID != nil {
+		cols = append(cols, "sf_id")
+		vals = append(vals, *params.SfID)
+	}
+	if len(cols) == 0 {
+		err = fmt.Errorf("you need to provide at least one of 'da_name', 'sf_name', 'sf_id'")
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	ary, err = s.shDB.FindSlugMappings(cols, vals, true, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	mapping = ary[0]
+	if params.NewDaName != nil {
+		mapping.DaName = *params.NewDaName
+	}
+	if params.NewSfName != nil {
+		mapping.SfName = *params.NewSfName
+	}
+	if params.NewSfID != nil {
+		mapping.SfID = *params.NewSfID
+	}
+	// FIXME
+	/*
+		mapping, err = s.shDB.EditSlugMapping(mapping, true, nil)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+	*/
 	return
 }

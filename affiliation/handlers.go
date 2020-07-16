@@ -1097,4 +1097,139 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutDetAffRangeOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetListSlugMappingsHandler = affiliation.GetListSlugMappingsHandlerFunc(
+		func(params affiliation.GetListSlugMappingsParams) middleware.Responder {
+			log.Info("GetListSlugMappingsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetListSlugMappingsHandlerFunc: " + info)
+
+			result, err := service.GetListSlugMappings(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetListSlugMappingsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetListSlugMappingsHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetListSlugMappingsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationGetSlugMappingHandler = affiliation.GetSlugMappingHandlerFunc(
+		func(params affiliation.GetSlugMappingParams) middleware.Responder {
+			log.Info("GetSlugMappingHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetSlugMappingHandlerFunc: " + info)
+
+			result, err := service.GetSlugMapping(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetSlugMappingHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetSlugMappingHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetSlugMappingOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationPostAddSlugMappingHandler = affiliation.PostAddSlugMappingHandlerFunc(
+		func(params affiliation.PostAddSlugMappingParams) middleware.Responder {
+			log.Info("PostAddSlugMappingHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PostAddSlugMappingHandlerFunc: " + info)
+
+			result, err := service.PostAddSlugMapping(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PostAddSlugMappingHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PostAddSlugMappingHandlerFunc(ok): " + info)
+
+			return affiliation.NewPostAddSlugMappingOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationDeleteSlugMappingHandler = affiliation.DeleteSlugMappingHandlerFunc(
+		func(params affiliation.DeleteSlugMappingParams) middleware.Responder {
+			log.Info("DeleteSlugMappingHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("DeleteSlugMappingHandlerFunc: " + info)
+
+			result, err := service.DeleteSlugMapping(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("DeleteSlugMappingHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("DeleteSlugMappingHandlerFunc(ok): " + info)
+
+			return affiliation.NewDeleteSlugMappingOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationPutEditSlugMappingHandler = affiliation.PutEditSlugMappingHandlerFunc(
+		func(params affiliation.PutEditSlugMappingParams) middleware.Responder {
+			log.Info("PutEditSlugMappingHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutEditSlugMappingHandlerFunc: " + info)
+
+			result, err := service.PutEditSlugMapping(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutEditSlugMappingHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutEditSlugMappingHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutEditSlugMappingOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }
