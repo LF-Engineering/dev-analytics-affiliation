@@ -5361,19 +5361,10 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	if len(uuids) < 1 {
 		return
 	}
-	projectSlugWhere := ""
-	if projectSlug != "" {
-		if identityRequired {
-			projectSlugWhere = " and (e.project_slug is null or e.project_slug = ?)"
-		} else {
-			projectSlugWhere = " where (s.project_slug is null or s.project_slug = ?)"
-		}
-		uuids = append(uuids, projectSlug)
-	}
 	if identityRequired {
-		sel = sel[0:len(sel)-1] + fmt.Sprintf(") %s order by u.uuid, i.source, e.start", projectSlugWhere)
+		sel = sel[0:len(sel)-1] + ") order by u.uuid, i.source, e.start"
 	} else {
-		sel = sel[0:len(sel)-1] + fmt.Sprintf(")) s left join identities i on s.uuid = i.uuid %s order by s.uuid, i.source, s.start", projectSlugWhere)
+		sel = sel[0:len(sel)-1] + ")) s left join identities i on s.uuid = i.uuid order by s.uuid, i.source, s.start"
 	}
 	err = qrows.Err()
 	if err != nil {
@@ -5421,19 +5412,23 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		}
 		uuid := uid.UUID
 		prof.UUID = uuid
+		addRol := false
 		if rolID != nil && rolOrganization != nil {
-			rol = &models.EnrollmentNestedDataOutput{
-				ID:             *rolID,
-				UUID:           uuid,
-				Start:          *rolStart,
-				End:            *rolEnd,
-				ProjectSlug:    rolProjectSlug,
-				Role:           *rolRole,
-				OrganizationID: *rolOrganizationID,
-				Organization: &models.OrganizationDataOutput{
-					ID:   *rolOrganizationID,
-					Name: *rolOrganization,
-				},
+			if rolProjectSlug == nil || *rolProjectSlug == projectSlug {
+				addRol = true
+				rol = &models.EnrollmentNestedDataOutput{
+					ID:             *rolID,
+					UUID:           uuid,
+					Start:          *rolStart,
+					End:            *rolEnd,
+					ProjectSlug:    rolProjectSlug,
+					Role:           *rolRole,
+					OrganizationID: *rolOrganizationID,
+					Organization: &models.OrganizationDataOutput{
+						ID:   *rolOrganizationID,
+						Name: *rolOrganization,
+					},
+				}
 			}
 		}
 		if iID != nil && iSource != nil {
@@ -5460,7 +5455,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 				idsMap[id.ID] = id
 			}
 		}
-		if rolID != nil {
+		if addRol {
 			_, ok = rolsMap[rol.ID]
 			if !ok {
 				uidentity.Enrollments = append(uidentity.Enrollments, rol)

@@ -77,17 +77,22 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 	}()
 	// insert into access_control_entries(scope, subject, resource, action, effect) select '/projects/' || slug, 'internal-api-user', 'identity', 'manage', 0 from projects;
 	// insert into access_control_entries(scope, subject, resource, action, effect) select slug, 'internal-api-user', 'identity', 'manage', 0 from projects;
-	rows, err := s.Query(
-		s.db,
-		nil,
-		"select distinct ace.scope, p.name from access_control_entries ace, projects p "+
-			"where ace.scope = p.slug and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
-			"and ace.scope not like $4 order by ace.scope",
-		user,
-		"identity",
-		"manage",
-		"/projects/%",
-	)
+	var rows *sql.Rows
+	if user == "internal-api-user" {
+		rows, err = s.Query(s.db, nil, "select distinct slug, name from projects where project_type = 0 order by slug")
+	} else {
+		rows, err = s.Query(
+			s.db,
+			nil,
+			"select distinct ace.scope, p.name from access_control_entries ace, projects p "+
+				"where ace.scope = p.slug and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
+				"and ace.scope not like $4 order by ace.scope",
+			user,
+			"identity",
+			"manage",
+			"/projects/%",
+		)
+	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
 		return

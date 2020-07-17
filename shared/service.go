@@ -866,14 +866,78 @@ func (s *ServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...inte
 
 // DA2SF: map DA name to SF name (fallback to no change)
 func (s *ServiceStruct) DA2SF(da string) (sf string) {
-	sf = da
-	sf, _ = GDA2SF[da]
+	var ok bool
+	sf, ok = GDA2SF[da]
+	if !ok {
+		sf = da
+	}
 	return
 }
 
 // SF2DA: map SF name to DA name (fallback to no change)
 func (s *ServiceStruct) SF2DA(sf string) (da string) {
-	da = sf
-	da, _ = GSF2DA[sf]
+	var ok bool
+	da, ok = GSF2DA[sf]
+	if !ok {
+		da = sf
+	}
 	return
+}
+
+// UUDA2SF - map DA name to SF name
+func (s *ServiceStruct) UUDA2SF(uid *models.UniqueIdentityNestedDataOutput) {
+	for i, rol := range uid.Enrollments {
+		if rol.ProjectSlug != nil {
+			project := s.DA2SF(*rol.ProjectSlug)
+			uid.Enrollments[i].ProjectSlug = &project
+		}
+	}
+}
+
+// ListProfilesDA2SF - map DA name to SF name
+func (s *ServiceStruct) ListProfilesDA2SF(data *models.GetListProfilesOutput) {
+	for i := range data.Uids {
+		s.UUDA2SF(data.Uids[i])
+	}
+}
+
+// ProfileEnrollmentsDA2SF - map DA name to SF name
+func (s *ServiceStruct) ProfileEnrollmentsDA2SF(data *models.GetProfileEnrollmentsDataOutput) {
+	for i, rol := range data.Enrollments {
+		if rol.ProjectSlug != nil {
+			project := s.DA2SF(*rol.ProjectSlug)
+			data.Enrollments[i].ProjectSlug = &project
+		}
+	}
+}
+
+// ListProjectsDA2SF - map DA name to SF name
+func (s *ServiceStruct) ListProjectsDA2SF(data *models.ListProjectsOutput) {
+	for i := range data.Projects {
+		data.Projects[i].ProjectSlug = s.DA2SF(data.Projects[i].ProjectSlug)
+	}
+}
+
+// AllDA2SF - map DA name to SF name
+func (s *ServiceStruct) AllDA2SF(data *models.AllArrayOutput) {
+	for i, prof := range data.Profiles {
+		for j, rol := range prof.Enrollments {
+			if rol.ProjectSlug != nil {
+				project := s.DA2SF(*rol.ProjectSlug)
+				data.Profiles[i].Enrollments[j].ProjectSlug = &project
+			}
+		}
+	}
+}
+
+// AllSF2DA - map SF name to DA name
+func (s *ServiceStruct) AllSF2DA(data []*models.AllOutput) {
+	for i, prof := range data {
+		for j, rol := range prof.Enrollments {
+			if rol.ProjectSlug != nil {
+				project := s.SF2DA(*rol.ProjectSlug)
+				data[i].Enrollments[j].ProjectSlug = &project
+			}
+		}
+	}
 }

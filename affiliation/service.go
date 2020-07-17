@@ -428,7 +428,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		return
 	}
 	// SF -> DA
-	project = s.SF2DA(project)
+	if project != "" {
+		project = s.SF2DA(project)
+	}
 	if !agw {
 		// Check if that user can manage identities for given project/scope
 		var allowed bool
@@ -675,6 +677,7 @@ func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	s.UUDA2SF(uniqueIdentity)
 	return
 }
 
@@ -759,6 +762,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -859,6 +863,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	uidnd = s.toNoDates(uid)
 	return
 }
@@ -1005,6 +1010,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1115,6 +1121,7 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1205,6 +1212,7 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1260,6 +1268,7 @@ func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.Dele
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1352,6 +1361,7 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1484,6 +1494,7 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1561,6 +1572,7 @@ func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1796,6 +1808,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	}
 	getListProfiles.User = username
 	getListProfiles.Scope = s.DA2SF(project)
+	s.ListProfilesDA2SF(getListProfiles)
 	return
 }
 
@@ -1837,6 +1850,7 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -1884,6 +1898,7 @@ func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation
 	output.User = username
 	output.Scope = s.DA2SF(project)
 	output.Enrollments = enrollments
+	s.ProfileEnrollmentsDA2SF(output)
 	return
 }
 
@@ -2127,6 +2142,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 			s.es.UpdateByQuery("sds-*,-*-raw", "author_bot", esIsBot, "author_uuid", esUUID, true)
 		}()
 	}
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -2193,6 +2209,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	return
 }
 
@@ -2611,6 +2628,8 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 	if err != nil {
 		return
 	}
+	// DA->SF
+	s.AllDA2SF(all)
 	return
 }
 
@@ -2644,6 +2663,9 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 	if err != nil {
 		return
 	}
+	// SF->DA
+	s.AllSF2DA(params.Body.Add)
+	s.AllSF2DA(params.Body.Del)
 	nAdded, nDeleted, nUpdated, err = s.shDBGitdm.BulkUpdate(params.Body.Add, params.Body.Del)
 	if err != nil {
 		return
@@ -2842,6 +2864,7 @@ func (s *service) GetListProjects(ctx context.Context, params *affiliation.GetLi
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	s.ListProjectsDA2SF(projects)
 	projects.User = username
 	return
 }
