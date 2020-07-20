@@ -5315,8 +5315,8 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 			args = []interface{}{q[5:]}
 		} else {
 			qLike := "%" + q + "%"
-			qWhere += "and (i.name like ? or i.email like ? or i.username like ? or i.source like ?)"
-			args = []interface{}{qLike, qLike, qLike, qLike}
+			qWhere += "and (i.name like ? or i.email like ? or i.username like ? or i.source like ? or p.name like ? or p.email like ?)"
+			args = []interface{}{qLike, qLike, qLike, qLike, qLike, qLike}
 		}
 	}
 	if identityRequired {
