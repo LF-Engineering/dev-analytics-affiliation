@@ -20,7 +20,7 @@ concurrencyPolicy: Forbid
 fullnameOverride: da-affiliation
 imagePullPolicy: Always
 apiCommand: '/usr/bin/main'
-apiImage: 'lukaszgryglicki/dev-analytics-affiliation-api'
+apiImage: 'dajohn/dev-analytics-affiliation-api'
 apiServiceName: api-service
 apiPodName: api
 apiRestartPolicy: Always

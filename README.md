@@ -147,7 +147,7 @@ API is deployed on teh LF both test and prod LF Kubernetes clusters.
 
 To debug what SortingHat package executes try:
 
-- Start Grimoire base container: `docker run -it "lukaszgryglicki/dev-analytics-grimoire-docker-minimal" /bin/bash`.
+- Start Grimoire base container: `docker run -it "dajohn/dev-analytics-grimoire-docker-minimal" /bin/bash`.
 - Run inside the container:
   - `cd /repos/grimoirelab-sortinghat/sortinghat`.
   - `vim api.py`, search for `/merge_unique_identities`.
