@@ -864,7 +864,7 @@ func (s *ServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...inte
 	return s.ExecTX(tx, query, args...)
 }
 
-// DA2SF: map DA name to SF name (fallback to no change)
+// DA2SF - map DA name to SF name (fallback to no change)
 func (s *ServiceStruct) DA2SF(da string) (sf string) {
 	var ok bool
 	sf, ok = GDA2SF[da]
@@ -874,7 +874,7 @@ func (s *ServiceStruct) DA2SF(da string) (sf string) {
 	return
 }
 
-// SF2DA: map SF name to DA name (fallback to no change)
+// SF2DA - map SF name to DA name (fallback to no change)
 func (s *ServiceStruct) SF2DA(sf string) (da string) {
 	var ok bool
 	da, ok = GSF2DA[sf]

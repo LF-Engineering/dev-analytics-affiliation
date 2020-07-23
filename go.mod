@@ -10,8 +10,9 @@ require (
 	github.com/elastic/go-elasticsearch/v7 v7.6.0
 	github.com/fnproject/fdk-go v0.0.1
 	github.com/go-openapi/errors v0.19.6
+	github.com/go-openapi/jsonreference v0.19.4 // indirect
 	github.com/go-openapi/loads v0.19.5
-	github.com/go-openapi/runtime v0.19.16
+	github.com/go-openapi/runtime v0.19.20
 	github.com/go-openapi/spec v0.19.8
 	github.com/go-openapi/strfmt v0.19.5
 	github.com/go-openapi/swag v0.19.9
@@ -28,10 +29,11 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/tencentyun/scf-go-lib v0.0.0-20200116145541-9a6ea1bf75b8
-	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
-	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
-	golang.org/x/text v0.3.2
+	go.mongodb.org/mongo-driver v1.3.5 // indirect
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
+	golang.org/x/text v0.3.3
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/protobuf v1.24.0 // indirect
+	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
