@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 	"os"
@@ -73,6 +74,13 @@ func initSHDB(origin string) *sqlx.DB {
 	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
 	d.SetConnMaxLifetime(30 * time.Second)
+	d.SetOnConn(
+		&sql.OnConnParams{
+			Enabled: [3]bool{true, true, true},
+			SQLs:    []string{"set @origin = ?"},
+			Args:    [][]interface{}{{origin}},
+		},
+	)
 	s := &shared.ServiceStruct{}
 	_, err = s.ExecDB(d, "set @origin = ?", origin)
 	if err != nil {
