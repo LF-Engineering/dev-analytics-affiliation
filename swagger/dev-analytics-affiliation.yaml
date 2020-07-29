@@ -33,7 +33,7 @@ paths:
           $ref: "#/responses/internal-server-error"
       tags:
         - health
-  /affiliation/{projectSlug}/top_contributors_csv:
+  /affiliation/{projectSlugs}/top_contributors_csv:
     get:
       summary: Get top contributors with their stats
       operationId: getTopContributorsCSV
@@ -72,7 +72,7 @@ paths:
         - csv
       parameters:
         - $ref: '#/parameters/optional-auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/unix-millis-from'
         - $ref: '#/parameters/unix-millis-to'
         - $ref: '#/parameters/limit'
@@ -80,7 +80,7 @@ paths:
         - $ref: '#/parameters/search'
         - $ref: '#/parameters/sort-field'
         - $ref: '#/parameters/sort-order'
-  /affiliation/{projectSlug}/top_contributors:
+  /affiliation/{projectSlugs}/top_contributors:
     get:
       summary: Get top contributors with their stats
       operationId: getTopContributors
@@ -112,7 +112,7 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/optional-auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/unix-millis-from'
         - $ref: '#/parameters/unix-millis-to'
         - $ref: '#/parameters/limit'
@@ -120,7 +120,7 @@ paths:
         - $ref: '#/parameters/search'
         - $ref: '#/parameters/sort-field'
         - $ref: '#/parameters/sort-order'
-  /affiliation/{projectSlug}/unaffiliated:
+  /affiliation/{projectSlugs}/unaffiliated:
     get:
       summary: Get top unaffiliated users
       operationId: getUnaffiliated
@@ -151,10 +151,10 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
-  /affiliation/{projectSlug}/matching_blacklist:
+  /affiliation/{projectSlugs}/matching_blacklist:
     get:
       summary: Get blacklisted emails
       operationId: getMatchingBlacklist
@@ -185,11 +185,11 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
-  /affiliation/{projectSlug}/matching_blacklist/{email}:
+  /affiliation/{projectSlugs}/matching_blacklist/{email}:
     post:
       summary: Add blacklist email
       operationId: postMatchingBlacklist
@@ -220,7 +220,7 @@ paths:
         - add
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/required-email'
     delete:
       summary: Delete blacklist email
@@ -252,9 +252,9 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/required-email'
-  /affiliation/{projectSlug}/list_organizations:
+  /affiliation/{projectSlugs}/list_organizations:
     get:
       summary: Get organizations
       operationId: getListOrganizations
@@ -285,11 +285,11 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
-  /affiliation/{projectSlug}/add_organization/{orgName}:
+  /affiliation/{projectSlugs}/add_organization/{orgName}:
     post:
       summary: Add organization
       operationId: postAddOrganization
@@ -320,9 +320,9 @@ paths:
         - post
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-name'
-  /affiliation/{projectSlug}/edit_organization/{orgID}/{orgName}:
+  /affiliation/{projectSlugs}/edit_organization/{orgID}/{orgName}:
     put:
       summary: Edit organization
       operationId: putEditOrganization
@@ -353,10 +353,10 @@ paths:
         - put
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-id'
         - $ref: '#/parameters/org-name'
-  /affiliation/{projectSlug}/find_organization_by_id/{orgID}:
+  /affiliation/{projectSlugs}/find_organization_by_id/{orgID}:
     get:
       summary: Find organization by ID
       operationId: getFindOrganizationByID
@@ -387,9 +387,9 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-id'
-  /affiliation/{projectSlug}/find_organization_by_name/{orgName}:
+  /affiliation/{projectSlugs}/find_organization_by_name/{orgName}:
     get:
       summary: Find organization by Name
       operationId: getFindOrganizationByName
@@ -420,9 +420,9 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-name'
-  /affiliation/{projectSlug}/delete_organization_by_id/{orgID}:
+  /affiliation/{projectSlugs}/delete_organization_by_id/{orgID}:
     delete:
       summary: Delete organization by ID
       operationId: deleteOrganization
@@ -453,9 +453,9 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-id'
-  /affiliation/{projectSlug}/list_domains:
+  /affiliation/{projectSlugs}/list_domains:
     get:
       summary: Get organization domains
       operationId: getListOrganizationsDomains
@@ -486,7 +486,7 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
@@ -495,7 +495,7 @@ paths:
           type: integer
           default: 0
           description: Organization ID, if you specify 0 it will list data for all organizations
-  /affiliation/{projectSlug}/add_domain/{orgName}/{domain}:
+  /affiliation/{projectSlugs}/add_domain/{orgName}/{domain}:
     put:
       summary: Add domain to organization (if not exists) and affiliate all profiles with that domain to this organization
       operationId: putOrgDomain
@@ -527,7 +527,7 @@ paths:
         - add
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/domain'
         - name: overwrite
@@ -545,7 +545,7 @@ paths:
           type: boolean
           default: false
           description: If set, it will not change/add/remove/touch any enrollments
-  /affiliation/{projectSlug}/remove_domain/{orgName}/{domain}:
+  /affiliation/{projectSlugs}/remove_domain/{orgName}/{domain}:
     delete:
       summary: Remove domain from organization
       operationId: deleteOrgDomain
@@ -577,10 +577,10 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/domain'
-  /affiliation/{projectSlug}/list_profiles:
+  /affiliation/{projectSlugs}/list_profiles:
     get:
       summary: Get profiles
       operationId: getListProfiles
@@ -611,11 +611,11 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
-  /affiliation/{projectSlug}/get_profile/{uuid}:
+  /affiliation/{projectSlugs}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
       operationId: getProfile
@@ -646,9 +646,9 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
-  /affiliation/{projectSlug}/delete_profile/{uuid}:
+  /affiliation/{projectSlugs}/delete_profile/{uuid}:
     delete:
       summary: Delete profile with given UUID (it will cascade delete all objects referring to that uuid)
       operationId: deleteProfile
@@ -679,14 +679,14 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
         - name: archive
           in: query
           type: boolean
           default: false
           description: If set, it will archive profile (and all dependend objects, so full restore will be possible)
-  /affiliation/{projectSlug}/unarchive_profile/{uuid}:
+  /affiliation/{projectSlugs}/unarchive_profile/{uuid}:
     post:
       summary: Unarchive profile with given UUID
       operationId: postUnarchiveProfile
@@ -717,9 +717,9 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
-  /affiliation/{projectSlug}/edit_profile/{uuid}:
+  /affiliation/{projectSlugs}/edit_profile/{uuid}:
     put:
       summary: Edit profile
       operationId: putEditProfile
@@ -750,7 +750,7 @@ paths:
         - put
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
         - $ref: '#/parameters/email'
         - name: name
@@ -773,7 +773,7 @@ paths:
           in: query
           type: string
           description: "Profile country code - 2 letters: PL, US, checked against FK constraint 'countries' table"
-  /affiliation/{projectSlug}/add_unique_identity/{uuid}:
+  /affiliation/{projectSlugs}/add_unique_identity/{uuid}:
     post:
       summary: create unique identity and empty profile connected with it
       operationId: postAddUniqueIdentity
@@ -804,9 +804,9 @@ paths:
         - post
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
-  /affiliation/{projectSlug}/add_identity/{source}:
+  /affiliation/{projectSlugs}/add_identity/{source}:
     post:
       summary: create idenity (unique by source, email, name, username), if uuid is set connect it to that uuid or create new unique identity with that uuid otherwise
       operationId: postAddIdentity
@@ -837,7 +837,7 @@ paths:
         - post
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/email'
         - name: source
           in: path
@@ -856,7 +856,7 @@ paths:
           in: query
           type: string
           description: Identity UUID (uuid it belongs to), can be empty, new unique identity will be added then
-  /affiliation/{projectSlug}/delete_identity/{id}:
+  /affiliation/{projectSlugs}/delete_identity/{id}:
     delete:
       summary: Delete identity with given ID (it will cascade delete all objects referring to that identity)
       operationId: deleteIdentity
@@ -887,7 +887,7 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - name: id
           in: path
           type: string
@@ -926,7 +926,7 @@ paths:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/debug'
         - $ref: '#/parameters/dry'
-  /affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}:
+  /affiliation/{projectSlugs}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID
       operationId: putMergeUniqueIdentities
@@ -956,7 +956,7 @@ paths:
         - merge
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - name: fromUUID
           in: path
           type: string
@@ -972,7 +972,7 @@ paths:
           type: boolean
           default: true
           description: If set, it will archive data so it can be unmerged later
-  /affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}:
+  /affiliation/{projectSlugs}/move_identity/{fromID}/{toUUID}:
     put:
       summary: Move identity from fromID to unique identity/profile toUUID
       operationId: putMoveIdentity
@@ -1002,7 +1002,7 @@ paths:
         - merge
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - name: fromID
           in: path
           type: string
@@ -1018,7 +1018,7 @@ paths:
           type: boolean
           default: true
           description: If set, it will attempt to unarchive data
-  /affiliation/{projectSlug}/enrollments/{uuid}:
+  /affiliation/{projectSlugs}/enrollments/{uuid}:
     get:
       summary: Get profile's enrollments - profile specified by UUID
       operationId: getProfileEnrollments
@@ -1049,9 +1049,9 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
-  /affiliation/{projectSlug}/add_enrollment/{uuid}/{orgName}:
+  /affiliation/{projectSlugs}/add_enrollment/{uuid}/{orgName}:
     post:
       summary: Add enrollment to profile
       operationId: postAddEnrollment
@@ -1082,7 +1082,7 @@ paths:
         - post
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/start'
@@ -1090,7 +1090,7 @@ paths:
         - $ref: '#/parameters/is-project-specific'
         - $ref: '#/parameters/role'
         - $ref: '#/parameters/merge'
-  /affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}:
+  /affiliation/{projectSlugs}/edit_enrollment/{uuid}/{orgName}:
     put:
       summary: Edit profile enrollment
       operationId: putEditEnrollment
@@ -1121,7 +1121,7 @@ paths:
         - post
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/start'
@@ -1142,12 +1142,12 @@ paths:
         - name: new_is_project_specific
           in: query
           type: boolean
-          description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
+          description: 'Optional is_project_specific flag (can change project specific affiliation into global and vice versa) - can only be used when projectSlugs contain a single project'
         - name: new_role
           in: query
           type: string
           description: 'Role: Contributor, Maintainer, ...'
-  /affiliation/{projectSlug}/edit_enrollment_by_id/{enrollment_id}:
+  /affiliation/{projectSlugs}/edit_enrollment_by_id/{enrollment_id}:
     put:
       summary: Edit enrollment (using enrollment ID)
       operationId: putEditEnrollmentByID
@@ -1178,7 +1178,7 @@ paths:
         - post
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/enrollment-id'
         - $ref: '#/parameters/merge'
         - name: new_start
@@ -1194,12 +1194,12 @@ paths:
         - name: new_is_project_specific
           in: query
           type: boolean
-          description: Optional is_project specific flag (can change project specific affiliation into global and vice versa)
+          description: 'Optional is_project_specific flag (can change project specific affiliation into global and vice versa) - can only be used when projectSlugs contain a single project'
         - name: new_role
           in: query
           type: string
           description: 'Role: Contributor, Maintainer, ...'
-  /affiliation/{projectSlug}/delete_enrollment/{id}:
+  /affiliation/{projectSlugs}/delete_enrollment/{id}:
     delete:
       summary: Delete enrollment from profile
       operationId: deleteEnrollment
@@ -1230,13 +1230,13 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - name: id
           in: path
           type: integer
           required: true
           description: Enrollment ID
-  /affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}:
+  /affiliation/{projectSlugs}/delete_enrollments/{uuid}/{orgName}:
     delete:
       summary: Delete orgName enrollment from profile
       operationId: deleteEnrollments
@@ -1267,14 +1267,14 @@ paths:
         - delete
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/start'
         - $ref: '#/parameters/end'
         - $ref: '#/parameters/is-project-specific'
         - $ref: '#/parameters/role'
-  /affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}:
+  /affiliation/{projectSlugs}/merge_enrollments/{uuid}/{orgName}:
     put:
       summary: Merge overlapping enrollments for UUID/orgName
       operationId: putMergeEnrollments
@@ -1305,7 +1305,7 @@ paths:
         - put
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
         - $ref: '#/parameters/org-name'
         - $ref: '#/parameters/is-project-specific'
@@ -1684,12 +1684,12 @@ parameters:
     name: Authorization
     in: header
     type: string
-  project-slug:
-    name: projectSlug
+  project-slugs:
+    name: projectSlugs
     in: path
     type: string
     required: true
-    description: Project slug URL encoded like 'academy-software-foundation/opencue'
+    description: Project slugs URL encoded like 'academy-software-foundation/opencue,lfn/onap,hyperledger/burrow'
   uuid:
     name: uuid
     in: path
@@ -1820,7 +1820,7 @@ parameters:
     name: is_project_specific
     in: query
     type: boolean
-    description: 'false: global enrollment (project_slug = null), true: project specific (project_slug non-null)'
+    description: 'false: global enrollment (project_slug = null), true: project specific (project_slug non-null), most APIs require specifying single project in projectSlugs to use this parameter'
   role:
     name: role
     in: query

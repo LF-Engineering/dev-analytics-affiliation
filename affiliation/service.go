@@ -89,7 +89,7 @@ type Service interface {
 	// Internal methods
 	getPemCert(*jwt.Token, string) (string, error)
 	checkToken(string) (string, bool, error)
-	checkTokenAndPermission(interface{}) (string, string, string, error)
+	checkTokenAndPermission(interface{}) (string, []string, string, error)
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
 }
 
@@ -244,141 +244,142 @@ func (s *service) checkToken(tokenStr string) (username string, agw bool, err er
 
 // checkTokenAndPermission - validate JWT token from 'Authorization: Bearer xyz'
 // and then check if authorized use can manage affiliations in given project
-func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project, username string, err error) {
+func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, projects []string, username string, err error) {
 	// Extract params depending on API type
 	auth := ""
+	projectsStr := ""
 	switch params := iParams.(type) {
 	case *affiliation.GetMatchingBlacklistParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetMatchingBlacklist"
 	case *affiliation.PostMatchingBlacklistParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PostMatchingBlacklist"
 	case *affiliation.DeleteMatchingBlacklistParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteMatchingBlacklist"
 	case *affiliation.GetListOrganizationsParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetListOrganizations"
 	case *affiliation.GetListOrganizationsDomainsParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetListOrganizationsDomains"
 	case *affiliation.GetFindOrganizationByIDParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetFindOrganizationByID"
 	case *affiliation.GetFindOrganizationByNameParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetFindOrganizationByName"
 	case *affiliation.DeleteOrganizationParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteOrganization"
 	case *affiliation.PostAddOrganizationParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PostAddOrganization"
 	case *affiliation.PutEditOrganizationParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutEditOrganization"
 	case *affiliation.GetProfileParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetProfile"
 	case *affiliation.GetProfileEnrollmentsParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetProfileEnrollments"
 	case *affiliation.DeleteProfileParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteProfile"
 	case *affiliation.PutEditProfileParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutEditProfile"
 	case *affiliation.PostUnarchiveProfileParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PostUnarchiveProfile"
 	case *affiliation.PostAddUniqueIdentityParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PostAddUniqueIdentity"
 	case *affiliation.PostAddIdentityParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PostAddIdentity"
 	case *affiliation.DeleteIdentityParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteIdentity"
 	case *affiliation.GetListProfilesParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetListProfiles"
 	case *affiliation.PostAddEnrollmentParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PostAddEnrollment"
 	case *affiliation.PutEditEnrollmentParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutEditEnrollment"
 	case *affiliation.PutEditEnrollmentByIDParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutEditEnrollmentByID"
 	case *affiliation.DeleteEnrollmentsParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteEnrollments"
 	case *affiliation.DeleteEnrollmentParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteEnrollment"
 	case *affiliation.PutMergeEnrollmentsParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutMergeEnrollments"
 	case *affiliation.PutOrgDomainParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutOrgDomain"
 	case *affiliation.DeleteOrgDomainParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "DeleteOrgDomain"
 	case *affiliation.PutMergeUniqueIdentitiesParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutMergeUniqueIdentities"
 	case *affiliation.PutMoveIdentityParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "PutMoveIdentity"
 	case *affiliation.GetUnaffiliatedParams:
 		auth = params.Authorization
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetUnaffiliated"
 	case *affiliation.GetTopContributorsParams:
 		if params.Authorization != nil {
 			auth = *params.Authorization
 		}
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetTopContributors"
 	case *affiliation.GetTopContributorsCSVParams:
 		if params.Authorization != nil {
 			auth = *params.Authorization
 		}
-		project = params.ProjectSlug
+		projectsStr = params.ProjectSlugs
 		apiName = "GetTopContributorsCSV"
 	case *affiliation.PutMergeAllParams:
 		auth = params.Authorization
@@ -414,35 +415,51 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName, project
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
 	}
-	project = strings.Replace(project, "/projects/", "", -1)
-	// Validate JWT token, final outcome is the LFID of current authorized user
-	agw := false
-	username, agw, err = s.checkToken(auth)
-	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
-		return
-	}
 	err = s.shDB.GetSlugMappings()
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return
 	}
-	// SF -> DA
-	if project != "" {
-		project = s.SF2DA(project)
+	projectsAry := strings.Split(projectsStr, ",")
+	for i := range projectsAry {
+		projectsAry[i] = strings.TrimSpace(strings.Replace(projectsAry[i], "/projects/", "", -1))
+		// SF -> DA
+		if projectsAry[i] != "" {
+			projectsAry[i] = s.SF2DA(projectsAry[i])
+		}
 	}
+	log.Debug(fmt.Sprintf("checkTokenAndPermission: auth projects (SFDC): %+v\n", projectsAry))
+	// Validate JWT token, final outcome is the LFID of current authorized user
+	agw := false
+	username, agw, err = s.checkToken(auth)
+	if err != nil {
+		if auth == "" && (apiName == "GetTopContributorsCSV" || apiName == "GetTopContributors") {
+			projects = projectsAry
+		}
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+		return
+	}
+	log.Debug(fmt.Sprintf("checkTokenAndPermission: auth projects (DA): %+v\n", projectsAry))
 	if !agw {
-		// Check if that user can manage identities for given project/scope
+		// Check if that user can manage identities for given projects/scopes
 		var allowed bool
-		allowed, err = s.apiDB.CheckIdentityManagePermission(username, project, nil)
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+		for i := range projectsAry {
+			allowed, err = s.apiDB.CheckIdentityManagePermission(username, projectsAry[i], nil)
+			if err != nil {
+				err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+				return
+			}
+			if !allowed {
+				continue
+			}
+			projects = append(projects, projectsAry[i])
+		}
+		if len(projectsAry) > 0 && len(projects) == 0 {
+			err = errs.Wrap(errs.New(fmt.Errorf("user '%s' is not allowed to manage identities in '%+v'", username, projectsAry), errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 			return
 		}
-		if !allowed {
-			err = errs.Wrap(errs.New(fmt.Errorf("user '%s' is not allowed to manage identities in '%s'", username, project), errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
-			return
-		}
+	} else {
+		projects = projectsAry
 	}
 	return
 }
@@ -492,8 +509,8 @@ func (s *service) toNoDates(in *models.UniqueIdentityNestedDataOutput) (out *mod
 }
 
 // GetListOrganizations: API params:
-// /v1/affiliation/{projectSlug}/list_organizations[?q=xyz][&rows=100][&page=2]
-// {projectSlug} - required path parameter: project to get organizations (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/list_organizations[?q=xyz][&rows=100][&page=2]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // q - optional query parameter: if you specify that parameter only organizations where name like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
@@ -519,7 +536,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 	getListOrganizations = &models.GetListOrganizationsOutput{}
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		list := ""
 		nOrgs := len(getListOrganizations.Organizations)
@@ -530,12 +547,12 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListOrganizations(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizations:%s err:%v",
+				"GetListOrganizations(exit): q:%s rows:%d page:%d apiName:%s projects:%+v username:%s getListOrganizations:%s err:%v",
 				q,
 				rows,
 				page,
 				apiName,
-				project,
+				projects,
 				username,
 				list,
 				err,
@@ -552,27 +569,27 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 		return
 	}
 	getListOrganizations.User = username
-	getListOrganizations.Scope = s.DA2SF(project)
+	getListOrganizations.Scope = s.AryDA2SF(projects)
 	return
 }
 
 // PostAddOrganization: API params:
-// /v1/affiliation/{projectSlug}/add_organization/{orgName}
-// {projectSlug} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/add_organization/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {orgName} - required path parameter: organization name to be added
 func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.PostAddOrganizationParams) (organization *models.OrganizationDataOutput, err error) {
 	organization = &models.OrganizationDataOutput{}
 	orgName := params.OrgName
 	log.Info(fmt.Sprintf("PostAddOrganization: orgName:%s", orgName))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PostAddOrganization(exit): orgName:%s apiName:%s project:%s username:%s organization:%+v err:%v",
+				"PostAddOrganization(exit): orgName:%s apiName:%s projects:%+v username:%s organization:%+v err:%v",
 				orgName,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalOrganization(organization),
 				err,
@@ -599,8 +616,8 @@ func (s *service) PostAddOrganization(ctx context.Context, params *affiliation.P
 }
 
 // PutEditOrganization: API params:
-// /v1/affiliation/{projectSlug}/edit_organization/{orgID}/{orgName}
-// {projectSlug} - required path parameter: project to add organization to (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/edit_organization/{orgID}/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {orgID} - required path parameter: organization ID to be edited
 // {orgName} - required path parameter: organization name - this is the new name that will be saved for this organization
 func (s *service) PutEditOrganization(ctx context.Context, params *affiliation.PutEditOrganizationParams) (organization *models.OrganizationDataOutput, err error) {
@@ -609,15 +626,15 @@ func (s *service) PutEditOrganization(ctx context.Context, params *affiliation.P
 	orgName := params.OrgName
 	log.Info(fmt.Sprintf("PutEditOrganization: orgID:%d orgName:%s", orgID, orgName))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutEditOrganization(exit): orgID:%d orgName:%s apiName:%s project:%s username:%s organization:%+v err:%v",
+				"PutEditOrganization(exit): orgID:%d orgName:%s apiName:%s projects:%+v username:%s organization:%+v err:%v",
 				orgID,
 				orgName,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalOrganization(organization),
 				err,
@@ -645,22 +662,22 @@ func (s *service) PutEditOrganization(ctx context.Context, params *affiliation.P
 }
 
 // PostAddUniqueIdentity: API params:
-// /v1/affiliation/{projectSlug}/add_unique_identity/{uuid}
-// {projectSlug} - required path parameter: project to add unique identity to (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/add_unique_identity/{uuid}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: UUID to be added
 func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation.PostAddUniqueIdentityParams) (uniqueIdentity *models.UniqueIdentityNestedDataOutput, err error) {
 	uniqueIdentity = &models.UniqueIdentityNestedDataOutput{}
 	uuid := params.UUID
 	log.Info(fmt.Sprintf("PostAddUniqueIdentity: uuid:%s", uuid))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PostAddUniqueIdentity(exit): uuid:%s apiName:%s project:%s username:%s uniqueIdentity:%+v err:%v",
+				"PostAddUniqueIdentity(exit): uuid:%s apiName:%s projects:%+v username:%s uniqueIdentity:%+v err:%v",
 				uuid,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uniqueIdentity),
 				err,
@@ -682,22 +699,22 @@ func (s *service) PostAddUniqueIdentity(ctx context.Context, params *affiliation
 }
 
 // DeleteIdentity: API params:
-// /v1/affiliation/{projectSlug}/delete_identity/{id}
-// {projectSlug} - required path parameter: project to add unique identity to (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/delete_identity/{id}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {id} - required path parameter: Identity ID to be added
 func (s *service) DeleteIdentity(ctx context.Context, params *affiliation.DeleteIdentityParams) (status *models.TextStatusOutput, err error) {
 	id := params.ID
 	status = &models.TextStatusOutput{}
 	log.Info(fmt.Sprintf("DeleteIdentity: id:%s", id))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteIdentity(exit): id:%s apiName:%s project:%s username:%s status:%+v err:%v",
+				"DeleteIdentity(exit): id:%s apiName:%s projects:%+v username:%s status:%+v err:%v",
 				id,
 				apiName,
-				project,
+				projects,
 				username,
 				status,
 				err,
@@ -719,8 +736,8 @@ func (s *service) DeleteIdentity(ctx context.Context, params *affiliation.Delete
 }
 
 // PostAddIdentity: API params:
-// /v1/affiliation/{projectSlug}/add_identity/{source}
-// {projectSlug} - required path parameter: project to add unique identity to (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/add_identity/{source}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {source} - required path parameter: Source of identity to be added
 // name - optional query parameter: identity name
 // email - optional query parameter: identity email
@@ -737,15 +754,15 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("PostAddIdentity: source:%s identity:%+v uid:%+v", params.Source, s.ToLocalIdentity(identity), s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PostAddIdentity(exit): source:%s identity:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PostAddIdentity(exit): source:%s identity:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.Source,
 				s.ToLocalIdentity(identity),
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -767,16 +784,17 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 }
 
 // PostAddEnrollment: API params:
-// /v1/affiliation/{projectSlug}/add_enrollment/{uuid}/{orgName}
-// {projectSlug} - required path parameter: project to add enrollment to (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/add_enrollment/{uuid}/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: Profile UUID to add enrollment to
 // {orgName} - required path parameter: enrollment organization to add (must exist)
 // start - optional query parameter: enrollment start date, 1900-01-01 if not set
 // end - optional query parameter: enrollment end date, 2100-01-01 if not set
 // role - optional query parameter: enrollment role, for example Contributor, Maintainer
 // merge - optional query parameter: if set it will merge enrollment dates for organization added
-// is_project_specific - optional query parameter, if set - enrollment will be marked as {projectSlug} specific (its "project_slug" column will be {projectSlug}
+// is_project_specific - optional query parameter, if set - enrollment will be marked as {projectSlugs} specific (its "project_slug" column will be {projectSlugs}
 //   else enrollment will be global (its "project_slug" column will be set to null)
+//   you can only set is_project_specific when {projectSlugs} contain only one project
 func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.PostAddEnrollmentParams) (uidnd *models.UniqueIdentityNestedDataOutputNoDates, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
@@ -784,16 +802,16 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	uidnd = &models.UniqueIdentityNestedDataOutputNoDates{}
 	log.Info(fmt.Sprintf("PostAddEnrollment: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PostAddEnrollment(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PostAddEnrollment(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.UUID,
 				enrollment,
 				organization,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -836,7 +854,11 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		enrollment.Role = shared.DefaultRole
 	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
-		enrollment.ProjectSlug = &project
+		if len(projects) != 1 {
+			err = errs.Wrap(fmt.Errorf("you must specify exactly one project in projectSlugs: '%s' when using is_project_specific", params.ProjectSlugs), apiName)
+			return
+		}
+		enrollment.ProjectSlug = &projects[0]
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
@@ -846,14 +868,14 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 		return
 	}
 	if params.Merge != nil && *(params.Merge) {
-		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, nil)
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, true, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -869,8 +891,8 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 }
 
 // PutEditEnrollment: API params:
-// /v1/affiliation/{projectSlug}/edit_enrollment/{uuid}/{orgName}
-// {projectSlug} - required path parameter: project to edit enrollment for (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/edit_enrollment/{uuid}/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: Profile UUID to edit enrollment on
 // {orgName} - required path parameter: enrollment organization to edt (must exist) (if that organization is affiliated to given profile more than once, start and/or end date must be given too)
 // start - optional query parameter: current enrollment start date to edit, not used if not specified, start or end must be specified if organization is enrolled more than once on the profile
@@ -882,23 +904,25 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
 // is_project_specific - optional query parameter, if set - enrollment specific to this project will be edited
 //   else global enrollment will be edited
-// new_is_project_specific - ooptional query parameter, if set - will update is_project_specific value
+//   you can only set is_project_specific when {projectSlugs} contain only one project
+// new_is_project_specific - optional query parameter, if set - will update is_project_specific value
+//   you can only set new_is_project_specific when {projectSlugs} contain only one project
 func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.PutEditEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("PutEditEnrollment: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutEditEnrollment(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PutEditEnrollment(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.UUID,
 				enrollment,
 				organization,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -926,7 +950,11 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		return
 	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
-		enrollment.ProjectSlug = &project
+		if len(projects) != 1 {
+			err = errs.Wrap(fmt.Errorf("you must specify exactly one project in projectSlugs: '%s' when using is_project_specific", params.ProjectSlugs), apiName)
+			return
+		}
+		enrollment.ProjectSlug = &projects[0]
 	}
 	columns := []string{"uuid", "organization_id", "project_slug"}
 	values := []interface{}{params.UUID, enrollment.OrganizationID, enrollment.ProjectSlug}
@@ -976,7 +1004,11 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 	}
 	if params.NewIsProjectSpecific != nil {
 		if *(params.NewIsProjectSpecific) == true {
-			enrollment.ProjectSlug = &project
+			if len(projects) != 1 {
+				err = errs.Wrap(fmt.Errorf("you must specify exactly one project in projectSlugs: '%s' when using new_is_project_specific", params.ProjectSlugs), apiName)
+				return
+			}
+			enrollment.ProjectSlug = &projects[0]
 		} else {
 			enrollment.ProjectSlug = nil
 		}
@@ -993,14 +1025,14 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		return
 	}
 	if params.Merge != nil && *(params.Merge) {
-		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, nil)
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, true, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1015,28 +1047,29 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 }
 
 // PutEditEnrollmentByID: API params:
-// /v1/affiliation/{projectSlug}/edit_enrollment_by_id/{enrollment_id}
-// {projectSlug} - required path parameter: project to edit enrollment for (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/edit_enrollment_by_id/{enrollment_id}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {enrollment_id} - required path parameter: Enrollment ID to edit
 // new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
 // new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
 // new_role - optional query parameter: new enrollment role
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
 // new_is_project_specific - ooptional query parameter, if set - will update is_project_specific value
+//   you can only set new_is_project_specific when {projectSlugs} contain only one project
 func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation.PutEditEnrollmentByIDParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{ID: params.EnrollmentID}
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("PutEditEnrollmentByID: enrollment_id:%d enrollment:%+v uid:%+v", params.EnrollmentID, enrollment, s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutEditEnrollmentByID(exit): enrollment_id:%d enrollment:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PutEditEnrollmentByID(exit): enrollment_id:%d enrollment:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.EnrollmentID,
 				enrollment,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1051,16 +1084,25 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	if enrollment.ProjectSlug != nil && *enrollment.ProjectSlug != project {
-		err = errs.Wrap(
-			fmt.Errorf(
-				"cannot edit '%s' project enrollment: current project is '%s'",
-				*enrollment.ProjectSlug,
-				project,
-			),
-			apiName,
-		)
-		return
+	if enrollment.ProjectSlug != nil {
+		found := false
+		for _, project := range projects {
+			if *enrollment.ProjectSlug == project {
+				found = true
+				break
+			}
+		}
+		if !found {
+			err = errs.Wrap(
+				fmt.Errorf(
+					"cannot edit '%s' project enrollment: current projects are '%+v'",
+					*enrollment.ProjectSlug,
+					projects,
+				),
+				apiName,
+			)
+			return
+		}
 	}
 	if params.NewStart != nil {
 		enrollment.Start = *(params.NewStart)
@@ -1074,7 +1116,11 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 	}
 	if params.NewIsProjectSpecific != nil {
 		if *(params.NewIsProjectSpecific) == true {
-			enrollment.ProjectSlug = &project
+			if len(projects) != 1 {
+				err = errs.Wrap(fmt.Errorf("you must specify exactly one project in projectSlugs: '%s' when using new_is_project_specific", params.ProjectSlugs), apiName)
+				return
+			}
+			enrollment.ProjectSlug = &projects[0]
 		} else {
 			enrollment.ProjectSlug = nil
 		}
@@ -1104,14 +1150,14 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 			err = errs.Wrap(err, apiName)
 			return
 		}
-		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, nil)
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, true, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
 		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1126,8 +1172,8 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 }
 
 // DeleteEnrollments: API params:
-// /v1/affiliation/{projectSlug}/delete_enrollments/{uuid}/{orgName}
-// {projectSlug} - required path parameter: project to delete enrollments from (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/delete_enrollments/{uuid}/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: Profile UUID to add enrollments from
 // {orgName} - required path parameter: enrollments organization to delete (must exist)
 // start - optional query parameter: enrollments start date, 1900-01-01 if not set
@@ -1135,22 +1181,23 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 // role - optional query parameter: enrollments role
 // is_project_specific - optional query parameter, if set - enrollemnt specific to this project will be deleted
 //   else global enrollment will be deleted
+//   you can only set is_project_specific when {projectSlugs} contain only one project
 func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.DeleteEnrollmentsParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{UUID: params.UUID}
 	organization := &models.OrganizationDataOutput{Name: params.OrgName}
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("DeleteEnrollments: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteEnrollments(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"DeleteEnrollments(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.UUID,
 				enrollment,
 				organization,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1187,7 +1234,11 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 		enrollment.End = strfmt.DateTime(shared.MaxPeriodDate)
 	}
 	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
-		enrollment.ProjectSlug = &project
+		if len(projects) != 1 {
+			err = errs.Wrap(fmt.Errorf("you must specify exactly one project in projectSlugs: '%s' when using is_project_specific", params.ProjectSlugs), apiName)
+			return
+		}
+		enrollment.ProjectSlug = &projects[0]
 	}
 	if params.Role != nil {
 		enrollment.Role = *(params.Role)
@@ -1202,7 +1253,7 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1217,23 +1268,23 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 }
 
 // DeleteEnrollment: API params:
-// /v1/affiliation/{projectSlug}/delete_enrollment/{id}
-// {projectSlug} - required path parameter: project to delete enrollments from (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/delete_enrollment/{id}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {id} - required path parameter: Enrollment ID to delete
 func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.DeleteEnrollmentParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	enrollment := &models.EnrollmentDataOutput{ID: params.ID}
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("DeleteEnrollment: id:%d", params.ID))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteEnrollment(exit): id:%d enrollment:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"DeleteEnrollment(exit): id:%d enrollment:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.ID,
 				enrollment,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1250,6 +1301,27 @@ func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.Dele
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	rolSlug := rols[0].ProjectSlug
+	if rolSlug != nil {
+		found := false
+		for _, project := range projects {
+			if *rolSlug == project {
+				found = true
+				break
+			}
+		}
+		if !found {
+			err = errs.Wrap(
+				fmt.Errorf(
+					"cannot delete '%s' project enrollment: current projects are '%+v'",
+					*rolSlug,
+					projects,
+				),
+				apiName,
+			)
+			return
+		}
+	}
 	// Do the actual API call
 	err = s.shDB.DeleteEnrollment(enrollment.ID, true, true, nil, nil)
 	if err != nil {
@@ -1258,7 +1330,7 @@ func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.Dele
 	}
 	enrollment = rols[0]
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+enrollment.UUID, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+enrollment.UUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1283,11 +1355,11 @@ func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.Dele
 //         --> (2008-01-01, 2010-01-01),(2010-01-02, 2100-01-01)
 //   * [(1900-01-01, 2010-01-01), (2010-01-02, 2100-01-01)]
 //         --> (1900-01-01, 2010-01-01), (2010-01-02, 2100-01-01)
-// /v1/affiliation/{projectSlug}/merge_enrollments/{uuid}/{orgName}
-// {projectSlug} - required path parameter: project to merge enrollments (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/merge_enrollments/{uuid}/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: Profile UUID to merge enrollments
 // {orgName} - required path parameter: enrollment organization to merge
-// is_project_specific - optional query parameter, if set - enrollment specific to project will be merged
+// is_project_specific - optional query parameter, if set - enrollment specific to projects will be merged
 //   else global enrollment will be merged
 // all_projects - optional query parameter, if set all enrollments will be merged (global one and 0 or more project specific ones)
 func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.PutMergeEnrollmentsParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
@@ -1296,16 +1368,16 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("PutMergeEnrollments: uuid:%s enrollment:%+v organization:%+v uid:%+v", params.UUID, enrollment, organization, s.ToLocalNestedUniqueIdentity(uid)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutMergeEnrollments(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PutMergeEnrollments(exit): uuid:%s enrollment:%+v organization:%+v apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				params.UUID,
 				enrollment,
 				organization,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1332,26 +1404,37 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	if params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
-		enrollment.ProjectSlug = &project
-	}
 	allProjectSlugs := false
 	if params.AllProjects != nil && *(params.AllProjects) {
 		allProjectSlugs = true
 	}
+	pProjectSlugs := []*string{}
+	if !allProjectSlugs && params.IsProjectSpecific != nil && *(params.IsProjectSpecific) {
+		for _, project := range projects {
+			pProjectSlugs = append(pProjectSlugs, &project)
+		}
+	} else {
+		pProjectSlugs = append(pProjectSlugs, nil)
+	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, allProjectSlugs, nil)
-	if err != nil {
-		err = errs.Wrap(err, apiName)
-		return
+	if allProjectSlugs {
+		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, nil, allProjectSlugs, true, nil)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+	} else {
+		for _, pProjectSlug := range pProjectSlugs {
+			err = s.shDB.MergeEnrollments(uniqueIdentity, organization, pProjectSlug, allProjectSlugs, false, nil)
+			if err != nil {
+				err = errs.Wrap(err, apiName)
+				return
+			}
+		}
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	if allProjectSlugs {
-		ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, "", nil)
-	} else {
-		ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, project, nil)
-	}
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+params.UUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1366,22 +1449,22 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 }
 
 // GetFindOrganizationByID: API params:
-// /v1/affiliation/{projectSlug}/find_organization_by_id/{orgID}
-// {projectSlug} - required path parameter: project to get organization (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/find_organization_by_id/{orgID}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {orgID} - required path parameter: organization ID to lookup for
 func (s *service) GetFindOrganizationByID(ctx context.Context, params *affiliation.GetFindOrganizationByIDParams) (organization *models.OrganizationDataOutput, err error) {
 	orgID := params.OrgID
 	organization = &models.OrganizationDataOutput{}
 	log.Info(fmt.Sprintf("GetFindOrganizationByID: orgID:%d", orgID))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetFindOrganizationByID(exit): orgID:%d apiName:%s project:%s username:%s getFindOrganizationByID:%+v err:%v",
+				"GetFindOrganizationByID(exit): orgID:%d apiName:%s projects:%+v username:%s getFindOrganizationByID:%+v err:%v",
 				orgID,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalOrganization(organization),
 				err,
@@ -1401,22 +1484,22 @@ func (s *service) GetFindOrganizationByID(ctx context.Context, params *affiliati
 }
 
 // GetFindOrganizationByName: API params:
-// /v1/affiliation/{projectSlug}/find_organization_by_name/{orgName}
-// {projectSlug} - required path parameter: project to get organization (project slug URL encoded, can be prefixed with "/projects/")
-// {orgname} - required path parameter: organization name to lookup for
+// /v1/affiliation/{projectSlugs}/find_organization_by_name/{orgName}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
+// {orgName} - required path parameter: organization name to lookup for
 func (s *service) GetFindOrganizationByName(ctx context.Context, params *affiliation.GetFindOrganizationByNameParams) (organization *models.OrganizationDataOutput, err error) {
 	orgName := params.OrgName
 	organization = &models.OrganizationDataOutput{}
 	log.Info(fmt.Sprintf("GetFindOrganizationByName: orgName:%s", orgName))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetFindOrganizationByName(exit): orgName:%s apiName:%s project:%s username:%s getFindOrganizationByName:%+v err:%v",
+				"GetFindOrganizationByName(exit): orgName:%s apiName:%s projects:%+v username:%s getFindOrganizationByName:%+v err:%v",
 				orgName,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalOrganization(organization),
 				err,
@@ -1436,8 +1519,8 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 }
 
 // PutEditProfile: API params:
-// /v1/affiliation/{projectSlug}/edit_profile/{uuid}[?name=somename][&email=xyz@o2.pl][&gender=female][&gender-acc=95][&is_bot=0][&country_code=PL]
-// {projectSlug} - required path parameter: project to edit profile in (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/edit_profile/{uuid}[?name=somename][&email=xyz@o2.pl][&gender=female][&gender-acc=95][&is_bot=0][&country_code=PL]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: profile uuid to be edited
 // name - optional query parameter: if set, it will update profile name to this value
 // email - optional query parameter: if set, it will update profile email to this value
@@ -1459,14 +1542,14 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("PutEditProfile: uuid:%s profile:%+v", uuid, s.ToLocalProfile(profile)))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutEditProfile(exit): uuid:%s apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PutEditProfile(exit): uuid:%s apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				uuid,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1484,7 +1567,7 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1499,8 +1582,8 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 }
 
 // DeleteProfile: API params:
-// /v1/affiliation/{projectSlug}/delete_profile/{uuid}[?archive=true]
-// {projectSlug} - required path parameter: project to delete profile from (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/delete_profile/{uuid}[?archive=true]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: profile uuid to be deleted (it will cascade delete all objects referring to that uuid)
 // archive - optional query parameter: if set, it will archive given profile data (and all dependend objects, so full restore will be possible)
 func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteProfileParams) (status *models.TextStatusOutput, err error) {
@@ -1511,15 +1594,15 @@ func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteP
 	}
 	log.Info(fmt.Sprintf("DeleteProfile: uuid:%s archive:%v", uuid, archive))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteProfile(exit): uuid:%s archive:%v apiName:%s project:%s username:%s status:%+v err:%v",
+				"DeleteProfile(exit): uuid:%s archive:%v apiName:%s project:%+v username:%s status:%+v err:%v",
 				uuid,
 				archive,
 				apiName,
-				project,
+				projects,
 				username,
 				status,
 				err,
@@ -1540,22 +1623,22 @@ func (s *service) DeleteProfile(ctx context.Context, params *affiliation.DeleteP
 }
 
 // PostUnarchiveProfile: API params:
-// /v1/affiliation/{projectSlug}/unarchive_profile/{uuid}[?archive=true]
-// {projectSlug} - required path parameter: project where we need to unarchive profile (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/unarchive_profile/{uuid}[?archive=true]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: profile uuid to be unarchived (it will cascade delete all objects referring to that uuid)
 func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.PostUnarchiveProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uuid := params.UUID
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("PostUnarchiveProfile: uuid:%s", uuid))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PostUnarchiveProfile(exit): uuid:%s apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PostUnarchiveProfile(exit): uuid:%s apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				uuid,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1567,7 +1650,7 @@ func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	uid, err = s.shDB.UnarchiveProfileNested(uuid)
+	uid, err = s.shDB.UnarchiveProfileNested(uuid, projects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1577,21 +1660,21 @@ func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.
 }
 
 // DeleteOrganization: API params:
-// /v1/affiliation/{projectSlug}/delete_organization_by_id/{orgID}
-// {projectSlug} - required path parameter: project to modify affiliations organizations (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/delete_organization_by_id/{orgID}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {orgID} - required path parameter: organization ID to be deleted
 func (s *service) DeleteOrganization(ctx context.Context, params *affiliation.DeleteOrganizationParams) (status *models.TextStatusOutput, err error) {
 	orgID := params.OrgID
 	log.Info(fmt.Sprintf("DeleteOrganization: orgID:%d", orgID))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteOrganization(exit): orgID:%d apiName:%s project:%s username:%s status:%+v err:%v",
+				"DeleteOrganization(exit): orgID:%d apiName:%s projects:%+v username:%s status:%+v err:%v",
 				orgID,
 				apiName,
-				project,
+				projects,
 				username,
 				status,
 				err,
@@ -1612,8 +1695,8 @@ func (s *service) DeleteOrganization(ctx context.Context, params *affiliation.De
 }
 
 // GetMatchingBlacklist: API params:
-// /v1/affiliation/{projectSlug}/matching_blacklist[?q=xyz][&rows=100][&page=2]
-// {projectSlug} - required path parameter: project to get affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/matching_blacklist[?q=xyz][&rows=100][&page=2]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // q - optional query parameter: if you specify that parameter only emails like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
@@ -1638,7 +1721,7 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 	}
 	log.Info(fmt.Sprintf("GetMatchingBlacklist: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		list := ""
 		nEmails := len(getMatchingBlacklist.Emails)
@@ -1649,12 +1732,12 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getMatchingBlacklist:%s err:%v",
+				"GetMatchingBlacklist(exit): q:%s rows:%d page:%d apiName:%s projects:%+v username:%s getMatchingBlacklist:%s err:%v",
 				q,
 				rows,
 				page,
 				apiName,
-				project,
+				projects,
 				username,
 				list,
 				err,
@@ -1671,26 +1754,26 @@ func (s *service) GetMatchingBlacklist(ctx context.Context, params *affiliation.
 		return
 	}
 	getMatchingBlacklist.User = username
-	getMatchingBlacklist.Scope = s.DA2SF(project)
+	getMatchingBlacklist.Scope = s.AryDA2SF(projects)
 	return
 }
 
 // PostMatchingBlacklist: API params:
-// /v1/affiliation/{projectSlug}/matching_blacklist/{email}
-// {projectSlug} - required path parameter: project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/matching_blacklist/{email}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {email} - required path parameter: email to be added to blacklisted emails
 func (s *service) PostMatchingBlacklist(ctx context.Context, params *affiliation.PostMatchingBlacklistParams) (postMatchingBlacklist *models.MatchingBlacklistOutput, err error) {
 	email := params.Email
 	log.Info(fmt.Sprintf("PostMatchingBlacklist: email:%s", email))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PostMatchingBlacklist(exit): email:%s apiName:%s project:%s username:%s postMatchingBlacklist:%+v err:%v",
+				"PostMatchingBlacklist(exit): email:%s apiName:%s projects:%+v username:%s postMatchingBlacklist:%+v err:%v",
 				email,
 				apiName,
-				project,
+				projects,
 				username,
 				postMatchingBlacklist,
 				err,
@@ -1711,21 +1794,21 @@ func (s *service) PostMatchingBlacklist(ctx context.Context, params *affiliation
 }
 
 // DeleteMatchingBlacklist: API params:
-// /v1/affiliation/{projectSlug}/matching_blacklist/{email}
-// {projectSlug} - required path parameter: project to modify affiliations emails blacklist (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/matching_blacklist/{email}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {email} - required path parameter: email to be deleted from blacklisted emails
 func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliation.DeleteMatchingBlacklistParams) (status *models.TextStatusOutput, err error) {
 	email := params.Email
 	log.Info(fmt.Sprintf("DeleteMatchingBlacklist: email:%s", email))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteMatchingBlacklist(exit): email:%s apiName:%s project:%s username:%s status:%+v err:%v",
+				"DeleteMatchingBlacklist(exit): email:%s apiName:%s projects:%+v username:%s status:%+v err:%v",
 				email,
 				apiName,
-				project,
+				projects,
 				username,
 				status,
 				err,
@@ -1746,8 +1829,8 @@ func (s *service) DeleteMatchingBlacklist(ctx context.Context, params *affiliati
 }
 
 // GetListProfiles: API params:
-// /v1/affiliation/{projectSlug}/list_profiles[?q=xyz][&rows=100][&page=2]
-// {projectSlug} - required path parameter: project to get profiles (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/list_profiles[?q=xyz][&rows=100][&page=2]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // q - optional query parameter: if you specify that parameter only profiles where name, email, username or source like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
@@ -1773,7 +1856,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	getListProfiles = &models.GetListProfilesOutput{}
 	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		list := ""
 		nProfs := len(getListProfiles.Uids)
@@ -1784,12 +1867,12 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListProfiles(exit): q:%s rows:%d page:%d apiName:%s project:%s username:%s getListProfiles:%s err:%v",
+				"GetListProfiles(exit): q:%s rows:%d page:%d apiName:%s projects:%+v username:%s getListProfiles:%s err:%v",
 				q,
 				rows,
 				page,
 				apiName,
-				project,
+				projects,
 				username,
 				list,
 				err,
@@ -1801,34 +1884,34 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page, project)
+	getListProfiles, err = s.shDB.GetListProfiles(q, rows, page, projects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 	getListProfiles.User = username
-	getListProfiles.Scope = s.DA2SF(project)
+	getListProfiles.Scope = s.AryDA2SF(projects)
 	s.ListProfilesDA2SF(getListProfiles)
 	return
 }
 
 // GetProfile: API params:
-// /v1/affiliation/{projectSlug}/get_profile/{uuid}
-// {projectSlug} - required path parameter: project to get profile from (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/get_profile/{uuid}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: UUID of the profile to get
 func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uuid := params.UUID
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("GetProfile: uuid:%s", uuid))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetProfile(exit): uuid:%s apiName:%s project:%s username:%s uid:%v err:%v",
+				"GetProfile(exit): uuid:%s apiName:%s projects:%+v username:%s uid:%v err:%v",
 				uuid,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -1840,7 +1923,7 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 	}
 	// Do the actual API call
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1855,22 +1938,22 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 }
 
 // GetProfileEnrollments: API params:
-// /v1/affiliation/{projectSlug}/enrollments/{uuid}
-// {projectSlug} - required path parameter: project to get profile from (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/enrollments/{uuid}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: UUID of the profile to get enrollments
 func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation.GetProfileEnrollmentsParams) (output *models.GetProfileEnrollmentsDataOutput, err error) {
 	uuid := params.UUID
 	output = &models.GetProfileEnrollmentsDataOutput{}
 	log.Info(fmt.Sprintf("GetProfileEnrollments: uuid:%s", uuid))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetProfileEnrollments(exit): uuid:%s apiName:%s project:%s username:%s output:%v err:%v",
+				"GetProfileEnrollments(exit): uuid:%s apiName:%s projects:%+v username:%s output:%v err:%v",
 				uuid,
 				apiName,
-				project,
+				projects,
 				username,
 				output,
 				err,
@@ -1882,7 +1965,7 @@ func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation
 	}
 	// Do the actual API call
 	var enrollments []*models.EnrollmentNestedDataOutput
-	enrollments, err = s.shDB.FindEnrollmentsNested([]string{"e.uuid"}, []interface{}{uuid}, []bool{false}, false, project, nil)
+	enrollments, err = s.shDB.FindEnrollmentsNested([]string{"e.uuid"}, []interface{}{uuid}, []bool{false}, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -1896,17 +1979,17 @@ func (s *service) GetProfileEnrollments(ctx context.Context, params *affiliation
 	}
 	output.UUID = uuid
 	output.User = username
-	output.Scope = s.DA2SF(project)
+	output.Scope = s.AryDA2SF(projects)
 	output.Enrollments = enrollments
 	s.ProfileEnrollmentsDA2SF(output)
 	return
 }
 
 // PutOrgDomain: API params:
-// /v1/affiliation/{projectSlug}/add_domain/{orgName}/{domain}[?overwrite=true][&is_top_domain=true][&skip_enrollments=true]
+// /v1/affiliation/{projectSlugs}/add_domain/{orgName}/{domain}[?overwrite=true][&is_top_domain=true][&skip_enrollments=true]
 // {orgName} - required path parameter:      organization to add domain to, must be URL encoded, for example 'The%20Microsoft%20company'
 // {domain} - required path parameter:       domain to be added, for example 'microsoft.com'
-// {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // overwrite - optional query parameter:     if overwrite=true is set, all profiles found are force-updated/affiliated to the given organization
 //                                           if overwite is not set, API will not change any profiles which already have any affiliation(s)
 // is_top_domain - optional query parameter: if you specify is_top_domain=true it will set 'is_top_domain' DB column to true, else it will set false
@@ -1928,18 +2011,18 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	}
 	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v apiName:%s project:%s username:%s putOrgDomain:%+v err:%v",
+				"PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v apiName:%s projects:%+v username:%s putOrgDomain:%+v err:%v",
 				org,
 				dom,
 				overwrite,
 				isTopDomain,
 				skipEnrollments,
 				apiName,
-				project,
+				projects,
 				username,
 				putOrgDomain,
 				err,
@@ -1951,18 +2034,19 @@ func (s *service) PutOrgDomain(ctx context.Context, params *affiliation.PutOrgDo
 	}
 	defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments, project)
+	putOrgDomain, err = s.shDB.PutOrgDomain(org, dom, overwrite, isTopDomain, skipEnrollments)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 	putOrgDomain.User = username
-	putOrgDomain.Scope = s.DA2SF(project)
+	putOrgDomain.Scope = s.AryDA2SF(projects)
 	return
 }
 
 // DeleteOrgDomain: API params:
-// /v1/affiliation/{projectSlug}/remove_domain/{orgName}/{domain}
+// /v1/affiliation/{projectSlugs}/remove_domain/{orgName}/{domain}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {orgName} - required path parameter:      organization to remove domain from, must be URL encoded, for example 'The%20Microsoft%20company'
 // {domain} - required path parameter:       domain to be deleted, for example 'microsoft.com'
 func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.DeleteOrgDomainParams) (status *models.TextStatusOutput, err error) {
@@ -1970,15 +2054,15 @@ func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.Delet
 	dom := params.Domain
 	log.Info(fmt.Sprintf("DeleteOrgDomain: org:%s dom:%s", org, dom))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"DeleteOrgDomain(exit): org:%s dom:%s apiName:%s project:%s username:%s status:%+v err:%v",
+				"DeleteOrgDomain(exit): org:%s dom:%s apiName:%s projects:%+v username:%s status:%+v err:%v",
 				org,
 				dom,
 				apiName,
-				project,
+				projects,
 				username,
 				status,
 				err,
@@ -1999,8 +2083,8 @@ func (s *service) DeleteOrgDomain(ctx context.Context, params *affiliation.Delet
 }
 
 // GetListOrganizationsDomains: API params:
-// /v1/affiliation/{projectSlug}/list_domains[?orgID=23456][&q=xyz][&rows=100][&page=2]
-// {projectSlug} - required path parameter: project to get organizations (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/list_domains[?orgID=23456][&q=xyz][&rows=100][&page=2]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // orgID - optional query parameter: organization ID to get domains, default is 0 it return data for all organizations then
 // q - optional query parameter: if you specify that parameter only domains like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10  (setting to zero still limits results to 65535)
@@ -2031,7 +2115,7 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 	getListOrganizationsDomains = &models.GetListOrganizationsDomainsOutput{}
 	log.Info(fmt.Sprintf("GetListOrganizationsDomains: orgID:%d q:%s rows:%d page:%d", orgID, q, rows, page))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		list := ""
 		nDoms := len(getListOrganizationsDomains.Domains)
@@ -2042,13 +2126,13 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListOrganizationsDomains(exit): orgID:%d q:%s rows:%d page:%d apiName:%s project:%s username:%s getListOrganizationsDomains:%s err:%v",
+				"GetListOrganizationsDomains(exit): orgID:%d q:%s rows:%d page:%d apiName:%s projects:%+v username:%s getListOrganizationsDomains:%s err:%v",
 				orgID,
 				q,
 				rows,
 				page,
 				apiName,
-				project,
+				projects,
 				username,
 				list,
 				err,
@@ -2065,7 +2149,7 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 		return
 	}
 	getListOrganizationsDomains.User = username
-	getListOrganizationsDomains.Scope = s.DA2SF(project)
+	getListOrganizationsDomains.Scope = s.AryDA2SF(projects)
 	return
 }
 
@@ -2085,8 +2169,8 @@ func (s *service) GetListOrganizationsDomains(ctx context.Context, params *affil
 // ===========================================================================
 // NOTE: UUIDs used here refer to `profiles` and `profiles_archive` tables
 // ===========================================================================
-// /v1/affiliation/{projectSlug}/merge_unique_identities/{fromUUID}/{toUUID}[?archive=false]:
-// {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/merge_unique_identities/{fromUUID}/{toUUID}[?archive=false]:
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {fromUUID} - required path parameter: uidentity/profile uuid to merge from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to merge into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
 // archive - optional query parameter: if archive=false it will not archive data to allow unmerge without data loss
@@ -2099,15 +2183,15 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 	}
 	log.Info(fmt.Sprintf("PutMergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutMergeUniqueIdentities(exit): fromUUID:%s toUUID:%s apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PutMergeUniqueIdentities(exit): fromUUID:%s toUUID:%s apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				fromUUID,
 				toUUID,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -2127,7 +2211,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -2159,8 +2243,8 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 // ==================================================================================
 // NOTE: fromID refers to `identities`.`id` while toUUID refers to `profiles`.`uuid`
 // ==================================================================================
-// /v1/affiliation/{projectSlug}/move_identity/{fromID}/{toUUID}[?archive=false]:
-// {projectSlug} - required path parameter:  project to modify affiliations (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/move_identity/{fromID}/{toUUID}[?archive=false]:
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {fromID} - required path parameter: identity id to move from, example "00029bc65f7fc5ba3dde20057770d3320ca51486"
 // {toUUID} - required path parameter: uidentity/profile uuid to move into, example "00058697877808f6b4a8524ac6dcf39b544a0c87"
 // archive - optional query parameter: if archive=false it will not attempt to restore data from archive
@@ -2173,15 +2257,15 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 	}
 	log.Info(fmt.Sprintf("PutMoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"PutMoveIdentity(exit): fromID:%s toUUID:%s apiName:%s project:%s username:%s uid:%+v err:%v",
+				"PutMoveIdentity(exit): fromID:%s toUUID:%s apiName:%s projects:%+v username:%s uid:%+v err:%v",
 				fromID,
 				toUUID,
 				apiName,
-				project,
+				projects,
 				username,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
@@ -2199,7 +2283,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, project, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, projects, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
@@ -2214,8 +2298,8 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 }
 
 // GetUnaffiliated: API params:
-// /v1/affiliation/{projectSlug}/unaffiliated[?page=2][&[rows=50]
-// {projectSlug} - required path parameter: project to get top unaffiliated users (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/unaffiliated[?page=2][&[rows=50]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10  (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
 func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUnaffiliatedParams) (getUnaffiliated *models.GetUnaffiliatedOutput, err error) {
@@ -2236,15 +2320,15 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	getUnaffiliated = &models.GetUnaffiliatedOutput{}
 	log.Info(fmt.Sprintf("GetUnaffiliated: rows:%d page:%d", rows, page))
 	// Check token and permission
-	apiName, project, username, err := s.checkTokenAndPermission(params)
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetUnaffiliated(exit): rows:%d page:%d apiName:%s project:%s username:%s getUnaffiliated:%d err:%v",
+				"GetUnaffiliated(exit): rows:%d page:%d apiName:%s projects:%+v username:%s getUnaffiliated:%d err:%v",
 				rows,
 				page,
 				apiName,
-				project,
+				projects,
 				username,
 				len(getUnaffiliated.Unaffiliated),
 				err,
@@ -2259,12 +2343,12 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	more := (last + 5) * 3
 	prevN := int64(-1)
 	for {
-		getUnaffiliated, err = s.es.GetUnaffiliated(project, more)
+		getUnaffiliated, err = s.es.GetUnaffiliated(projects, more)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
 		}
-		getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, project, nil)
+		getUnaffiliated.Unaffiliated, err = s.shDB.CheckUnaffiliated(getUnaffiliated.Unaffiliated, projects, nil)
 		if err != nil {
 			getUnaffiliated.Unaffiliated = []*models.UnaffiliatedDataOutput{}
 			err = errs.Wrap(err, apiName)
@@ -2298,7 +2382,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	getUnaffiliated.Page = page
 	getUnaffiliated.Rows = rows
 	getUnaffiliated.User = username
-	getUnaffiliated.Scope = s.DA2SF(project)
+	getUnaffiliated.Scope = s.AryDA2SF(projects)
 	return
 }
 
@@ -2353,8 +2437,8 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 }
 
 // GetTopContributors: API params:
-// /v1/affiliation/{projectSlug}/top_contributors?from=1552790984700&to=1552790984700][&limit=50][&offset=2][&search=john][&sort_field=gerrit_merged_changesets][&sort_order=desc]
-// {projectSlug} - required path parameter: project to get top contributors stats (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/top_contributors?from=1552790984700&to=1552790984700][&limit=50][&offset=2][&search=john][&sort_field=gerrit_merged_changesets][&sort_order=desc]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // from - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data from, default 90 days ago
 // to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
 // limit - optional query parameter: page size, default 10
@@ -2382,11 +2466,11 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
 	// Check token and permission
 	public := false
-	apiName, project, username, e := s.checkTokenAndPermission(params)
+	apiName, projects, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d public:%v err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
@@ -2395,7 +2479,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 				sortField,
 				sortOrder,
 				apiName,
-				project,
+				projects,
 				username,
 				len(topContributors.Contributors),
 				public,
@@ -2404,22 +2488,26 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		)
 	}()
 	if e != nil {
+		if len(projects) < 1 {
+			err = errs.Wrap(e, apiName)
+			return
+		}
 		public = true
 	}
 	var dataSourceTypes []string
-	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(project)
+	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 
-	topContributors, err = s.es.GetTopContributors(project, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
+	topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(topContributors.Contributors) > 0 {
-		err = s.shDB.EnrichContributors(topContributors.Contributors, project, to, nil)
+		err = s.shDB.EnrichContributors(topContributors.Contributors, projects, to, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
@@ -2438,14 +2526,14 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.SortField = sortField
 	topContributors.SortOrder = sortOrder
 	topContributors.User = username
-	topContributors.Scope = s.DA2SF(project)
+	topContributors.Scope = s.AryDA2SF(projects)
 	topContributors.Public = public
 	return
 }
 
 // GetTopContributorsCSV: API params:
-// /v1/affiliation/{projectSlug}/top_contributors_csv?from=1552790984700&to=1552790984700][&limit=50][&offset=2][&search=john][&sort_field=gerrit_merged_changesets][&sort_order=desc]
-// {projectSlug} - required path parameter: project to get top contributors stats (project slug URL encoded, can be prefixed with "/projects/")
+// /v1/affiliation/{projectSlugs}/top_contributors_csv?from=1552790984700&to=1552790984700][&limit=50][&offset=2][&search=john][&sort_field=gerrit_merged_changesets][&sort_order=desc]
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // from - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data from, default 90 days ago
 // to - optional query parameter - milliseconds since 1970, for example 1552790984700, filter data to, default now
 // limit - optional query parameter: page size, default 10
@@ -2473,11 +2561,11 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
 	// Check token and permission
 	public := false
-	apiName, project, username, e := s.checkTokenAndPermission(params)
+	apiName, projects, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s project:%s username:%s topContributors:%d public:%v err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
@@ -2486,7 +2574,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 				sortField,
 				sortOrder,
 				apiName,
-				project,
+				projects,
 				username,
 				len(topContributors.Contributors),
 				public,
@@ -2495,21 +2583,25 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		)
 	}()
 	if e != nil {
+		if len(projects) < 1 {
+			err = errs.Wrap(e, apiName)
+			return
+		}
 		public = true
 	}
 	var dataSourceTypes []string
-	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(project)
+	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	topContributors, err = s.es.GetTopContributors(project, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
+	topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 	if len(topContributors.Contributors) > 0 {
-		err = s.shDB.EnrichContributors(topContributors.Contributors, project, to, nil)
+		err = s.shDB.EnrichContributors(topContributors.Contributors, projects, to, nil)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
@@ -2989,10 +3081,12 @@ func (s *service) PostAddSlugMapping(ctx context.Context, params *affiliation.Po
 // sf_name - SF name
 // sf_id - SF ID
 func (s *service) DeleteSlugMapping(ctx context.Context, params *affiliation.DeleteSlugMappingParams) (status *models.TextStatusOutput, err error) {
-	apiName := "DeleteSlugMapping"
-	log.Info(apiName)
+	status = &models.TextStatusOutput{}
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	log.Info("DeleteSlugMapping")
 	defer func() {
-		log.Info(fmt.Sprintf("DeleteSlugMapping(exit): apiName:%s status:%s err:%v", apiName, status, err))
+		log.Info(fmt.Sprintf("DeleteSlugMapping(exit): apiName:%s username:%s status:%+v err:%v", apiName, username, status, err))
 	}()
 	if err != nil {
 		return

@@ -33,15 +33,17 @@ import (
 type Service interface {
 	shared.ServiceInterface
 	// External methods
-	GetUnaffiliated(string, int64) (*models.GetUnaffiliatedOutput, error)
+	GetUnaffiliated([]string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
-	GetTopContributors(string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
+	GetTopContributors([]string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
 	GetUUIDsProjects([]string) (map[string][]string, string, error)
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
+	projectSlugsToIndexPattern([]string) string
+	projectSlugsToIndexPatterns([]string, []string) []string
 	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
 	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
@@ -589,6 +591,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 	return
 }
 
+// projectSlugToIndexPattern - single project to its index pattern (all data sources)
 func (s *service) projectSlugToIndexPattern(projectSlug string) (pattern string) {
 	log.Info(fmt.Sprintf("projectSlugToIndexPattern: projectSlug:%s", projectSlug))
 	defer func() {
@@ -603,6 +606,29 @@ func (s *service) projectSlugToIndexPattern(projectSlug string) (pattern string)
 	return
 }
 
+// projectSlugsToIndexPattern - multiple projects to their index pattern (all data sources)
+func (s *service) projectSlugsToIndexPattern(projectSlugs []string) (pattern string) {
+	log.Info(fmt.Sprintf("projectSlugsToIndexPattern: projectSlugs:%+v", projectSlugs))
+	defer func() {
+		log.Info(fmt.Sprintf("projectSlugsToIndexPattern(exit): projectSlugs:%+v pattern:%s", projectSlugs, pattern))
+	}()
+	for _, projectSlug := range projectSlugs {
+		pat := strings.TrimSpace(projectSlug)
+		if strings.HasPrefix(pattern, "/projects/") {
+			pat = pat[10:]
+		}
+		pat = "sds-" + strings.Replace(pat, "/", "-", -1) + "-*"
+		if pattern == "" {
+			pattern = pat
+		} else {
+			pattern += "," + pat
+		}
+	}
+	pattern = pattern + ",-*-raw,-*-for-merge"
+	return
+}
+
+// projectSlugToIndexPatterns - single project to its multiple data source index patterns
 func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes []string) (patterns []string) {
 	log.Info(fmt.Sprintf("projectSlugToIndexPatterns: projectSlug:%s dataSourceTypes:%+v", projectSlug, dataSourceTypes))
 	defer func() {
@@ -620,8 +646,39 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	return
 }
 
-func (s *service) GetUnaffiliated(projectSlug string, topN int64) (getUnaffiliated *models.GetUnaffiliatedOutput, err error) {
-	log.Info(fmt.Sprintf("GetUnaffiliated: projectSlug:%s topN:%d", projectSlug, topN))
+// projectSlugsToIndexPatterns - multiple projects to their multiple data source index patterns
+func (s *service) projectSlugsToIndexPatterns(projectSlugs []string, dataSourceTypes []string) (patterns []string) {
+	log.Info(fmt.Sprintf("projectSlugsToIndexPatterns: projectSlugs:%+v dataSourceTypes:%+v", projectSlugs, dataSourceTypes))
+	defer func() {
+		log.Info(fmt.Sprintf("projectSlugsToIndexPatterns(exit): projectSlugs:%+v dataSourceTypes:%+v patterns:%+v", projectSlugs, dataSourceTypes, patterns))
+	}()
+	patternRoot := []string{}
+	for _, projectSlug := range projectSlugs {
+		pat := strings.TrimSpace(projectSlug)
+		if strings.HasPrefix(pat, "/projects/") {
+			pat = pat[10:]
+		}
+		pat = "sds-" + strings.Replace(pat, "/", "-", -1) + "-"
+		patternRoot = append(patternRoot, pat)
+	}
+	for _, dataSourceType := range dataSourceTypes {
+		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
+		pattern := ""
+		for _, root := range patternRoot {
+			pat := root + dataSourceType + "*"
+			if pattern == "" {
+				pattern = pat
+			} else {
+				pattern += "," + pat
+			}
+		}
+		patterns = append(patterns, pattern+",-*-raw,-*-for-merge")
+	}
+	return
+}
+
+func (s *service) GetUnaffiliated(projectSlugs []string, topN int64) (getUnaffiliated *models.GetUnaffiliatedOutput, err error) {
+	log.Info(fmt.Sprintf("GetUnaffiliated: projectSlugs:%+v topN:%d", projectSlugs, topN))
 	pattern := ""
 	getUnaffiliated = &models.GetUnaffiliatedOutput{}
 	defer func() {
@@ -634,8 +691,8 @@ func (s *service) GetUnaffiliated(projectSlug string, topN int64) (getUnaffiliat
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetUnaffiliated(exit): projectSlug:%s topN:%d pattern:%s getUnaffiliated:%+v err:%v",
-				projectSlug,
+				"GetUnaffiliated(exit): projectSlugs:%+v topN:%d pattern:%s getUnaffiliated:%+v err:%v",
+				projectSlugs,
 				topN,
 				pattern,
 				unaff,
@@ -643,7 +700,7 @@ func (s *service) GetUnaffiliated(projectSlug string, topN int64) (getUnaffiliat
 			),
 		)
 	}()
-	pattern = s.projectSlugToIndexPattern(projectSlug)
+	pattern = s.projectSlugsToIndexPattern(projectSlugs)
 	getUnaffiliated.Unaffiliated, err = s.AggsUnaffiliated(pattern, topN)
 	return
 }
@@ -1415,7 +1472,7 @@ func (s *service) contributorStatsMainQuery(
 	return
 }
 
-func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
+func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
 	// Set this to true, to apply search filters to merge queries too
 	// This can discard some users, even if they're specified in uuids array
 	// Because search condition can be slightly different per data source type (esepecially in all=value)
@@ -1424,11 +1481,11 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 	// If we set this to false, only UUIDs from the main query will be used as a condition
 	useSearchInMergeQueries := os.Getenv("USE_SEARCH_IN_MERGE") != ""
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
-	patterns := s.projectSlugToIndexPatterns(projectSlug, dataSourceTypes)
+	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
 	log.Debug(
 		fmt.Sprintf(
-			"GetTopContributors: projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
-			projectSlug,
+			"GetTopContributors: projectSlugs:%+v dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
+			projectSlugs,
 			dataSourceTypes,
 			patterns,
 			from,
@@ -1452,8 +1509,8 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 		}
 		log.Debug(
 			fmt.Sprintf(
-				"GetTopContributors(exit): projectSlug:%s dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v top:%+v err:%v",
-				projectSlug,
+				"GetTopContributors(exit): projectSlugs:%+v dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v top:%+v err:%v",
+				projectSlugs,
 				dataSourceTypes,
 				patterns,
 				from,
@@ -1514,7 +1571,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
 			return
 		}
-		mainPattern = s.projectSlugToIndexPattern(projectSlug)
+		mainPattern = s.projectSlugsToIndexPattern(projectSlugs)
 	}
 	top.DataSourceTypes = []*models.DataSourceTypeFields{}
 
@@ -1605,7 +1662,7 @@ func (s *service) GetTopContributors(projectSlug string, dataSourceTypes []strin
 	)
 	res, drop, err = s.dataSourceQuery(query)
 	if drop == true {
-		err = fmt.Errorf("cannot find main index, no data available for the entire project")
+		err = fmt.Errorf("cannot find main index, no data available for all projects '%+v'", projectSlugs)
 	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")

@@ -98,6 +98,13 @@ type ServiceInterface interface {
 	// Mapping
 	DA2SF(string) string
 	SF2DA(string) string
+	AryDA2SF([]string) string
+	UUDA2SF(*models.UniqueIdentityNestedDataOutput)
+	ListProfilesDA2SF(*models.GetListProfilesOutput)
+	ProfileEnrollmentsDA2SF(*models.GetProfileEnrollmentsDataOutput)
+	ListProjectsDA2SF(*models.ListProjectsOutput)
+	AllDA2SF(*models.AllArrayOutput)
+	AllSF2DA([]*models.AllOutput)
 }
 
 // ServiceStruct - Shared API Struct
@@ -882,6 +889,15 @@ func (s *ServiceStruct) SF2DA(sf string) (da string) {
 		da = sf
 	}
 	return
+}
+
+// AryDA2SF - map DA names array to SF names string "," separated (fallback to no change)
+func (s *ServiceStruct) AryDA2SF(da []string) (sf string) {
+	ary := []string{}
+	for _, d := range da {
+		ary = append(ary, s.DA2SF(d))
+	}
+	return strings.Join(ary, ",")
 }
 
 // UUDA2SF - map DA name to SF name

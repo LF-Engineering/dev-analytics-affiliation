@@ -69,7 +69,7 @@ type Service interface {
 	ArchiveUniqueIdentity(string, *time.Time, *sql.Tx) error
 	UnarchiveUniqueIdentity(string, bool, *time.Time, *sql.Tx) error
 	DeleteUniqueIdentityArchive(string, bool, bool, *time.Time, *sql.Tx) error
-	QueryUniqueIdentitiesNested(string, int64, int64, bool, string, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
+	QueryUniqueIdentitiesNested(string, int64, int64, bool, []string, *sql.Tx) ([]*models.UniqueIdentityNestedDataOutput, int64, error)
 	// Enrollment
 	GetEnrollment(int64, bool, *sql.Tx) (*models.EnrollmentDataOutput, error)
 	FindEnrollments([]string, []interface{}, []bool, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -112,14 +112,14 @@ type Service interface {
 	GetUniqueIdentityEnrollments(string, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetUniqueIdentityIdentities(string, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
 	MoveEnrollmentToUniqueIdentity(*models.EnrollmentDataOutput, *models.UniqueIdentityDataOutput, *sql.Tx) error
-	MergeEnrollments(*models.UniqueIdentityDataOutput, *models.OrganizationDataOutput, *string, bool, *sql.Tx) error
+	MergeEnrollments(*models.UniqueIdentityDataOutput, *models.OrganizationDataOutput, *string, bool, bool, *sql.Tx) error
 	MergeDateRanges([][]strfmt.DateTime) ([][]strfmt.DateTime, error)
 	FindUniqueIdentityOrganizations(string, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
 	UnarchiveUUID(string, time.Time, *sql.Tx) error
 	Unarchive(string, string) (bool, error)
-	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, string, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
-	EnrichContributors([]*models.ContributorFlatStats, string, int64, *sql.Tx) error
+	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, []string, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
+	EnrichContributors([]*models.ContributorFlatStats, []string, int64, *sql.Tx) error
 	GetDetAffRangeSubjects() ([]*models.EnrollmentProjectRange, error)
 	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
 	UpdateProjectSlugs(map[string][]string) (string, error)
@@ -135,15 +135,15 @@ type Service interface {
 	DeleteOrganization(int64) (*models.TextStatusOutput, error)
 	DeleteOrgDomain(string, string) (*models.TextStatusOutput, error)
 	DeleteProfileNested(string, bool) (*models.TextStatusOutput, error)
-	UnarchiveProfileNested(string) (*models.UniqueIdentityNestedDataOutput, error)
+	UnarchiveProfileNested(string, []string) (*models.UniqueIdentityNestedDataOutput, error)
 	GetListOrganizations(string, int64, int64) (*models.GetListOrganizationsOutput, error)
 	GetListOrganizationsDomains(int64, string, int64, int64) (*models.GetListOrganizationsDomainsOutput, error)
-	GetListProfiles(string, int64, int64, string) (*models.GetListProfilesOutput, error)
+	GetListProfiles(string, int64, int64, []string) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
-	FindEnrollmentsNested([]string, []interface{}, []bool, bool, string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
+	FindEnrollmentsNested([]string, []interface{}, []bool, bool, []string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
-	PutOrgDomain(string, string, bool, bool, bool, string) (*models.PutOrgDomainOutput, error)
+	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
 	MergeUniqueIdentities(string, string, bool) (string, bool, error)
 	MoveIdentity(string, string, bool) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
@@ -308,14 +308,14 @@ func (s *service) MergeDateRanges(dates [][]strfmt.DateTime) (mergedDates [][]st
 	return
 }
 
-func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutput, organization *models.OrganizationDataOutput, projectSlug *string, allProjectSlugs bool, tx *sql.Tx) (err error) {
+func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutput, organization *models.OrganizationDataOutput, projectSlug *string, allProjectSlugs, noMergeFatal bool, tx *sql.Tx) (err error) {
 	pSlug := ""
 	if projectSlug != nil {
 		pSlug = *projectSlug
 	}
-	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v tx:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, tx != nil))
+	log.Info(fmt.Sprintf("MergeEnrollments: uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v noMergeFatal:%v tx:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, noMergeFatal, tx != nil))
 	defer func() {
-		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, tx != nil, err))
+		log.Info(fmt.Sprintf("MergeEnrollments(exit): uniqueIdentity:%+v organization:%+v projectSlug:%v allProjectSlugs:%v noMergeFatal:%v tx:%v err:%v", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pSlug, allProjectSlugs, noMergeFatal, tx != nil, err))
 	}()
 	projectSlugs := make(map[*string]struct{})
 	projectSlugsInf := make(map[string]struct{})
@@ -397,7 +397,7 @@ func (s *service) MergeEnrollments(uniqueIdentity *models.UniqueIdentityDataOutp
 			}
 			merged++
 		}
-		if merged == 0 {
+		if merged == 0 && noMergeFatal {
 			err = fmt.Errorf("merge enrollments unique identity '%+v' organization '%+v' projectSlug %v allProjectSlugs %v found no enrollments", s.ToLocalUniqueIdentity(uniqueIdentity), organization, pS, allProjectSlugs)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MergeEnrollments")
 			return
@@ -542,7 +542,7 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 	return
 }
 
-func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats, projectSlug string, millisSinceEpoch int64, tx *sql.Tx) (err error) {
+func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats, projectSlugs []string, millisSinceEpoch int64, tx *sql.Tx) (err error) {
 	inf := ""
 	n := len(contributors)
 	if n > shared.LogListMax {
@@ -552,13 +552,13 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	}
 	found := 0
 	orgFound := 0
-	log.Debug(fmt.Sprintf("EnrichContributors: contributors:%s projectSlug:%s millisSinceEpoch:%d tx:%v", inf, projectSlug, millisSinceEpoch, tx != nil))
+	log.Debug(fmt.Sprintf("EnrichContributors: contributors:%s projectSlugs:%+v millisSinceEpoch:%d tx:%v", inf, projectSlugs, millisSinceEpoch, tx != nil))
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"EnrichContributors(exit): contributors:%s projectSlug:%s millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
+				"EnrichContributors(exit): contributors:%s projectSlugs:%+v millisSinceEpoch:%d tx:%v found:%d/%d/%d err:%v",
 				inf,
-				projectSlug,
+				projectSlugs,
 				millisSinceEpoch,
 				tx != nil,
 				orgFound,
@@ -586,8 +586,12 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		uuids = append(uuids, uuid)
 		sel += "?,"
 	}
-	uuids = append(uuids, projectSlug)
-	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = ?) order by e.project_slug is null"
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug in ("
+	for _, projectSlug := range projectSlugs {
+		sel += "?,"
+		uuids = append(uuids, projectSlug)
+	}
+	sel = sel[0:len(sel)-1] + ")) order by e.project_slug is null"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
@@ -645,8 +649,12 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			uuids = append(uuids, uuid)
 			sel += "?,"
 		}
-		uuids = append(uuids, projectSlug)
-		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = ?) order by e.project_slug is null, p.uuid asc, p.archived_at desc"
+		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug in ("
+		for _, projectSlug := range projectSlugs {
+			sel += "?,"
+			uuids = append(uuids, projectSlug)
+		}
+		sel = sel[0:len(sel)-1] + ")) order by e.project_slug is null, p.uuid asc, p.archived_at desc"
 		var rows *sql.Rows
 		rows, err = s.Query(s.db, tx, sel, uuids...)
 		if err != nil {
@@ -691,7 +699,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	return
 }
 
-func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOutput, projectSlug string, tx *sql.Tx) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
+func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOutput, projectSlugs []string, tx *sql.Tx) (unaffiliated []*models.UnaffiliatedDataOutput, err error) {
 	inunaff := ""
 	nUnaffiliated := len(inUnaffiliated)
 	if nUnaffiliated > shared.LogListMax {
@@ -699,7 +707,7 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 	} else {
 		inunaff = fmt.Sprintf("%+v", s.ToLocalUnaffiliated(inUnaffiliated))
 	}
-	log.Info(fmt.Sprintf("CheckUnaffiliated: inUnaffiliated:%s projectSlug:%s tx:%v", inunaff, projectSlug, tx != nil))
+	log.Info(fmt.Sprintf("CheckUnaffiliated: inUnaffiliated:%s projectSlugs:%+v tx:%v", inunaff, projectSlugs, tx != nil))
 	defer func() {
 		unaff := ""
 		nUnaffiliated := len(unaffiliated)
@@ -710,9 +718,9 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 		}
 		log.Info(
 			fmt.Sprintf(
-				"CheckUnaffiliated(exit): inUnaffiliated:%+v projectSlug:%s tx:%v unaffiliated:%+v err:%v",
+				"CheckUnaffiliated(exit): inUnaffiliated:%+v projectSlugs:%+v tx:%v unaffiliated:%+v err:%v",
 				inunaff,
-				projectSlug,
+				projectSlugs,
 				tx != nil,
 				unaff,
 				err,
@@ -733,8 +741,12 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 		sel += "?,"
 		contribs[uuid] = unaff.Contributions
 	}
-	uuids = append(uuids, projectSlug)
-	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug = ?) order by e.project_slug is null"
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug in ("
+	for _, projectSlug := range projectSlugs {
+		sel += "?,"
+		uuids = append(uuids, projectSlug)
+	}
+	sel = sel[0:len(sel)-1] + ")) order by e.project_slug is null"
 	var rows *sql.Rows
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
@@ -1022,18 +1034,18 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 	return
 }
 
-func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, projectSlug string, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
-	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlug:%s tx:%v", columns, values, isDate, missingFatal, projectSlug, tx != nil))
+func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, projectSlugs []string, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
+	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlugs:%=v tx:%v", columns, values, isDate, missingFatal, projectSlugs, tx != nil))
 	s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"FindEnrollmentsNested(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlug:%s tx:%v enrollments:%+v err:%v",
+				"FindEnrollmentsNested(exit): columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlugs:%+v tx:%v enrollments:%+v err:%v",
 				columns,
 				values,
 				isDate,
 				missingFatal,
-				projectSlug,
+				projectSlugs,
 				tx != nil,
 				s.ToLocalNestedEnrollments(enrollments),
 				err,
@@ -1074,9 +1086,13 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 			sel += " and"
 		}
 	}
-	if projectSlug != "" {
-		sel += " and (e.project_slug is null or e.project_slug = ?)"
-		vals = append(vals, projectSlug)
+	if len(projectSlugs) > 0 {
+		sel += " and (e.project_slug is null or e.project_slug in ("
+		for _, projectSlug := range projectSlugs {
+			sel += "?,"
+			vals = append(vals, projectSlug)
+		}
+		sel = sel[0:len(sel)-1] + "))"
 	}
 	sel += " order by e.uuid asc, e.start asc, e.end asc"
 	rows, err := s.Query(s.db, tx, sel, vals...)
@@ -4597,7 +4613,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					return
 				}
 				for _, org := range orgs {
-					e = s.MergeEnrollments(toUU, org, nil, true, tx)
+					e = s.MergeEnrollments(toUU, org, nil, true, true, tx)
 					if e != nil {
 						err = e
 						return
@@ -4839,7 +4855,7 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 		return
 	}
 	for _, org := range orgs {
-		err = s.MergeEnrollments(toUU, org, nil, true, tx)
+		err = s.MergeEnrollments(toUU, org, nil, true, true, tx)
 		if err != nil {
 			return
 		}
@@ -5279,8 +5295,8 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	return
 }
 
-func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identityRequired bool, projectSlug string, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
-	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d identityRequired:%v projectSlug:%s tx:%v", q, rows, page, identityRequired, projectSlug, tx != nil))
+func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identityRequired bool, projectSlugs []string, tx *sql.Tx) (uids []*models.UniqueIdentityNestedDataOutput, nRows int64, err error) {
+	log.Info(fmt.Sprintf("QueryUniqueIdentitiesNested: q:%s rows:%d page:%d identityRequired:%v projectSlugs:%+v tx:%v", q, rows, page, identityRequired, projectSlugs, tx != nil))
 	defer func() {
 		list := ""
 		nProfs := len(uids)
@@ -5291,12 +5307,12 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		}
 		log.Info(
 			fmt.Sprintf(
-				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d identityRequired:%v projectSlug:%s tx:%v uids:%s n_rows:%d err:%v",
+				"QueryUniqueIdentitiesNested(exit): q:%s rows:%d page:%d identityRequired:%v projectSlugs:%+v tx:%v uids:%s n_rows:%d err:%v",
 				q,
 				rows,
 				page,
 				identityRequired,
-				projectSlug,
+				projectSlugs,
 				tx != nil,
 				list,
 				nRows,
@@ -5396,6 +5412,10 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	uidsMap := make(map[string]*models.UniqueIdentityNestedDataOutput)
 	idsMap := make(map[string]*models.IdentityDataOutput)
 	rolsMap := make(map[int64]*models.EnrollmentNestedDataOutput)
+	slugMap := make(map[string]struct{})
+	for _, projectSlug := range projectSlugs {
+		slugMap[projectSlug] = struct{}{}
+	}
 	for qrows.Next() {
 		uid := &models.UniqueIdentityNestedDataOutput{}
 		prof := &models.ProfileDataOutput{}
@@ -5414,7 +5434,11 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		prof.UUID = uuid
 		addRol := false
 		if rolID != nil && rolOrganization != nil {
-			if rolProjectSlug == nil || *rolProjectSlug == projectSlug {
+			hit := false
+			if rolProjectSlug != nil {
+				_, hit = slugMap[*rolProjectSlug]
+			}
+			if rolProjectSlug == nil || hit {
 				addRol = true
 				rol = &models.EnrollmentNestedDataOutput{
 					ID:             *rolID,
@@ -5806,15 +5830,16 @@ func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStat
 	return
 }
 
-func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentityNestedDataOutput, err error) {
+func (s *service) UnarchiveProfileNested(uuid string, projects []string) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uid = &models.UniqueIdentityNestedDataOutput{}
-	log.Info(fmt.Sprintf("UnarchiveProfileNested: uuid:%s", uuid))
+	log.Info(fmt.Sprintf("UnarchiveProfileNested: uuid:%s projects:%+v", uuid, projects))
 	s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"UnarchiveProfileNested(exit): uuid:%s uid:%+v err:%v",
+				"UnarchiveProfileNested(exit): uuid:%s projects:%+v uid:%+v err:%v",
 				uuid,
+				projects,
 				s.ToLocalNestedUniqueIdentity(uid),
 				err,
 			),
@@ -5863,7 +5888,7 @@ func (s *service) UnarchiveProfileNested(uuid string) (uid *models.UniqueIdentit
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, "", tx)
+	ary, _, err = s.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, projects, tx)
 	if err != nil {
 		return
 	}
@@ -6045,8 +6070,8 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 	return
 }
 
-func (s *service) GetListProfiles(q string, rows, page int64, projectSlug string) (getListProfiles *models.GetListProfilesOutput, err error) {
-	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d projectSlug:%s", q, rows, page, projectSlug))
+func (s *service) GetListProfiles(q string, rows, page int64, projectSlugs []string) (getListProfiles *models.GetListProfilesOutput, err error) {
+	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d projectSlugs:%+v", q, rows, page, projectSlugs))
 	s.SetOrigin()
 	getListProfiles = &models.GetListProfilesOutput{}
 	defer func() {
@@ -6059,11 +6084,11 @@ func (s *service) GetListProfiles(q string, rows, page int64, projectSlug string
 		}
 		log.Info(
 			fmt.Sprintf(
-				"GetListProfiles(exit): q:%s rows:%d page:%d projectSlug:%s getListProfiles:%s err:%v",
+				"GetListProfiles(exit): q:%s rows:%d page:%d projectSlugs:%+v getListProfiles:%s err:%v",
 				q,
 				rows,
 				page,
-				projectSlug,
+				projectSlugs,
 				list,
 				err,
 			),
@@ -6071,7 +6096,7 @@ func (s *service) GetListProfiles(q string, rows, page int64, projectSlug string
 	}()
 	nRows := int64(0)
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, true, projectSlug, nil)
+	ary, nRows, err = s.QueryUniqueIdentitiesNested(q, rows, page, true, projectSlugs, nil)
 	if err != nil {
 		return
 	}
@@ -6141,14 +6166,14 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 }
 
 // PutOrgDomain - add domain to organization
-func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool, projectSlug string) (putOrgDomain *models.PutOrgDomainOutput, err error) {
-	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v projectSlug:%s", org, dom, overwrite, isTopDomain, skipEnrollments, projectSlug))
+func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
+	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
 	s.SetOrigin()
 	putOrgDomain = &models.PutOrgDomainOutput{}
 	org = strings.TrimSpace(org)
 	dom = strings.TrimSpace(dom)
 	defer func() {
-		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v projectSlug:%s putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, projectSlug, putOrgDomain, err))
+		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, putOrgDomain, err))
 	}()
 	rows, err := s.Query(s.db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {

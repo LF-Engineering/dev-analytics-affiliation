@@ -21,7 +21,7 @@ import (
 type Service interface {
 	shared.ServiceInterface
 	CheckIdentityManagePermission(string, string, *sql.Tx) (bool, error)
-	GetDataSourceTypes(string) ([]string, error)
+	GetDataSourceTypes([]string) ([]string, error)
 	GetListProjects(string) (*models.ListProjectsOutput, error)
 	GetAllProjects() ([]string, error)
 }
@@ -119,21 +119,25 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 	return
 }
 
-func (s *service) GetDataSourceTypes(projectSlug string) (dataSourceTypes []string, err error) {
-	log.Info(fmt.Sprintf("GetDataSourceTypes: projectSlug:%s", projectSlug))
+func (s *service) GetDataSourceTypes(projectSlugs []string) (dataSourceTypes []string, err error) {
+	log.Info(fmt.Sprintf("GetDataSourceTypes: projectSlugs:%+v", projectSlugs))
 	defer func() {
-		log.Info(fmt.Sprintf("GetDataSourceTypes(exit): projectSlug:%s dataSourceTypes:%+v", projectSlug, dataSourceTypes))
+		log.Info(fmt.Sprintf("GetDataSourceTypes(exit): projectSlugs:%+v dataSourceTypes:%+v", projectSlugs, dataSourceTypes))
 	}()
-	rows, err := s.Query(
-		s.db,
-		nil,
-		"select distinct coalesce(dsp.name || '/' || ds.name, ds.name) "+
-			"from projects p, data_source_instances dsi, data_sources ds "+
-			"left join data_sources dsp on dsp.id = ds.parent_id "+
-			"where p.slug in ($1, $2) and p.id = dsi.project_id and dsi.data_source_id = ds.id",
-		projectSlug,
-		"/projects/"+projectSlug,
-	)
+	sel := "select distinct coalesce(dsp.name || '/' || ds.name, ds.name) " +
+		"from projects p, data_source_instances dsi, data_sources ds " +
+		"left join data_sources dsp on dsp.id = ds.parent_id " +
+		"where p.id = dsi.project_id and dsi.data_source_id = ds.id and p.slug in ("
+	args := []interface{}{}
+	i := 1
+	for _, projectSlug := range projectSlugs {
+		sel += fmt.Sprintf("$%d,$%d,", i, i+1)
+		args = append(args, projectSlug, "/projects/"+projectSlug)
+		i += 2
+	}
+	dss := make(map[string]struct{})
+	sel = sel[0:len(sel)-1] + ")"
+	rows, err := s.Query(s.db, nil, sel, args...)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
 		return
@@ -144,7 +148,7 @@ func (s *service) GetDataSourceTypes(projectSlug string) (dataSourceTypes []stri
 		if err != nil {
 			return
 		}
-		dataSourceTypes = append(dataSourceTypes, dataSourceType)
+		dss[dataSourceType] = struct{}{}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -155,6 +159,9 @@ func (s *service) GetDataSourceTypes(projectSlug string) (dataSourceTypes []stri
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
 		return
+	}
+	for dataSourceType := range dss {
+		dataSourceTypes = append(dataSourceTypes, dataSourceType)
 	}
 	return
 }
