@@ -367,3 +367,4 @@ mappings:
   - ['^[[:space:]]*ipoque[[:space:]]*$', 'ipoque GmbH']
   - ['^[[:space:]]*pair[[:space:]]*$', 'pair Networks']
   - ['^[[:space:]]*xflow[[:space:]]*research[[:space:]]*inc\\.?[[:space:]]*$', 'xFlow Research.com']
+  - ['^[[:space:]]*linux[[:space:]]*foundation[[:space:]]*$', 'The Linux Foundation']
