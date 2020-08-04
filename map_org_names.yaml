@@ -42,7 +42,7 @@ mappings:
   - ['^[[:space:]]*(argo|argo[[:space:]]*technologie)[[:space:]]*$', 'Argo AI']
   - ['^[[:space:]]*(arista|arista[[:space:]]*networks[[:space:]]*bv)[[:space:]]*$', 'Arista Networks']
   - ['^[[:space:]]*armory[[:space:]]*technologies,?[[:space:]]*inc\\.?[[:space:]]*$', 'Armory Inc']
-  - ['^[[:space:]]*arris[[:space:]]*international[[:space:]]*$', 'CommScope Inc.']
+  - ['^[[:space:]]*arris[[:space:]]*$', 'CommScope Inc.']
   - ['^[[:space:]]*aruba[[:space:]]*networks[[:space:]]*$', 'Aruba Networks, Inc.']
   - ['^[[:space:]]*aselsan[[:space:]]*$', 'Aselsan S.A.']
   - ['^[[:space:]]*astek[[:space:]]*$', 'Astek Corporation']
