@@ -226,7 +226,7 @@ mappings:
   - ['^[[:space:]]*pagero[[:space:]]*$', 'Pagero AB']
   - ['^[[:space:]]*palantir[[:space:]]*$', 'Palantir Technologies']
   - ['^[[:space:]]*palo[[:space:]]*alto[[:space:]]*network[[:space:]]*$', 'Palo Alto Networks']
-  - ['^[[:space:]]*(pantheon\\.?tech|pantheon\\.?tech[[:space:]]*s\\.?r\\.?o\\.?|pantheon)[[:space:]]*$', 'Pantheon Technologies']
+  - ['^[[:space:]]*(pantheon[[:space:]](tech|technologies)|pantheon)[[:space:]]*$', 'PANTHEON.tech']
   - ['^[[:space:]]*parrot[[:space:]]*sa[[:space:]]*$', 'Parrot']
   - ['^[[:space:]]*pearson[[:space:]]*education,?[[:space:]]*inc\\.?[[:space:]]*$', 'Pearson']
   - ['^[[:space:]]*pearsonvue[[:space:]]*$', 'Pearson VUE']
