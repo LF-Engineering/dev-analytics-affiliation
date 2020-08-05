@@ -517,7 +517,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				}
 				start = s.DayStart(start).Add(time.Second * time.Duration(7))
 				// add 7 seconds to mark this as a special date that was calculated
-				end = s.DayStart(end).Add(time.Second * time.Duration(7))
+				end = s.DayStart(end).Add(time.Hour*time.Duration(24) + time.Second*time.Duration(7))
 				// fmt.Printf("%s: secs: %f\n", inf, secs)
 				// 365.25 * 24 * 3600 = 31557600 (1 year ago)
 				if secs >= 31557600 && end.After(start) {

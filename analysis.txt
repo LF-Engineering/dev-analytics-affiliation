@@ -1,0 +1,378 @@
+Check:
+Rahul Yadav
+Arun kumar sekar
+Cheng Zhang
+Daniel McMillan
+Deepak Singh
+Eric Tang
+Ethan Hampton
+Hao Kuang
+Jane Threefoot
+John McClung
+Krzysztof Bijakowski
+Litao Gao
+Mojahidul Islam
+Roy
+Shubham Verma
+Tufman
+WeberLaurent
+Ying Li
+Yuan Liu
+chanfansang
+sripad appampally
+Arun Gupta
+Arundathi Patil
+Chaitanya Polavarapu
+Congcong Peng
+David Blaisonneau
+David Perez Caparros
+FengLiang
+Jampani Venu Nanditha
+Johnson Li
+Kailun Qin
+Krzysztof Frukacz
+Lee
+Li Hua
+MR-ZZC
+Mubashsharul Shafique
+Nikhil Mohan
+Phuoc Hoang
+Piotr Karaś
+Ruty Slominsky
+Shay Weizman
+Steve Thomas
+Sukesh A C
+Tedy Hovagen
+Tim Jones
+Tin Lam
+Wang
+Xiuchao Wu
+XuanweiLiao
+bran-wang
+gjaibm1314
+onapuser
+pa671t
+qin liang
+qinlihan
+ramya
+tian.ming
+wu youbo
+zhouruiyu
+Hong Hui Xiao
+Jing Jin
+Julien Barbot
+MANISH KUMAR
+Mohammad Salehe
+Nilay Ranjan
+Serge Simard
+Tian Xing
+colvert
+
+SH:
+| Arun Gupta            | 0c4c179f130c061b4df1c39123c62f6d8aaef06b | Red Hat Inc.                                | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Arun Gupta            | 5e529da1a9b8c4e3e16ab54549f1d274de9f2069 | AT&T Services, Inc.                         | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Arun Gupta            | b0ba5777757645c5fd0662700d935ede62b71281 | Red Hat Inc.                                | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Arun Gupta            | 5e141e9a643b764e68762888ddb4bc5fedc3ebf0 | AT&T Services, Inc.                         | 2020-03-03 00:00:07 | 2100-01-01 00:00:00 | lfai/acumos                             | Contributor |
+| Arun Gupta            | a1e5a148d776076bc13a0e90caa29908df3633c8 | Red Hat Inc.                                | 2015-07-14 00:00:07 | 2015-08-22 00:00:07 | lfedge/baetyl                           | Contributor |
+| Arun Gupta            | 5e141e9a643b764e68762888ddb4bc5fedc3ebf0 | AT&T Services, Inc.                         | 2017-06-21 00:00:07 | 2019-05-23 00:00:07 | lfn/onap                                | Contributor |
+| Arundathi Patil       | 75e09506b3e7b06afe35ccc3d9a257186f993edd | Mindtree Limited                            | 2013-07-01 00:00:00 | 2018-04-01 00:00:00 | lfn/onap                                | Contributor |
+| Arundathi Patil       | 75e09506b3e7b06afe35ccc3d9a257186f993edd | IBM                                         | 2018-03-31 00:00:00 | 2019-12-04 00:00:00 | lfn/onap                                | Contributor |
+| bran-wang             | 33b8a21bfcd42792cb79d4bcc4617826252f637c | VMware, Inc.                                | 2017-01-01 00:00:07 | 2017-04-05 00:00:07 | NULL                                    | Contributor |
+| bran-wang             | 33b8a21bfcd42792cb79d4bcc4617826252f637c | VMware, Inc.                                | 2017-01-01 00:00:07 | 2017-04-05 00:00:07 | lfn/onap                                | Contributor |
+| Chaitanya Polavarapu  | 7770b1cbe774d770ebe9288cb1a3addaba9eec23 | AT&T Services, Inc.                         | 2019-04-01 00:00:07 | 2019-04-12 00:00:07 | lfn/onap                                | Contributor |
+| Cheng Zhang           | b05406308adecacc71444f998a8641966f1055b9 | Red Hat Inc.                                | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Cheng Zhang           | 497ebc8c7bd47d5391d8683f78b8301089199897 | ZTE Corporation                             | 2018-01-01 00:00:07 | 2018-03-16 00:00:07 | NULL                                    | Contributor |
+| Cheng Zhang           | 497ebc8c7bd47d5391d8683f78b8301089199897 | ZTE Corporation                             | 2018-01-01 00:00:07 | 2018-03-16 00:00:07 | lfn/onap                                | Contributor |
+| Congcong Peng         | 5f19d0f1c02408525ee2a235055438169babe1f0 | ZTE Corporation                             | 2018-01-01 00:00:07 | 2018-04-17 00:00:07 | lfn/onap                                | Contributor |
+| Daniel McMillan       | bde0f2994ead056b02670f98a4b5ba6d8f56690a | AT&T Services, Inc.                         | 2018-01-01 00:00:00 | 2018-06-22 00:00:07 | lfn/onap                                | Contributor |
+| David Blaisonneau     | 00b9324c985b28ac003a1c44b07b83de83686f3e | Orange S.A.                                 | 2018-05-24 00:00:07 | 2100-01-01 00:00:00 | lfai/acumos                             | Contributor |
+| David Blaisonneau     | 00b9324c985b28ac003a1c44b07b83de83686f3e | Orange S.A.                                 | 2015-01-01 00:00:07 | 2017-04-20 00:00:07 | lfn/odl                                 | Contributor |
+| David Blaisonneau     | 00b9324c985b28ac003a1c44b07b83de83686f3e | Orange S.A.                                 | 2017-11-09 00:00:07 | 2017-11-28 00:00:07 | lfn/onap                                | Contributor |
+| David Blaisonneau     | 00b9324c985b28ac003a1c44b07b83de83686f3e | Orange S.A.                                 | 2015-03-17 00:00:07 | 2100-01-01 00:00:00 | lfn/opnfv                               | Contributor |
+| David Perez Caparros  | 0dc6e8e31e16bf185ce70a1577a373c9cc2fa425 | Huawei Technologies Co., Ltd.               | 2014-10-01 00:00:00 | 2016-04-01 00:00:00 | lfn/onap                                | Contributor |
+| David Perez Caparros  | 0dc6e8e31e16bf185ce70a1577a373c9cc2fa425 | Nokia Corporation                           | 2016-05-01 00:00:00 | 2017-09-01 00:00:00 | lfn/onap                                | Contributor |
+| David Perez Caparros  | 0dc6e8e31e16bf185ce70a1577a373c9cc2fa425 | Swisscom                                    | 2019-06-01 00:00:00 | 2100-01-01 00:00:00 | lfn/onap                                | Contributor |
+| David Perez Caparros  | 0dc6e8e31e16bf185ce70a1577a373c9cc2fa425 | CERN - European Centre for Nuclear Research | 2009-10-01 00:00:00 | 2011-09-01 00:00:00 | lfn/tungsten-fabric                     | Contributor |
+| Ethan Hampton         | c6e3423b8b0abeb1d1833ecf6a47ebeb98a3c465 | Intel Corporation                           | 2018-07-26 00:00:07 | 2018-08-02 00:00:07 | NULL                                    | Contributor |
+| Ethan Hampton         | c6e3423b8b0abeb1d1833ecf6a47ebeb98a3c465 | Intel Corporation                           | 2018-07-26 00:00:07 | 2018-08-02 00:00:07 | lfn/onap                                | Contributor |
+| FengLiang             | 493dcc08719b659293f48f87bc9910403c7aa8d1 | ZTE Corporation                             | 2017-01-01 00:00:07 | 2017-03-17 00:00:07 | NULL                                    | Contributor |
+| FengLiang             | 493dcc08719b659293f48f87bc9910403c7aa8d1 | ZTE Corporation                             | 2017-01-01 00:00:07 | 2017-03-17 00:00:07 | lfn/onap                                | Contributor |
+| Hao Kuang             | 2f54f1722ad90dc57d0204e5534d2741ae5eafb1 | Amdocs                                      | 2017-07-01 00:00:07 | 2018-09-07 00:00:07 | NULL                                    | Contributor |
+| Hao Kuang             | 6473a9acd406fb2a91ca9edd91966dd5c6c24186 | Amdocs                                      | 2017-10-01 00:00:07 | 2017-10-17 00:00:07 | NULL                                    | Contributor |
+| Hao Kuang             | 2f54f1722ad90dc57d0204e5534d2741ae5eafb1 | Amdocs                                      | 2017-07-01 00:00:07 | 2018-09-07 00:00:07 | lfn/onap                                | Contributor |
+| Hao Kuang             | 6473a9acd406fb2a91ca9edd91966dd5c6c24186 | Amdocs                                      | 2017-10-01 00:00:07 | 2017-10-17 00:00:07 | lfn/onap                                | Contributor |
+| Hong Hui Xiao         | 0f35211e5b1d3241d0773ab5710496699e420e7c | VMware, Inc.                                | 2017-07-01 00:00:07 | 2018-08-09 00:00:07 | lfn/onap                                | Contributor |
+| Jampani Venu Nanditha | 21aba0bbf4a2f4e516863e4e3b75c12e773b3660 | Huawei Technologies Co., Ltd.               | 2017-01-01 00:00:07 | 2017-03-25 00:00:07 | NULL                                    | Contributor |
+| Jampani Venu Nanditha | 21aba0bbf4a2f4e516863e4e3b75c12e773b3660 | Huawei Technologies Co., Ltd.               | 2017-01-01 00:00:07 | 2017-03-25 00:00:07 | lfn/onap                                | Contributor |
+| Jane Threefoot        | 3787d1e9f30d8741a38e6e4780df295d70ac7dcf | AT&T Services, Inc.                         | 2017-07-01 00:00:00 | 2018-03-30 00:00:07 | lfn/onap                                | Contributor |
+| John McClung          | 5e01f059cad156c7f2156685b323b3d20aa36cc9 | AT&T Services, Inc.                         | 2018-04-01 00:00:00 | 2018-06-15 00:00:07 | NULL                                    | Contributor |
+| John McClung          | 5e01f059cad156c7f2156685b323b3d20aa36cc9 | AT&T Services, Inc.                         | 2018-04-01 00:00:00 | 2018-06-15 00:00:07 | lfn/onap                                | Contributor |
+| Johnson Li            | 5a29a39dadfa51fe07c3c22d3153948575dfd218 | Intel Corporation                           | 2015-01-01 00:00:07 | 2016-09-03 00:00:07 | lfn/odl                                 | Contributor |
+| Johnson Li            | 43885c5025a9fc01e8cc666a4a9e417d710115d4 | Intel Corporation                           | 2015-03-05 00:00:07 | 2100-01-01 00:00:00 | lfn/odl                                 | Contributor |
+| Johnson Li            | 43885c5025a9fc01e8cc666a4a9e417d710115d4 | Intel Corporation                           | 2017-09-13 00:00:00 | 2017-09-23 00:00:07 | lfn/onap                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Dolphian                                    | 2004-01-01 00:00:00 | 2006-05-01 00:00:00 | lfn/onap                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Meetic                                      | 2006-06-01 00:00:00 | 2010-05-01 00:00:00 | lfn/onap                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | MUNIC                                       | 2010-04-01 00:00:00 | 2012-12-01 00:00:00 | lfn/onap                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Cisco Systems Inc.                          | 2013-01-01 00:00:00 | 2100-01-01 00:00:00 | lfn/onap                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Individual                                  | 2017-01-01 00:00:00 | 2100-01-01 00:00:00 | lfn/onap                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Dolphian                                    | 2004-01-01 00:00:00 | 2006-05-01 00:00:00 | lfn/pnda                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Meetic                                      | 2006-06-01 00:00:00 | 2010-05-01 00:00:00 | lfn/pnda                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | MUNIC                                       | 2010-04-01 00:00:00 | 2012-12-01 00:00:00 | lfn/pnda                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Cisco Systems Inc.                          | 2013-01-01 00:00:00 | 2100-01-01 00:00:00 | lfn/pnda                                | Contributor |
+| Julien Barbot         | 88a4558ff3e56b28f0581f72423014274f840552 | Individual                                  | 2017-01-01 00:00:00 | 2100-01-01 00:00:00 | lfn/pnda                                | Contributor |
+| Kailun Qin            | 2c9f5de0f31e7aa4637162aadb6762d78bd69ac4 | Intel Corporation                           | 2018-03-27 00:00:00 | 2019-04-17 00:00:07 | NULL                                    | Contributor |
+| Kailun Qin            | 2c9f5de0f31e7aa4637162aadb6762d78bd69ac4 | Intel Corporation                           | 2018-03-27 00:00:00 | 2019-04-17 00:00:07 | lfn/onap                                | Contributor |
+| Kailun Qin            | 2c9f5de0f31e7aa4637162aadb6762d78bd69ac4 | Intel Corporation                           | 2018-08-02 00:00:07 | 2018-08-15 00:00:07 | lfn/opnfv                               | Contributor |
+| Krzysztof Bijakowski  | 8df5799ed851b5678f7884e7d93854d56da51940 | GigaSpaces                                  | 2017-07-01 00:00:00 | 2017-08-30 00:00:07 | NULL                                    | Contributor |
+| Krzysztof Bijakowski  | 06fb96470db93aa7f37870a61796458103e7d699 | Cloudify                                    | 2017-07-01 00:00:00 | 2017-09-06 00:00:07 | NULL                                    | Contributor |
+| Krzysztof Bijakowski  | 8df5799ed851b5678f7884e7d93854d56da51940 | GigaSpaces                                  | 2017-07-01 00:00:00 | 2017-08-30 00:00:07 | lfn/onap                                | Contributor |
+| Krzysztof Bijakowski  | 06fb96470db93aa7f37870a61796458103e7d699 | Cloudify                                    | 2017-07-01 00:00:00 | 2017-09-06 00:00:07 | lfn/onap                                | Contributor |
+| Krzysztof Frukacz     | d559ba53b13a37fd33e99ee86728fe83cd2704e7 | GigaSpaces                                  | 2017-01-01 00:00:07 | 2017-02-17 00:00:07 | NULL                                    | Contributor |
+| Krzysztof Frukacz     | d559ba53b13a37fd33e99ee86728fe83cd2704e7 | GigaSpaces                                  | 2017-01-01 00:00:07 | 2017-02-17 00:00:07 | lfn/onap                                | Contributor |
+| lee                   | 72a6e9baf5ab6c223653ab47b94c4c5f08b13e2a | Tencent Holdings Limited                    | 2013-05-26 00:00:07 | 2100-01-01 00:00:00 | yocto                                   | Contributor |
+| lee                   | 5deb2293d830596aa0e822359aae763d39517d0d | Tencent Holdings Limited                    | 2015-02-19 00:00:07 | 2100-01-01 00:00:00 | yocto                                   | Contributor |
+| Li Hua                | a9349eae29411a21d0de9e0021d12e914be5a2fd | Huawei Technologies Co., Ltd.               | 2016-10-01 00:00:07 | 2016-11-01 00:00:07 | NULL                                    | Contributor |
+| Li Hua                | a9349eae29411a21d0de9e0021d12e914be5a2fd | Huawei Technologies Co., Ltd.               | 2016-10-01 00:00:07 | 2016-11-01 00:00:07 | lfn/onap                                | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2017-02-24 00:00:07 | 2017-03-01 00:00:07 | lfn/onap                                | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/documentation                     | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/documentation                     | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/infra                             | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/infra                             | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/integration                       | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/integration                       | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/non-realtime-ric                  | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/non-realtime-ric                  | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/o-ran-sc                          | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/o-ran-sc                          | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/oam                               | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/oam                               | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/ocu                               | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/ocu                               | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/oduhigh                           | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/oduhigh                           | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/odulow                            | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/odulow                            | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/ric                               | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/ric                               | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/ric-app                           | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/ric-app                           | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Juniper Networks, Inc.                      | 2009-10-01 00:00:00 | 2013-07-01 00:00:00 | o-ran/simulations                       | Contributor |
+| Litao Gao             | b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a | Wind River Systems, Inc.                    | 2013-07-01 00:00:00 | 2100-01-01 00:00:00 | o-ran/simulations                       | Contributor |
+| MANISH KUMAR          | 083e22aa407e9ade5b801f68fa694bc313a00326 | Individual                                  | 2018-10-01 00:00:07 | 2019-03-20 00:00:07 | lfn/onap                                | Contributor |
+| Mohammad Salehe       | f784b142e2803798f4a93d530778c3222d07e39c | Bayan                                       | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Mohammad Salehe       | 6276765332a1122ca5c2ba0d9594741e5d11a6aa | University of Toronto                       | 2017-01-01 00:00:00 | 2019-03-27 00:00:07 | lfn/onap                                | Contributor |
+| Mojahidul Islam       | 68833849c593af95bf71b85cdc5a565598bbbd5c | Amdocs                                      | 2017-07-01 00:00:00 | 2019-07-10 00:00:07 | NULL                                    | Contributor |
+| Mojahidul Islam       | 68833849c593af95bf71b85cdc5a565598bbbd5c | Amdocs                                      | 2017-07-01 00:00:00 | 2019-07-10 00:00:07 | lfn/onap                                | Contributor |
+| MR-ZZC                | 59660f3fffd390cf4ce39e9335dca90c818b5aed | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-09-28 00:00:07 | NULL                                    | Contributor |
+| MR-ZZC                | 59660f3fffd390cf4ce39e9335dca90c818b5aed | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-09-28 00:00:07 | lfn/onap                                | Contributor |
+| Mubashsharul Shafique | 3216a298385ef213f80bc287a85f6376771933fe | Amdocs                                      | 2017-04-01 00:00:07 | 2017-06-14 00:00:07 | NULL                                    | Contributor |
+| Mubashsharul Shafique | 3216a298385ef213f80bc287a85f6376771933fe | Amdocs                                      | 2017-04-01 00:00:07 | 2017-06-14 00:00:07 | lfn/onap                                | Contributor |
+| Nilay Ranjan          | 99fc73ed9364397acad6b3d92a8d550731be9595 | Telstra                                     | 2019-10-01 00:00:07 | 2100-01-01 00:00:00 | lfn/onap                                | Contributor |
+| pa671t                | 531a3d3c7366e1f434dc362cb155233c41a41644 | AT&T Services, Inc.                         | 2018-10-01 00:00:07 | 2018-11-07 00:00:07 | NULL                                    | Contributor |
+| pa671t                | 531a3d3c7366e1f434dc362cb155233c41a41644 | AT&T Services, Inc.                         | 2018-10-01 00:00:07 | 2018-11-07 00:00:07 | lfn/onap                                | Contributor |
+| Peter Wang            | 6007cdc034e24732824d66b9536c11cba7706b88 | EMC                                         | 1900-01-01 00:00:00 | 2017-01-31 00:00:00 | NULL                                    | Contributor |
+| Peter Wang            | 7516e846decaeb7c2a0cc5bc6d96f87dd535894c | EMC                                         | 1900-01-01 00:00:00 | 2017-01-31 00:00:00 | NULL                                    | Contributor |
+| peter wang            | 1f8c1134d34b09089e57933a59c2b9b9f58be491 | IBM                                         | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Peter Wang            | 6007cdc034e24732824d66b9536c11cba7706b88 | Dell                                        | 2017-01-31 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Peter Wang            | 7516e846decaeb7c2a0cc5bc6d96f87dd535894c | Dell                                        | 2017-01-31 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Piotr Karaś           | 36887eddb8c5cd20680fe96d648612d9f6f88cbb | Nokia Corporation                           | 2018-07-23 00:00:07 | 2019-07-26 00:00:07 | NULL                                    | Contributor |
+| Piotr Karaś           | 36887eddb8c5cd20680fe96d648612d9f6f88cbb | Nokia Corporation                           | 2018-07-23 00:00:07 | 2019-07-26 00:00:07 | lfn/onap                                | Contributor |
+| qin liang             | 2dbf42700ac36ef55bd4d6cbdb7cd2d5bcceef6c | ZTE Corporation                             | 2017-07-01 00:00:07 | 2017-09-30 00:00:07 | NULL                                    | Contributor |
+| qin liang             | 2dbf42700ac36ef55bd4d6cbdb7cd2d5bcceef6c | ZTE Corporation                             | 2017-07-01 00:00:07 | 2017-09-30 00:00:07 | lfn/onap                                | Contributor |
+| qinlihan              | 5279ff943c4572ebe15083e24771c3ff1e2e60a2 | ZTE Corporation                             | 2017-01-01 00:00:07 | 2017-04-18 00:00:07 | NULL                                    | Contributor |
+| qinlihan              | 5279ff943c4572ebe15083e24771c3ff1e2e60a2 | ZTE Corporation                             | 2017-01-01 00:00:07 | 2017-04-18 00:00:07 | lfn/onap                                | Contributor |
+| ramya                 | 6731625e32a36630c2a016ad3f24417922bddf47 | Wipro Limited                               | 2018-03-13 00:00:07 | 2019-03-12 00:00:07 | NULL                                    | Contributor |
+| ramya                 | 6731625e32a36630c2a016ad3f24417922bddf47 | Wipro Limited                               | 2018-03-13 00:00:07 | 2019-03-12 00:00:07 | lfn/onap                                | Contributor |
+| Ruty Slominsky        | 554bfbc5e5518d0a7eafcb2a4b927f16510077bb | AT&T Services, Inc.                         | 2017-07-01 00:00:07 | 2017-08-10 00:00:07 | NULL                                    | Contributor |
+| Ruty Slominsky        | 554bfbc5e5518d0a7eafcb2a4b927f16510077bb | AT&T Services, Inc.                         | 2017-07-01 00:00:07 | 2017-08-10 00:00:07 | lfn/onap                                | Contributor |
+| Serge Simard          | 9efc1db9c00f016442e010fb440c333dc8df2814 | Agilitae Services & Conseils Inc            | 2019-03-15 00:00:00 | 2100-01-01 00:00:00 | lfn/onap                                | Contributor |
+| Shay Weizman          | 67e759162cfd0455934e8598decc3c0b675c8a44 | AT&T Services, Inc.                         | 2017-07-01 00:00:07 | 2017-07-26 00:00:07 | NULL                                    | Contributor |
+| Shay Weizman          | 67e759162cfd0455934e8598decc3c0b675c8a44 | AT&T Services, Inc.                         | 2017-07-01 00:00:07 | 2017-07-26 00:00:07 | lfn/onap                                | Contributor |
+| sripad appampally     | d56a600c0f77549f3c1ffe5a664f7567e8d0bbfb | AT&T Services, Inc.                         | 2017-10-01 00:00:07 | 2017-11-17 00:00:07 | NULL                                    | Contributor |
+| sripad appampally     | d56a600c0f77549f3c1ffe5a664f7567e8d0bbfb | AT&T Services, Inc.                         | 2017-10-01 00:00:07 | 2017-11-17 00:00:07 | lfn/onap                                | Contributor |
+| Steve Thomas          | 60873b4cd42d34b6ceee0eb7b6296eaff36a8667 | Amdocs                                      | 2018-01-01 00:00:07 | 2018-03-30 00:00:07 | NULL                                    | Contributor |
+| Steve Thomas          | 60873b4cd42d34b6ceee0eb7b6296eaff36a8667 | Amdocs                                      | 2018-01-01 00:00:07 | 2018-03-30 00:00:07 | lfn/onap                                | Contributor |
+| Sukesh A C            | 3278d2d5c76abc486bf48ef83304e3cc28ee42d5 | Huawei Technologies Co., Ltd.               | 2016-08-29 00:00:07 | 2017-02-21 00:00:07 | lfn/onap                                | Contributor |
+| Sukesh A C            | 3278d2d5c76abc486bf48ef83304e3cc28ee42d5 | Huawei Technologies Co., Ltd.               | 2016-12-21 00:00:07 | 2100-01-01 00:00:00 | lfn/opnfv                               | Contributor |
+| Tedy Hovagen          | 6324210eb0e052d401c891a676890d04f0b57823 | AT&T Services, Inc.                         | 2017-07-01 00:00:07 | 2017-09-01 00:00:07 | NULL                                    | Contributor |
+| Tedy Hovagen          | 6324210eb0e052d401c891a676890d04f0b57823 | AT&T Services, Inc.                         | 2017-07-01 00:00:07 | 2017-09-01 00:00:07 | lfn/onap                                | Contributor |
+| tian.ming             | 6549d9c029d7446bd41cacc46d77700f1e07aed8 | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-09-24 00:00:07 | NULL                                    | Contributor |
+| tian.ming             | 6549d9c029d7446bd41cacc46d77700f1e07aed8 | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-09-24 00:00:07 | lfn/onap                                | Contributor |
+| Tim Jones             | a40091c24b3b11601e0a5dadb6bb143db083242c | Fon                                         | 1900-01-01 00:00:00 | 2015-07-01 00:00:00 | NULL                                    | Contributor |
+| Tim Jones             | a40091c24b3b11601e0a5dadb6bb143db083242c | BBVA                                        | 2015-07-01 00:00:00 | 2016-06-01 00:00:00 | NULL                                    | Contributor |
+| Tim Jones             | a40091c24b3b11601e0a5dadb6bb143db083242c | Spotahome                                   | 2016-06-01 00:00:00 | 2019-05-01 00:00:00 | NULL                                    | Contributor |
+| Tim Jones             | 3d6b1deff746cf29a072bb84b9bac86f239dfefb | BAE Systems                                 | 2018-04-01 00:00:07 | 2018-04-18 00:00:07 | NULL                                    | Contributor |
+| Tim Jones             | a40091c24b3b11601e0a5dadb6bb143db083242c | Monday                                      | 2019-05-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Tim Jones             | 3d6b1deff746cf29a072bb84b9bac86f239dfefb | BAE Systems                                 | 2018-04-01 00:00:07 | 2018-04-18 00:00:07 | lfn/onap                                | Contributor |
+| Wang                  | b457191d3bd01e051fedb9cfc0cdd744d6254d50 | Alcatel                                     | 2017-07-01 00:00:07 | 2017-09-23 00:00:07 | NULL                                    | Contributor |
+| Wang                  | b457191d3bd01e051fedb9cfc0cdd744d6254d50 | Alcatel                                     | 2017-07-01 00:00:07 | 2017-09-23 00:00:07 | lfn/onap                                | Contributor |
+| wu youbo              | 6c83dbd2831eb790b03e138171f40cab40620885 | ZTE Corporation                             | 2017-01-01 00:00:00 | 2017-04-02 00:00:07 | NULL                                    | Contributor |
+| wu youbo              | 6c83dbd2831eb790b03e138171f40cab40620885 | ZTE Corporation                             | 2017-01-01 00:00:00 | 2017-04-02 00:00:07 | lfn/onap                                | Contributor |
+| Xiuchao Wu            | 78d5a7f5a933cf87365c9ce0e0a4614af5060596 | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-10-25 00:00:07 | NULL                                    | Contributor |
+| Xiuchao Wu            | 78d5a7f5a933cf87365c9ce0e0a4614af5060596 | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-10-25 00:00:07 | lfn/onap                                | Contributor |
+| XuanweiLiao           | 10572b2dc1baada4ad4be5d2276cd0eacddfe83e | ZTE Corporation                             | 2017-01-01 00:00:07 | 2017-02-24 00:00:07 | NULL                                    | Contributor |
+| XuanweiLiao           | 10572b2dc1baada4ad4be5d2276cd0eacddfe83e | ZTE Corporation                             | 2017-01-01 00:00:07 | 2017-02-24 00:00:07 | lfn/onap                                | Contributor |
+| Ying Li               | 3b8ddf7eda593d9f4bf56d8dea76217ddb9bc176 | Rackspace                                   | 1900-01-01 00:00:00 | 2015-09-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | d7c7014f243077fafab8c62a07b1374f61f20fb3 | Rackspace                                   | 1900-01-01 00:00:00 | 2015-09-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | 3a5d23e75626d8f40d1c9a8e6b5f09cd2346f72a | Rackspace                                   | 1900-01-01 00:00:00 | 2015-09-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | 3b8ddf7eda593d9f4bf56d8dea76217ddb9bc176 | Docker, Inc.                                | 2015-09-01 00:00:00 | 2018-08-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | d7c7014f243077fafab8c62a07b1374f61f20fb3 | Docker, Inc.                                | 2015-09-01 00:00:00 | 2018-08-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | 3a5d23e75626d8f40d1c9a8e6b5f09cd2346f72a | Docker, Inc.                                | 2015-09-01 00:00:00 | 2018-08-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | d7c7014f243077fafab8c62a07b1374f61f20fb3 | Independent                                 | 2018-08-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | 3a5d23e75626d8f40d1c9a8e6b5f09cd2346f72a | Independent                                 | 2018-08-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | 3b8ddf7eda593d9f4bf56d8dea76217ddb9bc176 | Independent                                 | 2018-08-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Ying Li               | 6b4632cb17860ebc6a6776e453bb25efe806224b | China Mobile Communication Company Ltd      | 2019-10-30 00:00:07 | 2100-01-01 00:00:00 | lfn/cntt                                | Contributor |
+| Ying Li               | 6b4632cb17860ebc6a6776e453bb25efe806224b | China Mobile Communication Company Ltd      | 2017-07-01 00:00:07 | 2017-09-22 00:00:07 | lfn/onap                                | Contributor |
+| Ying Li               | 6b4632cb17860ebc6a6776e453bb25efe806224b | China Mobile Communication Company Ltd      | 2019-09-02 00:00:07 | 2100-01-01 00:00:00 | lfn/opnfv                               | Contributor |
+| Yuan Liu              | 3d7d0b5abcc66b39f01196c64b84ce77878c1f64 | Google                                      | 1900-01-01 00:00:00 | 2100-01-01 00:00:00 | NULL                                    | Contributor |
+| Yuan Liu              | 50d24a8ab1cb0998dfbf207e6a0d209443c3b2e6 | China Mobile Communication Company Ltd      | 2016-10-18 00:00:07 | 2100-01-01 00:00:00 | data-plane-development-kit/dpdk         | Contributor |
+| Yuan Liu              | 50d24a8ab1cb0998dfbf207e6a0d209443c3b2e6 | China Mobile Communication Company Ltd      | 2016-10-18 00:00:07 | 2100-01-01 00:00:00 | data-plane-development-kit/dpdk-summary | Contributor |
+| Yuan Liu              | 50d24a8ab1cb0998dfbf207e6a0d209443c3b2e6 | China Mobile Communication Company Ltd      | 2017-05-19 00:00:07 | 2019-04-11 00:00:07 | lfn/onap                                | Contributor |
+| zhouruiyu             | 617c82efef40f53fcc70e68187467332e885f8a2 | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-11-03 00:00:07 | NULL                                    | Contributor |
+| zhouruiyu             | 617c82efef40f53fcc70e68187467332e885f8a2 | Huawei Technologies Co., Ltd.               | 2016-07-01 00:00:07 | 2016-11-03 00:00:07 | lfn/onap                                | Contributor |
+
+ES:
+author_name,author_org_name,author_uuid,dt_from1,dt_from2,dt_to1,dt_to2
+Arun Gupta,AT&T,5e141e9a643b764e68762888ddb4bc5fedc3ebf0,2018-10-01,,2019-04-01,
+Arun Gupta,"AT&T Services, Inc.",5e141e9a643b764e68762888ddb4bc5fedc3ebf0,2018-10-09,2018-10-09,2019-05-21,2019-05-21
+Arun Gupta,Unknown,5e141e9a643b764e68762888ddb4bc5fedc3ebf0,2019-05-22,2019-05-22,2019-05-22,2019-05-22
+Arun kumar sekar,Unknown,237c252ba71914580bc606fe13ba0b573aab1579,2018-01-01,2018-03-30,2018-03-30,2018-04-03
+Arundathi Patil,IBM,75e09506b3e7b06afe35ccc3d9a257186f993edd,2018-07-10,2018-07-13,2019-12-02,2019-12-02
+Arundathi Patil,Unknown,75e09506b3e7b06afe35ccc3d9a257186f993edd,2019-12-04,2019-12-04,2019-12-04,2019-12-04
+Arundathi Patil,IBM,fd8c77e5bd02f98e0d62bceb7b12559e4940775c,2018-07-01,,2019-10-01,
+Chaitanya Polavarapu,AT&T,7770b1cbe774d770ebe9288cb1a3addaba9eec23,2019-04-01,,2019-04-01,
+Chaitanya Polavarapu,"AT&T Services, Inc.",7770b1cbe774d770ebe9288cb1a3addaba9eec23,2019-04-09,2019-04-10,2019-04-10,2019-04-11
+Chaitanya Polavarapu,Unknown,7770b1cbe774d770ebe9288cb1a3addaba9eec23,2019-04-11,2019-04-11,2019-04-11,2019-04-11
+Cheng Zhang,Unknown,497ebc8c7bd47d5391d8683f78b8301089199897,2018-03-15,2018-03-15,2018-03-15,2018-03-15
+Cheng Zhang,ZTE Corporation,497ebc8c7bd47d5391d8683f78b8301089199897,2018-01-01,,2018-01-01,
+Congcong Peng,Unknown,5f19d0f1c02408525ee2a235055438169babe1f0,2018-04-16,2018-04-16,2018-04-16,2018-04-16
+Congcong Peng,ZTE Corporation,5f19d0f1c02408525ee2a235055438169babe1f0,2018-01-01,2018-02-24,2018-04-01,2018-03-28
+Daniel McMillan,AT&T,bde0f2994ead056b02670f98a4b5ba6d8f56690a,2018-01-01,,2018-04-01,
+Daniel McMillan,"AT&T Services, Inc.",bde0f2994ead056b02670f98a4b5ba6d8f56690a,2018-03-28,2018-03-28,2018-06-19,2018-06-20
+Daniel McMillan,Unknown,bde0f2994ead056b02670f98a4b5ba6d8f56690a,2018-06-21,2018-06-21,2018-06-21,2018-06-21
+David Blaisonneau,Unknown,00b9324c985b28ac003a1c44b07b83de83686f3e,2017-11-27,2017-11-27,2017-11-27,2017-11-27
+David Blaisonneau,Orange,2d4cdc3178b265ccaee4461175f6ae16007bfe48,2017-10-01,,2017-10-01,
+David Perez Caparros,Swisscom,0dc6e8e31e16bf185ce70a1577a373c9cc2fa425,2019-04-01,2019-06-09,2020-04-23,2020-04-24
+David Perez Caparros,Unknown,0dc6e8e31e16bf185ce70a1577a373c9cc2fa425,2019-04-17,2019-04-17,2019-04-17,2019-04-17
+Deepak Singh,Unknown,23b8d461040fa689922fbef896ab3d93855a8d9e,2018-07-01,2018-10-02,2018-09-21,2018-10-02
+Eric Tang,Unknown,927be7fde5a6f1c1cf1ef8b64acc010ca848e287,2020-04-19,2020-04-19,2020-04-19,2020-07-01
+Ethan Hampton,Intel Corporation,c6e3423b8b0abeb1d1833ecf6a47ebeb98a3c465,2018-07-26,2018-07-26,2018-07-26,2018-07-26
+Ethan Hampton,Unknown,c6e3423b8b0abeb1d1833ecf6a47ebeb98a3c465,2018-08-01,2018-08-01,2018-08-01,2018-08-01
+Ethan Hampton,Intel Corporation,e7fb820319170d1fba53b5ca8d40b454c5f0abec,2018-07-01,,2018-07-01,
+FengLiang ,Unknown,493dcc08719b659293f48f87bc9910403c7aa8d1,2017-03-16,2017-03-16,2017-03-16,2017-03-16
+FengLiang ,ZTE Corporation,493dcc08719b659293f48f87bc9910403c7aa8d1,2017-01-01,2017-02-16,2017-03-15,2017-03-15
+Hao Kuang,AMDOCS,2f54f1722ad90dc57d0204e5534d2741ae5eafb1,2017-07-01,,2017-10-01,
+Hao Kuang,Amdocs,2f54f1722ad90dc57d0204e5534d2741ae5eafb1,2017-08-14,2017-08-14,2017-12-15,2017-12-20
+Hao Kuang,AMDOCS,6473a9acd406fb2a91ca9edd91966dd5c6c24186,2017-10-01,,2017-10-01,
+Hao Kuang,Unknown,6473a9acd406fb2a91ca9edd91966dd5c6c24186,2017-10-16,2017-10-16,2017-10-16,2017-10-16
+Hong Hui Xiao,Unknown,0f35211e5b1d3241d0773ab5710496699e420e7c,2017-07-01,,2018-01-01,
+Hong Hui Xiao,"VMware, Inc.",0f35211e5b1d3241d0773ab5710496699e420e7c,2017-08-28,2017-09-01,2018-03-29,2018-03-29
+Jampani Venu Nanditha,Huawei,21aba0bbf4a2f4e516863e4e3b75c12e773b3660,2017-01-01,,2017-01-01,
+Jampani Venu Nanditha,"Huawei Technologies Co., Ltd.",21aba0bbf4a2f4e516863e4e3b75c12e773b3660,2017-03-22,2017-03-22,2017-03-22,2017-03-22
+Jampani Venu Nanditha,Unknown,21aba0bbf4a2f4e516863e4e3b75c12e773b3660,2017-03-24,2017-03-24,2017-03-24,2017-03-24
+Jane Threefoot,AT&T,3787d1e9f30d8741a38e6e4780df295d70ac7dcf,2017-07-01,,2018-01-01,
+Jane Threefoot,"AT&T Services, Inc.",3787d1e9f30d8741a38e6e4780df295d70ac7dcf,2017-07-31,2017-07-31,2018-03-15,2018-03-15
+Jane Threefoot,Unknown,3787d1e9f30d8741a38e6e4780df295d70ac7dcf,2018-03-29,2018-03-29,2018-03-29,2018-03-29
+Jing Jin,Unknown,15e88b7682de384a4cdfeec03907f9ce6734f0c1,2020-01-01,,2020-01-01,
+John McClung,AT&T,5e01f059cad156c7f2156685b323b3d20aa36cc9,2018-04-01,,2018-04-01,
+John McClung,"AT&T Services, Inc.",5e01f059cad156c7f2156685b323b3d20aa36cc9,2018-04-02,2018-04-02,2018-06-13,2018-06-14
+John McClung,Unknown,5e01f059cad156c7f2156685b323b3d20aa36cc9,2018-06-14,2018-06-14,2018-06-14,2018-06-14
+Johnson Li,Intel Corporation,43885c5025a9fc01e8cc666a4a9e417d710115d4,2017-09-13,2017-09-14,2017-09-13,2017-09-14
+Johnson Li,Unknown,43885c5025a9fc01e8cc666a4a9e417d710115d4,2017-09-22,2017-09-22,2017-09-22,2017-09-22
+Johnson Li,Intel Corporation,652e64521d8e448a6fe006cede415fe92af99bb1,2017-07-01,,2017-07-01,
+Julien Barbot,Cisco Systems Inc.,88a4558ff3e56b28f0581f72423014274f840552,2018-08-20,2018-08-27,2018-11-14,2018-11-23
+Julien Barbot,Unknown,e8bf51aead9473555b35a091b299e7050be99ac3,2018-07-01,,2018-10-01,
+Kailun Qin,Intel Corporation,2c9f5de0f31e7aa4637162aadb6762d78bd69ac4,2018-03-27,2018-03-28,2018-10-11,2018-10-11
+Kailun Qin,Unknown,2c9f5de0f31e7aa4637162aadb6762d78bd69ac4,2019-04-16,2019-04-16,2019-04-16,2019-04-16
+Kailun Qin,Intel Corporation,63abc307e9c1ca35e8c02568489ec4e862fdf83c,2018-01-01,,2019-04-01,
+Krzysztof Bijakowski,Cloudify,06fb96470db93aa7f37870a61796458103e7d699,2017-07-01,,2017-07-01,
+Krzysztof Bijakowski,Unknown,06fb96470db93aa7f37870a61796458103e7d699,2017-09-05,2017-09-05,2017-09-05,2017-09-05
+Krzysztof Bijakowski,GigaSpaces,8df5799ed851b5678f7884e7d93854d56da51940,2017-07-01,2017-08-29,2017-08-28,2017-08-29
+Krzysztof Frukacz,GigaSpaces,d559ba53b13a37fd33e99ee86728fe83cd2704e7,2017-01-01,2017-01-29,2017-02-01,2017-02-01
+Krzysztof Frukacz,Unknown,d559ba53b13a37fd33e99ee86728fe83cd2704e7,2017-02-16,2017-02-16,2017-02-16,2017-02-16
+Li Hua,Huawei,a9349eae29411a21d0de9e0021d12e914be5a2fd,2016-10-01,,2016-10-01,
+Li Hua,"Huawei Technologies Co., Ltd.",a9349eae29411a21d0de9e0021d12e914be5a2fd,2016-10-30,2016-10-30,2016-10-30,2016-10-30
+Li Hua,Unknown,a9349eae29411a21d0de9e0021d12e914be5a2fd,2016-10-31,2016-10-31,2016-10-31,2016-10-31
+Litao Gao,Wind River,6c74367aeddd3eeb73a40c91c2e5d5c55e4d139c,2017-01-01,,2017-01-01,
+Litao Gao,Unknown,b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a,2017-02-28,2017-02-28,2017-02-28,2017-02-28
+Litao Gao,"Wind River Systems, Inc.",b1b585a8cd54eb9dcd5d96902fee6344aa1f9f8a,2017-02-24,2017-02-24,2017-02-24,2017-02-24
+MANISH KUMAR,Individual,083e22aa407e9ade5b801f68fa694bc313a00326,2018-10-16,2018-10-16,2019-03-07,2019-03-19
+MANISH KUMAR,Unknown,083e22aa407e9ade5b801f68fa694bc313a00326,2018-10-01,,2019-01-01,
+MR-ZZC,Huawei,59660f3fffd390cf4ce39e9335dca90c818b5aed,2016-07-01,,2016-07-01,
+MR-ZZC,"Huawei Technologies Co., Ltd.",59660f3fffd390cf4ce39e9335dca90c818b5aed,2016-09-21,2016-09-21,2016-09-22,2016-09-22
+MR-ZZC,Unknown,59660f3fffd390cf4ce39e9335dca90c818b5aed,2016-09-27,2016-09-27,2016-09-27,2016-09-27
+Mohammad Salehe,University of Toronto,6276765332a1122ca5c2ba0d9594741e5d11a6aa,2018-11-07,2018-11-07,2019-02-08,2019-02-25
+Mohammad Salehe,Unknown,6276765332a1122ca5c2ba0d9594741e5d11a6aa,2018-10-01,,2019-01-01,
+Mojahidul Islam,AMDOCS,68833849c593af95bf71b85cdc5a565598bbbd5c,2017-07-01,,2019-07-01,
+Mojahidul Islam,Amdocs,68833849c593af95bf71b85cdc5a565598bbbd5c,2017-08-14,2017-08-22,2019-06-23,2019-06-23
+Mojahidul Islam,Unknown,68833849c593af95bf71b85cdc5a565598bbbd5c,2019-07-09,2019-07-09,2019-07-09,2019-07-09
+Mubashsharul Shafique,AMDOCS,3216a298385ef213f80bc287a85f6376771933fe,2017-04-01,,2017-04-01,
+Mubashsharul Shafique,Amdocs,3216a298385ef213f80bc287a85f6376771933fe,2017-05-31,2017-05-31,2017-05-31,2017-05-31
+Mubashsharul Shafique,Unknown,3216a298385ef213f80bc287a85f6376771933fe,2017-06-13,2017-06-13,2017-06-13,2017-06-13
+Nikhil Mohan,Unknown,57c6c61f914856fec55352203d12726aea87b3a2,2020-07-30,2020-07-30,2020-07-30,2020-07-30
+Nilay Ranjan,Telstra,99fc73ed9364397acad6b3d92a8d550731be9595,2019-12-09,2019-12-20,2019-12-20,2019-12-20
+Nilay Ranjan,Unknown,99fc73ed9364397acad6b3d92a8d550731be9595,2019-10-01,,2019-10-01,
+Peter Wang,Unknown,1d5ecaaf9a15383cf3d3a21155d4cc1b42626c1c,2017-07-01,2017-09-22,2017-09-27,2017-09-27
+Phuoc Hoang,Unknown,2abc0bbc3d81d582df5d0090f8ca754c60a800d1,2018-04-01,2018-06-03,2018-06-03,2018-06-03
+Piotr Karaś,Nokia,36887eddb8c5cd20680fe96d648612d9f6f88cbb,2018-10-01,,2019-07-01,
+Piotr Karaś,Nokia Corporation,36887eddb8c5cd20680fe96d648612d9f6f88cbb,2018-10-17,2018-10-19,2019-07-23,2019-07-23
+Piotr Karaś,Unknown,36887eddb8c5cd20680fe96d648612d9f6f88cbb,2019-07-25,2019-07-25,2019-07-25,2019-07-25
+Rahul Yadav,Unknown,8fea0c381e5a77d0ad086d631ae7834e17a696c2,2019-01-01,2019-03-30,2019-04-02,2019-04-04
+Ruty Slominsky,AT&T,554bfbc5e5518d0a7eafcb2a4b927f16510077bb,2017-07-01,,2017-07-01,
+Ruty Slominsky,"AT&T Services, Inc.",554bfbc5e5518d0a7eafcb2a4b927f16510077bb,2017-07-16,2017-07-16,2017-07-16,2017-07-16
+Ruty Slominsky,Unknown,554bfbc5e5518d0a7eafcb2a4b927f16510077bb,2017-08-09,2017-08-09,2017-08-09,2017-08-09
+SHI,Unknown,6a0d1bff32c39f76fd840f4d0a7449975c15c911,2018-04-01,2018-06-21,2018-07-11,2018-07-13
+Serge Simard,Agilitae Services & Conseils Inc,9efc1db9c00f016442e010fb440c333dc8df2814,2019-03-15,2019-03-22,2020-05-28,2020-05-28
+Serge Simard,Unknown,bad7a63ac31a9076901b9c45e06f4da8af72843e,2019-01-01,,2020-04-01,
+Shay Weizman,AT&T,67e759162cfd0455934e8598decc3c0b675c8a44,2017-07-01,,2017-07-01,
+Shay Weizman,Unknown,67e759162cfd0455934e8598decc3c0b675c8a44,2017-07-25,2017-07-25,2017-07-25,2017-07-25
+Shubham Verma,Unknown,ab822f3dcfcf1eab7eecfdd4ffddfb1383c3d04e,2017-01-01,2017-03-01,2017-03-03,2017-03-03
+Steve Thomas,AMDOCS,60873b4cd42d34b6ceee0eb7b6296eaff36a8667,2018-01-01,,2018-01-01,
+Steve Thomas,Amdocs,60873b4cd42d34b6ceee0eb7b6296eaff36a8667,2018-01-17,2018-01-17,2018-01-22,2018-01-22
+Steve Thomas,Unknown,60873b4cd42d34b6ceee0eb7b6296eaff36a8667,2018-03-29,2018-03-29,2018-03-29,2018-03-29
+Sukesh A C,"Huawei Technologies Co., Ltd.",3278d2d5c76abc486bf48ef83304e3cc28ee42d5,2016-08-29,2016-08-29,2017-02-08,2017-02-08
+Sukesh A C,Unknown,3278d2d5c76abc486bf48ef83304e3cc28ee42d5,2017-02-20,2017-02-20,2017-02-20,2017-02-20
+Tedy Hovagen,AT&T,6324210eb0e052d401c891a676890d04f0b57823,2017-07-01,,2017-07-01,
+Tedy Hovagen,Unknown,6324210eb0e052d401c891a676890d04f0b57823,2017-08-31,2017-08-31,2017-08-31,2017-08-31
+Tian Xing,Unknown,8c5e643d6e3f82de6441b0e49fe3bd1027405c60,2018-07-01,,2019-04-01,
+Tim Jones,BAE Systems,3d6b1deff746cf29a072bb84b9bac86f239dfefb,2018-04-01,,2018-04-01,
+Tim Jones,Unknown,3d6b1deff746cf29a072bb84b9bac86f239dfefb,2018-04-17,2018-04-17,2018-04-17,2018-04-17
+Tin Lam,Unknown,21de0505d92b360efb007779c0a30ebf6b5e3c12,2018-01-01,2018-03-17,2018-03-17,2018-03-17
+Wang,Alcatel,b457191d3bd01e051fedb9cfc0cdd744d6254d50,2017-07-01,,2017-07-01,
+Wang,Unknown,b457191d3bd01e051fedb9cfc0cdd744d6254d50,2017-09-22,2017-09-22,2017-09-22,2017-09-22
+WeberLaurent,Unknown,c8a5f118ba64f095ff5f4cc1ec61507eb312942f,2020-02-06,2020-03-03,2020-03-03,2020-03-03
+Xiuchao Wu,Huawei,78d5a7f5a933cf87365c9ce0e0a4614af5060596,2016-07-01,,2016-10-01,
+Xiuchao Wu,"Huawei Technologies Co., Ltd.",78d5a7f5a933cf87365c9ce0e0a4614af5060596,2016-09-15,2016-09-15,2016-10-21,2016-10-21
+Xiuchao Wu,Unknown,78d5a7f5a933cf87365c9ce0e0a4614af5060596,2016-10-24,2016-10-24,2016-10-24,2016-10-24
+XuanweiLiao,Unknown,10572b2dc1baada4ad4be5d2276cd0eacddfe83e,2017-02-23,2017-02-23,2017-02-23,2017-02-23
+XuanweiLiao,ZTE Corporation,10572b2dc1baada4ad4be5d2276cd0eacddfe83e,2017-01-01,,2017-01-01,
+Ying Li,China Mobile,6b4632cb17860ebc6a6776e453bb25efe806224b,2017-07-01,,2017-07-01,
+Ying Li,Unknown,6b4632cb17860ebc6a6776e453bb25efe806224b,2017-09-21,2017-09-21,2017-09-21,2017-09-21
+Yuan Liu,China Mobile,50d24a8ab1cb0998dfbf207e6a0d209443c3b2e6,2019-04-01,,2019-04-01,
+Yuan Liu,China Mobile Communication Company Ltd,50d24a8ab1cb0998dfbf207e6a0d209443c3b2e6,2019-04-03,2019-04-03,2019-04-04,2019-04-04
+Yuan Liu,Unknown,50d24a8ab1cb0998dfbf207e6a0d209443c3b2e6,2019-04-10,2019-04-10,2019-04-10,2019-04-10
+bran-wang,Unknown,33b8a21bfcd42792cb79d4bcc4617826252f637c,2017-04-04,2017-04-04,2017-04-04,2017-04-04
+bran-wang,VMWare,33b8a21bfcd42792cb79d4bcc4617826252f637c,2017-01-01,,2017-04-01,
+bran-wang,"VMware, Inc.",33b8a21bfcd42792cb79d4bcc4617826252f637c,2017-02-22,2017-02-22,2017-03-11,2017-03-11
+chanfansang,Unknown,e984ba56336e9e9279ffbd56892834a13aab104b,2018-01-01,2018-02-11,2018-02-26,2018-02-26
+colvert,Unknown,9854bc31e685fe37e4dacbe6716df85087223263,2020-04-01,,2020-04-01,
+gjaibm1314,Unknown,7175c97bf7996175913c0ab170c07ac7312869bb,2020-03-11,2020-03-11,2020-03-11,2020-03-11
+onapuser,Unknown,11da1c0199e4a5029ee0c0fc7185b0a091615444,2020-04-01,2020-04-22,2020-04-22,2020-04-22
+pa671t,AT&T,531a3d3c7366e1f434dc362cb155233c41a41644,2018-10-01,,2018-10-01,
+pa671t,Unknown,531a3d3c7366e1f434dc362cb155233c41a41644,2018-11-06,2018-11-06,2018-11-06,2018-11-06
+qin liang,Unknown,2dbf42700ac36ef55bd4d6cbdb7cd2d5bcceef6c,2017-09-29,2017-09-29,2017-09-29,2017-09-29
+qin liang,ZTE Corporation,2dbf42700ac36ef55bd4d6cbdb7cd2d5bcceef6c,2017-07-01,2017-08-17,2017-09-22,2017-09-22
+qinlihan,Unknown,5279ff943c4572ebe15083e24771c3ff1e2e60a2,2017-04-17,2017-04-17,2017-04-17,2017-04-17
+qinlihan,ZTE Corporation,5279ff943c4572ebe15083e24771c3ff1e2e60a2,2017-01-01,2017-02-22,2017-04-13,2017-04-13
+ramya,Unknown,6731625e32a36630c2a016ad3f24417922bddf47,2019-03-11,2019-03-11,2019-03-11,2019-03-11
+ramya,Wipro,6731625e32a36630c2a016ad3f24417922bddf47,2019-01-01,,2019-01-01,
+ramya,Wipro Limited,6731625e32a36630c2a016ad3f24417922bddf47,2019-02-08,2019-02-08,2019-03-07,2019-03-07
+sripad appampally,AT&T,d56a600c0f77549f3c1ffe5a664f7567e8d0bbfb,2017-10-01,,2017-10-01,
+sripad appampally,Unknown,d56a600c0f77549f3c1ffe5a664f7567e8d0bbfb,2017-11-16,2017-11-16,2017-11-16,2017-11-16
+tian.ming,"Huawei Technologies Co., Ltd.",6549d9c029d7446bd41cacc46d77700f1e07aed8,2016-08-25,2016-08-25,2016-09-20,2016-09-20
+tian.ming,Unknown,6549d9c029d7446bd41cacc46d77700f1e07aed8,2016-09-23,2016-09-23,2016-09-23,2016-09-23
+wu youbo,Unknown,6c83dbd2831eb790b03e138171f40cab40620885,2017-04-01,2017-04-01,2017-04-01,2017-04-01
+wu youbo,ZTE Corporation,6c83dbd2831eb790b03e138171f40cab40620885,2017-01-01,2017-02-13,2017-04-01,2017-03-24
+zhouruiyu,Huawei,617c82efef40f53fcc70e68187467332e885f8a2,2016-07-01,,2016-10-01,
+zhouruiyu,"Huawei Technologies Co., Ltd.",617c82efef40f53fcc70e68187467332e885f8a2,2016-09-20,2016-09-20,2016-11-01,2016-11-01
+zhouruiyu,Unknown,617c82efef40f53fcc70e68187467332e885f8a2,2016-11-02,2016-11-02,2016-11-02,2016-11-02
