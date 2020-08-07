@@ -81,6 +81,7 @@ mappings:
   - ['^[[:space:]]*(china[[:space:]]*unicom[[:space:]]*cloud[[:space:]]*data|china[[:space:]]*unicom[[:space:]]*research[[:space:]]*institute)[[:space:]]*$', 'China Unicom']
   - ['^[[:space:]]*ciena[[:space:]]*$', 'Ciena Corporation']
   - ['^[[:space:]]*cirrus[[:space:]]*$', 'Cirrus Logic']
+  - ['^[[:space:]]*(cisco|ciscospark|cisco[[:space:]]+(system|systems[[:space:]]inc.[[:space:]]phone))[[:space:]]*$', 'Cisco Systems Inc.']
   - ['^[[:space:]]*(citibank|citigroup)[[:space:]]*$', 'Citi']
   - ['^[[:space:]]*citrix[[:space:]]*$', 'Citrix Systems Inc.']
   - ['^[[:space:]]*cloudflare[[:space:]]*$', 'CloudFlare, Inc.']
