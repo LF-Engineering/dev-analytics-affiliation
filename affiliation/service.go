@@ -2421,7 +2421,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	if params.Offset != nil {
 		offset = *params.Offset
 		if offset < 0 {
-			offset = 1
+			offset = 0
 		}
 	}
 	if params.Search != nil {
