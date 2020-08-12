@@ -486,7 +486,9 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 	t := time.Now()
 	topContributorsCacheMtx.RLock()
 	entry, ok := topContributorsCache[k]
+	cSize := len(topContributorsCache)
 	topContributorsCacheMtx.RUnlock()
+	log.Info(fmt.Sprintf("TopContributors cache size(get): %d", cSize))
 	if !ok {
 		return
 	}
@@ -509,7 +511,9 @@ func (s *service) setTopContributorsCache(key string, projects []string, top *mo
 	t := time.Now()
 	topContributorsCacheMtx.RLock()
 	_, ok := topContributorsCache[k]
+	cSize := len(topContributorsCache)
 	topContributorsCacheMtx.RUnlock()
+	log.Info(fmt.Sprintf("TopContributors cache size(set): %d", cSize))
 	if ok {
 		topContributorsCacheMtx.Lock()
 		delete(topContributorsCache, k)
