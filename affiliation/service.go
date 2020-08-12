@@ -490,6 +490,7 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 	topContributorsCacheMtx.RUnlock()
 	log.Info(fmt.Sprintf("TopContributors cache size(get): %d", cSize))
 	if !ok {
+		log.Info(fmt.Sprintf("getTopContributorsCache(%s): miss", k))
 		return
 	}
 	age := t.Sub(entry.Tm)
@@ -498,9 +499,11 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 		topContributorsCacheMtx.Lock()
 		delete(topContributorsCache, k)
 		topContributorsCacheMtx.Unlock()
+		log.Info(fmt.Sprintf("getTopContributorsCache(%s): expired", k))
 		return
 	}
 	top = entry.Top
+	log.Info(fmt.Sprintf("getTopContributorsCache(%s): hit", k))
 	return
 }
 func (s *service) setTopContributorsCache(key string, projects []string, top *models.TopContributorsFlatOutput) {
@@ -519,21 +522,26 @@ func (s *service) setTopContributorsCache(key string, projects []string, top *mo
 		delete(topContributorsCache, k)
 		topContributorsCache[k] = TopContributorsCacheEntry{Top: top, Tm: t}
 		topContributorsCacheMtx.Unlock()
+		log.Info(fmt.Sprintf("setTopContributorsCache(%s): replaced", k))
 	} else {
 		topContributorsCacheMtx.Lock()
 		topContributorsCache[k] = TopContributorsCacheEntry{Top: top, Tm: t}
 		topContributorsCacheMtx.Unlock()
+		log.Info(fmt.Sprintf("setTopContributorsCache(%s): added", k))
 	}
 	// 10% chance for cache cleanup
 	if t.Second()%10 == 0 {
+		deleted := 0
 		topContributorsCacheMtx.Lock()
 		for i, e := range topContributorsCache {
 			age := t.Sub(e.Tm)
 			if age > shared.TopContributorsCacheTTL {
 				delete(topContributorsCache, i)
+				deleted++
 			}
 		}
 		topContributorsCacheMtx.Unlock()
+		log.Info(fmt.Sprintf("setTopContributorsCache(%s): deleted %d items", k, deleted))
 	}
 }
 
