@@ -26,6 +26,20 @@ import (
 const (
 	// LogListMax - do not log lists longer than 30 elements, display list counts instead
 	LogListMax = 30
+	// DateFormat - format date as YYYY-MM-DD
+	DateFormat = "2006-01-02"
+	// DefaultRole - default enrollment role
+	DefaultRole = "Contributor"
+	// ContributorRole - Contributor
+	ContributorRole = "Contributor"
+	// MaintainerRole - Maintainer
+	MaintainerRole = "Maintainer"
+	// FetchSize
+	FetchSize = 20_000
+	// MaxAggsSize
+	MaxAggsSize = 10_000
+	// CacheTimeResolution - when caching top contributors from and to parameters are rounded using this parameter (ms)
+	CacheTimeResolution = 43200000 // 12 hours
 )
 
 var (
@@ -33,24 +47,18 @@ var (
 	GSQLOut bool
 	// GSyncURL - used to trigger ssaw sync
 	GSyncURL string
-	// MinPeriodDate - default start data for enrollments
-	MinPeriodDate = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
-	// MaxPeriodDate - default end date for enrollments
-	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	// DateFormat - format date as YYYY-MM-DD
-	DateFormat = "2006-01-02"
-	// DefaultRole - default enrollment role
-	DefaultRole = "Contributor"
-	// Roles - all currently defined roles
-	Roles = []string{"Contributor", "Maintainer"}
-	// ContributorRole - Contributor
-	ContributorRole = "Contributor"
-	// MaintainerRole - Maintainer
-	MaintainerRole = "Maintainer"
 	// GDA2SF - map DA name to SF name
 	GDA2SF map[string]string
 	// GSF2DA - map SF name to DA name
 	GSF2DA map[string]string
+	// MinPeriodDate - default start data for enrollments
+	MinPeriodDate = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+	// MaxPeriodDate - default end date for enrollments
+	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Roles - all currently defined roles
+	Roles = []string{"Contributor", "Maintainer"}
+	// TopContributorsCacheTTL - top contributors cache TTL (12 hours)
+	TopContributorsCacheTTL = time.Duration(12) * time.Hour
 )
 
 // ServiceInterface - Shared API interface
@@ -87,6 +95,7 @@ type ServiceInterface interface {
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
 	DayStart(time.Time) time.Time
+	RoundMSTime(int64) int64
 	JSONEscape(string) string
 	StripUnicode(string) string
 	ToCaseInsensitiveRegexp(string) string
@@ -738,6 +747,11 @@ func (s *ServiceStruct) DayStart(dt time.Time) time.Time {
 		0,
 		time.UTC,
 	)
+}
+
+// RoundMSTime - round using CacheTimeResolution (12 hours)
+func (s *ServiceStruct) RoundMSTime(t int64) int64 {
+	return (t / CacheTimeResolution) * CacheTimeResolution
 }
 
 // ToCaseInsensitiveRegexp - transform string say "abc" to ".*[aA][bB][cC].*"

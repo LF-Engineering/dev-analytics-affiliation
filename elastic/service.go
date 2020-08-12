@@ -105,9 +105,10 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		res.project = project
 		pattern := "sds-" + strings.Replace(strings.TrimSpace(project), "/", "-", -1) + "-*,-*-raw,-*-for-merge"
 		data := fmt.Sprintf(
-			`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' group by author_uuid order by author_uuid","fetch_size":20000}`,
-			//`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' and author_uuid = 'fd78aef3e68d9f31177e87c1c0ec37a9a77ba6c5' group by author_uuid order by author_uuid","fetch_size":20000}`,
+			`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' group by author_uuid order by author_uuid","fetch_size":%d}`,
+			//`{"query":"select author_uuid from \"%s\" where author_uuid is not null and author_uuid != '' and author_uuid = 'fd78aef3e68d9f31177e87c1c0ec37a9a77ba6c5' group by author_uuid order by author_uuid","fetch_size":%d}`,
 			s.JSONEscape(pattern),
+			shared.FetchSize,
 		)
 		payloadBytes := []byte(data)
 		payloadBody := bytes.NewReader(payloadBytes)
@@ -910,6 +911,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
 	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
+	// url := fmt.Sprintf("%s/_sql/translate", s.url)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
 		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s\n", err, method, url, query)
@@ -1508,6 +1510,10 @@ func (s *service) contributorStatsMainQuery(
 		err = errs.Wrap(err, "contributorStatsMainQuery")
 		return
 	}
+	iLimit := (offset + 1) * limit
+	if iLimit > shared.MaxAggsSize {
+		iLimit = shared.MaxAggsSize
+	}
 	data := fmt.Sprintf(`
 		select
 			\"author_uuid\", %s
@@ -1535,7 +1541,7 @@ func (s *service) contributorStatsMainQuery(
 		additionalWhereStr,
 		havingStr,
 		orderByClause,
-		(offset+1)*limit,
+		iLimit,
 	)
 	re1 := regexp.MustCompile(`\r?\n`)
 	re2 := regexp.MustCompile(`\s+`)
@@ -1729,6 +1735,26 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
+	fromIdx := offset * limit
+	toIdx := fromIdx + limit
+	if fromIdx >= shared.MaxAggsSize {
+		return
+	}
+	if toIdx > shared.MaxAggsSize {
+		toIdx = shared.MaxAggsSize
+	}
+	if fromIdx == toIdx {
+		return
+	}
+	if fromIdx >= top.ContributorsCount {
+		return
+	}
+	if toIdx > top.ContributorsCount {
+		toIdx = top.ContributorsCount
+	}
+	if fromIdx == toIdx {
+		return
+	}
 
 	searchCond := ""
 	searchCondMap := make(map[string]string)
@@ -1757,8 +1783,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		return
 	}
 	results := make(map[string]map[string]string)
-	fromIdx := offset * limit
-	toIdx := fromIdx + limit
 	nResults := int64(len(res["author_uuid"]))
 	if fromIdx > nResults {
 		fromIdx = nResults

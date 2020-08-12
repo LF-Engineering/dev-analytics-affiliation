@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"encoding/csv"
@@ -32,6 +33,16 @@ import (
 
 const (
 	maxConcurrentRequests = 50
+)
+
+type TopContributorsCacheEntry struct {
+	Top *models.TopContributorsFlatOutput
+	Tm  time.Time
+}
+
+var (
+	topContributorsCache    = make(map[string]TopContributorsCacheEntry)
+	topContributorsCacheMtx = &sync.RWMutex{}
 )
 
 // Service - API interface
@@ -68,7 +79,7 @@ type Service interface {
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
-	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string)
+	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string, string)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
 	GetTopContributorsCSV(ctx context.Context, in *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
@@ -91,6 +102,8 @@ type Service interface {
 	checkToken(string) (string, bool, error)
 	checkTokenAndPermission(interface{}) (string, []string, string, error)
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
+	getTopContributorsCache(string, []string) (*models.TopContributorsFlatOutput, bool)
+	setTopContributorsCache(string, []string, *models.TopContributorsFlatOutput)
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -462,6 +475,62 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		projects = projectsAry
 	}
 	return
+}
+
+func (s *service) getTopContributorsCache(key string, projects []string) (top *models.TopContributorsFlatOutput, ok bool) {
+	top = &models.TopContributorsFlatOutput{}
+	k := key
+	for _, proj := range projects {
+		k += ":" + proj
+	}
+	t := time.Now()
+	topContributorsCacheMtx.RLock()
+	entry, ok := topContributorsCache[k]
+	topContributorsCacheMtx.RUnlock()
+	if !ok {
+		return
+	}
+	age := t.Sub(entry.Tm)
+	if age > shared.TopContributorsCacheTTL {
+		ok = false
+		topContributorsCacheMtx.Lock()
+		delete(topContributorsCache, k)
+		topContributorsCacheMtx.Unlock()
+		return
+	}
+	top = entry.Top
+	return
+}
+func (s *service) setTopContributorsCache(key string, projects []string, top *models.TopContributorsFlatOutput) {
+	k := key
+	for _, proj := range projects {
+		k += ":" + proj
+	}
+	t := time.Now()
+	topContributorsCacheMtx.RLock()
+	_, ok := topContributorsCache[k]
+	topContributorsCacheMtx.RUnlock()
+	if ok {
+		topContributorsCacheMtx.Lock()
+		delete(topContributorsCache, k)
+		topContributorsCache[k] = TopContributorsCacheEntry{Top: top, Tm: t}
+		topContributorsCacheMtx.Unlock()
+	} else {
+		topContributorsCacheMtx.Lock()
+		topContributorsCache[k] = TopContributorsCacheEntry{Top: top, Tm: t}
+		topContributorsCacheMtx.Unlock()
+	}
+	// 10% chance for cache cleanup
+	if t.Second()%10 == 0 {
+		topContributorsCacheMtx.Lock()
+		for i, e := range topContributorsCache {
+			age := t.Sub(e.Tm)
+			if age > shared.TopContributorsCacheTTL {
+				delete(topContributorsCache, i)
+			}
+		}
+		topContributorsCacheMtx.Unlock()
+	}
 }
 
 func (s *service) toNoDates(in *models.UniqueIdentityNestedDataOutput) (out *models.UniqueIdentityNestedDataOutputNoDates) {
@@ -2386,7 +2455,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	return
 }
 
-func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsParams, paramsCSV *affiliation.GetTopContributorsCSVParams) (limit, offset, from, to int64, search, sortField, sortOrder string) {
+func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsParams, paramsCSV *affiliation.GetTopContributorsCSVParams) (limit, offset, from, to int64, search, sortField, sortOrder, key string) {
 	if params == nil {
 		params = &affiliation.GetTopContributorsParams{
 			From:      paramsCSV.From,
@@ -2433,6 +2502,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	if params.SortOrder != nil {
 		sortOrder = strings.ToLower(strings.TrimSpace(*params.SortOrder))
 	}
+	key = fmt.Sprintf("%d:%d:%d:%d:%s:%s:%s", limit, offset, s.RoundMSTime(from), s.RoundMSTime(to), search, sortField, sortOrder)
 	return
 }
 
@@ -2457,7 +2527,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 //     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
 //     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
-	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(params, nil)
+	limit, offset, from, to, search, sortField, sortOrder, key := s.TopContributorsParams(params, nil)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
@@ -2494,6 +2564,11 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		}
 		public = true
 	}
+	var ok bool
+	topContributors, ok = s.getTopContributorsCache(key, projects)
+	if ok {
+		return
+	}
 	var dataSourceTypes []string
 	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
 	if err != nil {
@@ -2528,6 +2603,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.User = username
 	topContributors.Scope = s.AryDA2SF(projects)
 	topContributors.Public = public
+	s.setTopContributorsCache(key, projects, topContributors)
 	return
 }
 
@@ -2552,7 +2628,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 //     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
 //     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
-	limit, offset, from, to, search, sortField, sortOrder := s.TopContributorsParams(nil, params)
+	limit, offset, from, to, search, sortField, sortOrder, key := s.TopContributorsParams(nil, params)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
@@ -2589,28 +2665,33 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		}
 		public = true
 	}
-	var dataSourceTypes []string
-	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
-	if err != nil {
-		err = errs.Wrap(err, apiName)
-		return
-	}
-	topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
-	if err != nil {
-		err = errs.Wrap(err, apiName)
-		return
-	}
-	if len(topContributors.Contributors) > 0 {
-		err = s.shDB.EnrichContributors(topContributors.Contributors, projects, to, nil)
+	var ok bool
+	topContributors, ok = s.getTopContributorsCache(key, projects)
+	if !ok {
+		var dataSourceTypes []string
+		dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
 		}
-	}
-	if public {
-		for i := range topContributors.Contributors {
-			topContributors.Contributors[i].Email = ""
+		topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
 		}
+		if len(topContributors.Contributors) > 0 {
+			err = s.shDB.EnrichContributors(topContributors.Contributors, projects, to, nil)
+			if err != nil {
+				err = errs.Wrap(err, apiName)
+				return
+			}
+		}
+		if public {
+			for i := range topContributors.Contributors {
+				topContributors.Contributors[i].Email = ""
+			}
+		}
+		s.setTopContributorsCache(key, projects, topContributors)
 	}
 	hdr := []string{
 		"uuid",
