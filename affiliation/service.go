@@ -104,6 +104,7 @@ type Service interface {
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
 	getTopContributorsCache(string, []string) (*models.TopContributorsFlatOutput, bool)
 	setTopContributorsCache(string, []string, *models.TopContributorsFlatOutput)
+	maybeCacheCleanup()
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -478,6 +479,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 }
 
 func (s *service) getTopContributorsCache(key string, projects []string) (top *models.TopContributorsFlatOutput, ok bool) {
+	defer s.maybeCacheCleanup()
 	top = &models.TopContributorsFlatOutput{}
 	k := key
 	for _, proj := range projects {
@@ -507,6 +509,7 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 	return
 }
 func (s *service) setTopContributorsCache(key string, projects []string, top *models.TopContributorsFlatOutput) {
+	defer s.maybeCacheCleanup()
 	k := key
 	for _, proj := range projects {
 		k += ":" + proj
@@ -529,7 +532,11 @@ func (s *service) setTopContributorsCache(key string, projects []string, top *mo
 		topContributorsCacheMtx.Unlock()
 		log.Info(fmt.Sprintf("setTopContributorsCache(%s): added", k))
 	}
+}
+
+func (s *service) maybeCacheCleanup() {
 	// 10% chance for cache cleanup
+	t := time.Now()
 	if t.Second()%10 == 0 {
 		deleted := 0
 		topContributorsCacheMtx.Lock()
@@ -541,7 +548,7 @@ func (s *service) setTopContributorsCache(key string, projects []string, top *mo
 			}
 		}
 		topContributorsCacheMtx.Unlock()
-		log.Info(fmt.Sprintf("setTopContributorsCache(%s): deleted %d items", k, deleted))
+		log.Info(fmt.Sprintf("ContributorsCache: deleted %d items", deleted))
 	}
 }
 
