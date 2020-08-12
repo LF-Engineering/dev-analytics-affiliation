@@ -35,6 +35,7 @@ type Service interface {
 	// External methods
 	GetUnaffiliated([]string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
+	ContributorsCount(string, string) (int64, error)
 	GetTopContributors([]string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
@@ -763,6 +764,77 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
+// ContributorsCount - returns the number of distinct author_uuids in a given index pattern
+func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err error) {
+	log.Info(fmt.Sprintf("ContributorsCount: indexPattern:%s cond:%s", indexPattern, cond))
+	defer func() {
+		log.Info(fmt.Sprintf("ContributorsCount(exit): indexPattern:%s cond:%s cnt:%d err:%v", indexPattern, cond, cnt, err))
+	}()
+	var data string
+	if cond == "" {
+		data = fmt.Sprintf(`{"query":"select count(distinct author_uuid) as cnt from \"%s\""}`, s.JSONEscape(indexPattern))
+	} else {
+		data = fmt.Sprintf(`{"query":"select count(distinct author_uuid) as cnt from \"%s\" where true %s"}`, s.JSONEscape(indexPattern), cond)
+		re1 := regexp.MustCompile(`\r?\n`)
+		re2 := regexp.MustCompile(`\s+`)
+		data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
+	}
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != 200 {
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
+			return
+		}
+		err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
+		return
+	}
+	reader := csv.NewReader(resp.Body)
+	row := []string{}
+	n := 0
+	for {
+		row, err = reader.Read()
+		if err == io.EOF {
+			err = nil
+			break
+		} else if err != nil {
+			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
+			return
+		}
+		n++
+		if n == 2 {
+			var fcnt float64
+			fcnt, err = strconv.ParseFloat(row[0], 64)
+			cnt = int64(fcnt)
+			break
+		}
+	}
+	return
+}
+
 // Top contributor functions
 func (s *service) getAllStringFields(indexPattern string) (fields []string, err error) {
 	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s", indexPattern))
@@ -1482,12 +1554,14 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	useSearchInMergeQueries := os.Getenv("USE_SEARCH_IN_MERGE") != ""
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
+	patternAll := s.projectSlugsToIndexPattern(projectSlugs)
 	log.Debug(
 		fmt.Sprintf(
-			"GetTopContributors: projectSlugs:%+v dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
+			"GetTopContributors: projectSlugs:%+v dataSourceTypes:%+v patterns:%+v patternAll:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
 			projectSlugs,
 			dataSourceTypes,
 			patterns,
+			patternAll,
 			from,
 			to,
 			limit,
@@ -1509,10 +1583,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		}
 		log.Debug(
 			fmt.Sprintf(
-				"GetTopContributors(exit): projectSlugs:%+v dataSourceTypes:%+v patterns:%+v from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v top:%+v err:%v",
+				"GetTopContributors(exit): projectSlugs:%+v dataSourceTypes:%+v patterns:%+v patternAll:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v top:%+v err:%v",
 				projectSlugs,
 				dataSourceTypes,
 				patterns,
+				patternAll,
 				from,
 				to,
 				limit,
@@ -1640,6 +1715,19 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		tempDataSource := top.DataSourceTypes[i]
 		top.DataSourceTypes[i] = top.DataSourceTypes[minIndex]
 		top.DataSourceTypes[minIndex] = tempDataSource
+	}
+
+	// Get count of all contributors
+	var searchCondAll string
+	searchCondAll, err = s.searchCondition(patternAll, search)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
+	}
+	top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
 	}
 
 	searchCond := ""

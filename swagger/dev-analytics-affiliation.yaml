@@ -2493,6 +2493,9 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/data-source-type-fields"
+      contributors_count:
+        type: integer
+        example: 12768
       contributors:
         type: array
         items:
