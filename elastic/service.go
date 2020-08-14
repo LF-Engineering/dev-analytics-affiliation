@@ -1730,6 +1730,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
+	// Add from, to filter
+	searchCondAll += fmt.Sprintf(
+		` and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
+		from,
+		to,
+	)
 	top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
