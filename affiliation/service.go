@@ -35,13 +35,13 @@ const (
 	maxConcurrentRequests = 50
 )
 
-type TopContributorsCacheEntry struct {
+type topContributorsCacheEntry struct {
 	Top *models.TopContributorsFlatOutput
 	Tm  time.Time
 }
 
 var (
-	topContributorsCache    = make(map[string]TopContributorsCacheEntry)
+	topContributorsCache    = make(map[string]topContributorsCacheEntry)
 	topContributorsCacheMtx = &sync.RWMutex{}
 )
 
@@ -523,12 +523,12 @@ func (s *service) setTopContributorsCache(key string, projects []string, top *mo
 	if ok {
 		topContributorsCacheMtx.Lock()
 		delete(topContributorsCache, k)
-		topContributorsCache[k] = TopContributorsCacheEntry{Top: top, Tm: t}
+		topContributorsCache[k] = topContributorsCacheEntry{Top: top, Tm: t}
 		topContributorsCacheMtx.Unlock()
 		log.Info(fmt.Sprintf("setTopContributorsCache(%s): replaced", k))
 	} else {
 		topContributorsCacheMtx.Lock()
-		topContributorsCache[k] = TopContributorsCacheEntry{Top: top, Tm: t}
+		topContributorsCache[k] = topContributorsCacheEntry{Top: top, Tm: t}
 		topContributorsCacheMtx.Unlock()
 		log.Info(fmt.Sprintf("setTopContributorsCache(%s): added", k))
 	}
@@ -2475,6 +2475,7 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 }
 
 func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsParams, paramsCSV *affiliation.GetTopContributorsCSVParams) (limit, offset, from, to int64, search, sortField, sortOrder, key string) {
+	csvParams := false
 	if params == nil {
 		params = &affiliation.GetTopContributorsParams{
 			From:      paramsCSV.From,
@@ -2485,6 +2486,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 			SortField: paramsCSV.SortField,
 			SortOrder: paramsCSV.SortOrder,
 		}
+		csvParams = true
 	}
 	if params.From != nil {
 		from = *params.From
@@ -2497,13 +2499,16 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 		to = time.Now().UnixNano() / 1.0e6
 	}
 	limit = 10
+	if csvParams {
+		limit = 10000
+	}
 	if params.Limit != nil {
 		limit = *params.Limit
 		if limit < 1 {
 			limit = 1
 		}
-		if limit > 9999 {
-			limit = 9999
+		if limit > 10000 {
+			limit = 10000
 		}
 	}
 	if params.Offset != nil {

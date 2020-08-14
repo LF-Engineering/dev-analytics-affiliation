@@ -1734,8 +1734,7 @@ parameters:
     name: limit
     in: query
     type: integer
-    default: 10
-    description: The numbers of data to return, default 10
+    description: The numbers of data to return, default 10, for CSV export default is 10000
   offset:
     name: offset
     in: query

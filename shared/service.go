@@ -34,10 +34,10 @@ const (
 	ContributorRole = "Contributor"
 	// MaintainerRole - Maintainer
 	MaintainerRole = "Maintainer"
-	// FetchSize
-	FetchSize = 20_000
-	// MaxAggsSize
-	MaxAggsSize = 10_000
+	// FetchSize - fetch size for _sql
+	FetchSize = 20000
+	// MaxAggsSize - maximum number of results to get for top contributors
+	MaxAggsSize = 10000
 	// CacheTimeResolution - when caching top contributors from and to parameters are rounded using this parameter (ms)
 	CacheTimeResolution = 43200000 // 12 hours
 )
