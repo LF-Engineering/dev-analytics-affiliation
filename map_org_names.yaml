@@ -263,7 +263,7 @@ mappings:
   - ['^[[:space:]]*sage[[:space:]]*group[[:space:]]*plc[[:space:]]*$', 'Sage']
   - ['^[[:space:]]*sagem[[:space:]]*$', 'Sagemcom']
   - ['^[[:space:]]*saltstack,?[[:space:]]*inc\\.?[[:space:]]*$', 'SaltStack']
-  - ['^[[:space:]]*(samsung|samsung[[:space:]]+(accelerator|electronics?|sds))[[:space:]]*$', 'Samsung Electronics Co. Ltd.']
+  - ['^[[:space:]]*(samsung[[:space:]]+(accelerator|electronics?|sds))[[:space:]]*$', 'Samsung Electronics Co. Ltd.']
   - ['^[[:space:]]*sandia[[:space:]]*national[[:space:]]*laboratory[[:space:]]*$', 'Sandia National Laboratory']
   - ['^[[:space:]]*sandvine[[:space:]]*$', 'Sandvine Incorporated']
   - ['^[[:space:]]*sapienza[[:space:]]*università[[:space:]]*di[[:space:]]*roma[[:space:]]*$', 'Sapienza University of Rome']
