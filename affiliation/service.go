@@ -2589,6 +2589,9 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		public = true
 	}
 	var ok bool
+	if public {
+		key += ":pub"
+	}
 	topContributors, ok = s.getTopContributorsCache(key, projects)
 	if ok {
 		return
@@ -2690,6 +2693,9 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		public = true
 	}
 	var ok bool
+	if public {
+		key += ":pub"
+	}
 	topContributors, ok = s.getTopContributorsCache(key, projects)
 	if !ok {
 		var dataSourceTypes []string
