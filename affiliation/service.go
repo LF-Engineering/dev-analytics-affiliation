@@ -1988,11 +1988,11 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 }
 
 // GetIdentity: API params:
-// /v1/affiliation/get_identity/{uuid}
-// {uuid} - required path parameter: ID of the identity to get
+// /v1/affiliation/get_identity/{id}
+// {id} - required path parameter: ID of the identity to get
 func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (i *models.IdentityDataOutput, err error) {
-	uuid := params.ID
-	log.Info(fmt.Sprintf("GetIdentity: uuid:%s", uuid))
+	id := params.ID
+	log.Info(fmt.Sprintf("GetIdentity: uuid:%s", id))
 	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(fmt.Sprintf("GetIdentity(exit): apiName:%s username:%s err:%v", apiName, username, err))
@@ -2000,9 +2000,9 @@ func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdenti
 	if err != nil{
 		return
 	}
-	i, err = s.shDB.GetIdentity(uuid, true, nil)
+	i, err = s.shDB.GetIdentity(id, true, nil)
 	if err != nil{
-		err = errs.Wrap(fmt.Errorf("Identity with UUID '%s' not found", uuid), apiName)
+		err = errs.Wrap(fmt.Errorf("Identity with UUID '%s' not found", id), apiName)
 		return
 	}
 	return
