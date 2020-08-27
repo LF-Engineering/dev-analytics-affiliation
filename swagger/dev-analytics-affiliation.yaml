@@ -617,7 +617,7 @@ paths:
         - $ref: '#/parameters/q'
   /affiliation/get_identity/{uuid}:
     get:
-      summary: Get profile with given UUID
+      summary: Get identity with given UUID
       operationId: getIdentity
       produces:
         - application/json
