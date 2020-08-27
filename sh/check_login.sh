@@ -22,7 +22,7 @@ then
 fi
 if [ -z "${PATTERN}" ]
 then
-  PATTERN='sds-cncf-*,-*-raw,-*-for-merge'
+  PATTERN='sds-cncf-*-git*,-*-raw,-*-for-merge'
 fi
 MYSQL="${MYSQL} -NBAe "
 PSQL="${PSQL} -F$'\t' -tAc "
@@ -114,7 +114,7 @@ do
       echo "${data}"
     fi
     echo "ElasticSearch ${PATTERN}:"
-    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=txt" -d"{\"query\":\"select origin, author_org_name, count(*) as cnt from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') group by origin, author_org_name order by cnt desc\"}"`
+    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select origin, author_org_name, count(*) as cnt from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') group by origin, author_org_name order by cnt desc\"}" | tail -n +2`
     echo "${es}"
     ((i=i+1))
   done
