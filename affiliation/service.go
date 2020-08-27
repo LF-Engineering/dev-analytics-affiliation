@@ -62,6 +62,7 @@ type Service interface {
 	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
+	GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (*models.IdentityDataOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
@@ -303,6 +304,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
 		apiName = "PutEditOrganization"
+	case *affiliation.GetIdentityParams:
+		auth = params.Authorization
+		apiName = "GetIdentity"
 	case *affiliation.GetProfileParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -1980,6 +1984,27 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 	getListProfiles.User = username
 	getListProfiles.Scope = s.AryDA2SF(projects)
 	s.ListProfilesDA2SF(getListProfiles)
+	return
+}
+
+// GetIdentity: API params:
+// /v1/affiliation/get_identity/{uuid}
+// {uuid} - required path parameter: ID of the identity to get
+func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (i *models.IdentityDataOutput, err error) {
+	uuid := params.UUID
+	log.Info(fmt.Sprintf("GetIdentity: uuid:%s", uuid))
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("GetIdentity(exit): apiName:%s username:%s err:%v", apiName, username, err))
+	}()
+	if err != nil{
+		return
+	}
+	i, err = s.shDB.GetIdentity(uuid, true, nil)
+	if err != nil{
+		err = errs.Wrap(fmt.Errorf("Identity with UUID '%s' not found", uuid), apiName)
+		return
+	}
 	return
 }
 
