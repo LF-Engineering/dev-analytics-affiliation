@@ -1991,7 +1991,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 // /v1/affiliation/get_identity/{uuid}
 // {uuid} - required path parameter: ID of the identity to get
 func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (i *models.IdentityDataOutput, err error) {
-	uuid := params.UUID
+	uuid := params.ID
 	log.Info(fmt.Sprintf("GetIdentity: uuid:%s", uuid))
 	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {

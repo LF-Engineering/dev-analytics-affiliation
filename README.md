@@ -65,6 +65,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_org_domain.sh odpi/egeria cncf cloudnative.io ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_profiles.sh odpi/egeria gerrit 25 | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile.sh lfn 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_identity.sh 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_unarchive_profile.sh odpi/egeria xyz | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.token` name=lukaszgryglicki email=lgryglicki@cncf.io gender=male gender_acc=99 is_bot=0 country_code=pl ./sh/curl_put_edit_profile.sh odpi/egeria xyz ``.

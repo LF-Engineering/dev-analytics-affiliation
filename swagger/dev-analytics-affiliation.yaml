@@ -615,7 +615,7 @@ paths:
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
-  /affiliation/get_identity/{uuid}:
+  /affiliation/get_identity/{id}:
     get:
       summary: Get identity with given UUID
       operationId: getIdentity
@@ -646,7 +646,7 @@ paths:
         - get
       parameters:
         - $ref: '#/parameters/auth'
-        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/id'
   /affiliation/{projectSlugs}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
@@ -1722,6 +1722,12 @@ parameters:
     type: string
     required: true
     description: Project slugs URL encoded like 'academy-software-foundation/opencue,lfn/onap,hyperledger/burrow'
+  id:
+    name: id
+    in: path
+    type: string
+    required: true
+    description: ID of the user
   uuid:
     name: uuid
     in: path
