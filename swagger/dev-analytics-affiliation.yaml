@@ -615,6 +615,38 @@ paths:
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
+  /affiliation/get_identity/{uuid}:
+    get:
+      summary: Get profile with given UUID
+      operationId: getIdentity
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/identity-data-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - get_identity
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/uuid'
   /affiliation/{projectSlugs}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
