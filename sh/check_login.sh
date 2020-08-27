@@ -42,7 +42,6 @@ do
     then
       echo "Identity ${uuid} not found"
       ((i=i+1))
-      echo
       continue
     fi
     ary=(${data})
@@ -75,10 +74,10 @@ do
     if [ -z "${data}" ]
     then
       echo "No enrollments for ${uuid}"
+    else
+      echo "${data}"
     fi
-    echo "${data}"
     ((i=i+1))
-    echo
   done
   i="1"
   conds=""
@@ -127,7 +126,6 @@ do
   else
     echo "${js}"
   fi
-  echo 
   pcond=''
   if [ ! -z "${lcond}" ]
   then
@@ -146,19 +144,28 @@ do
   if [ -z "${pcond}" ]
   then
     echo "No email or login to search data found"
-    echo
     continue
   fi
   echo 'Affiliations:'
   cmd="$PSQL \"select date(dt_from), date(dt_to), company_name, source from gha_actors_affiliations where actor_id in (${pcond})\""
   data=$(eval "${cmd}")
-  echo "${data}"
+  if [ -z "${data}" ]
+  then
+    echo "No affiliations found for ${pcond}"
+  else
+    echo "${data}"
+  fi
   echo 'Commits:'
   cmd="$PSQL \"select count(distinct sha) as cnt, date(min(dup_created_at)), date(max(dup_created_at)) from gha_commits where committer_id in (${pcond}) or author_id in (${pcond}) order by cnt desc\""
   data=$(eval "${cmd}")
   echo "${data}"
-  echo 'Events:'
-  cmd="$PSQL \"select type, count(*) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where actor_id in (${pcond}) group by type order by cnt desc\""
+  contrib="'IssuesEvent', 'PullRequestEvent', 'PushEvent', 'CommitCommentEvent', 'IssueCommentEvent', 'PullRequestReviewCommentEvent'"
+  echo 'Contributions:'
+  cmd="$PSQL \"select count(*) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where type in (${contrib}) and actor_id in (${pcond})\""
+  data=$(eval "${cmd}")
+  echo "${data}"
+  echo 'Contribution types:'
+  cmd="$PSQL \"select type, count(*) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where type in (${contrib}) and actor_id in (${pcond}) group by type order by cnt desc\""
   data=$(eval "${cmd}")
   echo "${data}"
 done
