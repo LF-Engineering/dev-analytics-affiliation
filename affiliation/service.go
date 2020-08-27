@@ -2002,7 +2002,7 @@ func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdenti
 	}
 	i, err = s.shDB.GetIdentity(id, true, nil)
 	if err != nil{
-		err = errs.Wrap(fmt.Errorf("Identity with UUID '%s' not found", id), apiName)
+		err = errs.Wrap(fmt.Errorf("Identity with ID '%s' not found", id), apiName)
 		return
 	}
 	return
