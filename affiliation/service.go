@@ -1992,7 +1992,7 @@ func (s *service) GetListProfiles(ctx context.Context, params *affiliation.GetLi
 // {id} - required path parameter: ID of the identity to get
 func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (i *models.IdentityDataOutput, err error) {
 	id := params.ID
-	log.Info(fmt.Sprintf("GetIdentity: uuid:%s", id))
+	log.Info(fmt.Sprintf("GetIdentity: id:%s", id))
 	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(fmt.Sprintf("GetIdentity(exit): apiName:%s username:%s err:%v", apiName, username, err))
@@ -2015,7 +2015,7 @@ func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdenti
 func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uuid := params.UUID
 	uid = &models.UniqueIdentityNestedDataOutput{}
-	log.Info(fmt.Sprintf("GetProfile: id:%s", uuid))
+	log.Info(fmt.Sprintf("GetProfile: uuid:%s", uuid))
 	// Check token and permission
 	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
