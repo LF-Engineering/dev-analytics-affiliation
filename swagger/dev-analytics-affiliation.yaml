@@ -615,6 +615,38 @@ paths:
         - $ref: '#/parameters/rows'
         - $ref: '#/parameters/page'
         - $ref: '#/parameters/q'
+  /affiliation/get_identity/{id}:
+    get:
+      summary: Get identity with given ID
+      operationId: getIdentity
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/identity-data-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - get_identity
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/id'
   /affiliation/{projectSlugs}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
@@ -1690,6 +1722,12 @@ parameters:
     type: string
     required: true
     description: Project slugs URL encoded like 'academy-software-foundation/opencue,lfn/onap,hyperledger/burrow'
+  id:
+    name: id
+    in: path
+    type: string
+    required: true
+    description: ID of the user
   uuid:
     name: uuid
     in: path
