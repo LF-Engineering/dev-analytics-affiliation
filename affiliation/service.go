@@ -2015,7 +2015,7 @@ func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdenti
 func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uuid := params.UUID
 	uid = &models.UniqueIdentityNestedDataOutput{}
-	log.Info(fmt.Sprintf("GetProfile: uuid:%s", uuid))
+	log.Info(fmt.Sprintf("GetProfile: id:%s", uuid))
 	// Check token and permission
 	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
