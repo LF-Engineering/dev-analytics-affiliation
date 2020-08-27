@@ -1,6 +1,6 @@
 #!/bin/bash
 # Example:
-# PSQL='sudo -u postgres psql db' MYSQL='mysql -hhost -uuser -ppass db' ./sh/check_login.sh 'lukasz Gryglicki'
+# PSQL='sudo -u postgres psql db' MYSQL='mysql -hhost -uuser -ppass db' ./sh/check_login.sh ES='https://elastic:user@url.us-west-1.aws.found.io:port' 'lukasz Gryglicki'
 if [ -z "$MYSQL" ]
 then
   echo "Please specify full mysql connect command, something like MYSQL='mysql -hdburl -uuser -ppassword dbname'"
@@ -11,9 +11,18 @@ then
   echo "Please specify full postgresql connect command, something like PSQL='sudo -u postgres psql dbname'"
   exit 2
 fi
+if [ -z "$ES" ]
+then
+  echo "Please specify full ElasticSearch URL, something like ES=elastic.host.com"
+  exit 3
+fi
 if [ -z "${JSON}" ]
 then
   JSON="${HOME}/dev/go/src/github.com/cncf/devstats/github_users.json"
+fi
+if [ -z "${PATTERN}" ]
+then
+  PATTERN='sds-cncf-*,-*-raw,-*-for-merge'
 fi
 MYSQL="${MYSQL} -NBAe "
 PSQL="${PSQL} -F$'\t' -tAc "
@@ -68,34 +77,33 @@ do
     if [ -z "${data}" ]
     then
       echo "Identity ${uuid} not found"
-      ((i=i+1))
-      continue
+    else
+      ary=(${data})
+      j="0"
+      while true
+      do
+        src="${ary[${j}]}"
+        login="${ary[((j+1))]}"
+        email="${ary[((j+2))]}"
+        eemail="${ary[((j+3))]}"
+        iname="${ary[((j+4))]//---/ }"
+        if [ -z "${src}" ]
+        then
+          break
+        fi
+        echo -e "${src}\t${login}\t${email}\t${iname}"
+        if ( [ "${src}" = "github" ] && [ ! "${login}" = "NULL" ] )
+        then
+          logins["${login}"]="1"
+        fi
+        if [ ! "${email}" = "NULL" ]
+        then
+          emails["${email}"]="1"
+          eemails["${eemail}"]="1"
+        fi
+        ((j=j+5))
+      done
     fi
-    ary=(${data})
-    j="0"
-    while true
-    do
-      src="${ary[${j}]}"
-      login="${ary[((j+1))]}"
-      email="${ary[((j+2))]}"
-      eemail="${ary[((j+3))]}"
-      iname="${ary[((j+4))]//---/ }"
-      if [ -z "${src}" ]
-      then
-        break
-      fi
-      echo -e "${src}\t${login}\t${email}\t${iname}"
-      if ( [ "${src}" = "github" ] && [ ! "${login}" = "NULL" ] )
-      then
-        logins["${login}"]="1"
-      fi
-      if [ ! "${email}" = "NULL" ]
-      then
-        emails["${email}"]="1"
-        eemails["${eemail}"]="1"
-      fi
-      ((j=j+5))
-    done
     echo "Enrollments:"
     cmd="$MYSQL \"select e.project_slug, date(e.start), date(e.end), o.name, e.role from enrollments e, organizations o where e.organization_id = o.id and e.uuid = '${uuid}' order by e.project_slug, e.start\""
     data=$(eval "${cmd}")
@@ -105,6 +113,9 @@ do
     else
       echo "${data}"
     fi
+    echo "ElasticSearch ${PATTERN}:"
+    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=txt" -d"{\"query\":\"select origin, author_org_name, count(*) as cnt from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') group by origin, author_org_name order by cnt desc\"}"`
+    echo "${es}"
     ((i=i+1))
   done
   i="1"
