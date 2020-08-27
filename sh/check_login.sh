@@ -35,8 +35,35 @@ do
   for uuid in ${uuids}
   do
     echo "#${i} uuid: ${uuid}"
+    echo "Profiles:"
+    cmd="$MYSQL \"select email, regexp_replace(email, '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2'), regexp_replace(name, '\\\\\\\\s', '---') from profiles where uuid = '${uuid}' order by email\""
+    data=$(eval "${cmd}")
+    if [ -z "${data}" ]
+    then
+      echo "Profile ${uuid} not found"
+    else
+      ary=(${data})
+      j="0"
+      while true
+      do
+        email="${ary[${j}]}"
+        eemail="${ary[((j+1))]}"
+        pname="${ary[((j+2))]//---/ }"
+        if [ -z "${email}" ]
+        then
+          break
+        fi
+        echo -e "${email}\t${pname}"
+        if [ ! "${email}" = "NULL" ]
+        then
+          emails["${email}"]="1"
+          eemails["${eemail}"]="1"
+        fi
+        ((j=j+3))
+      done
+    fi
     echo "Identities:"
-    cmd="$MYSQL \"select source, username, email, regexp_replace(email, '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2') from identities where uuid = '${uuid}' order by source\""
+    cmd="$MYSQL \"select source, username, email, regexp_replace(email, '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2'), regexp_replace(name, '\\\\\\\\s', '---') from identities where uuid = '${uuid}' order by source\""
     data=$(eval "${cmd}")
     if [ -z "${data}" ]
     then
@@ -52,11 +79,12 @@ do
       login="${ary[((j+1))]}"
       email="${ary[((j+2))]}"
       eemail="${ary[((j+3))]}"
+      iname="${ary[((j+4))]//---/ }"
       if [ -z "${src}" ]
       then
         break
       fi
-      echo -e "${src}\t${login}\t${email}"
+      echo -e "${src}\t${login}\t${email}\t${iname}"
       if ( [ "${src}" = "github" ] && [ ! "${login}" = "NULL" ] )
       then
         logins["${login}"]="1"
@@ -66,7 +94,7 @@ do
         emails["${email}"]="1"
         eemails["${eemail}"]="1"
       fi
-      ((j=j+4))
+      ((j=j+5))
     done
     echo "Enrollments:"
     cmd="$MYSQL \"select e.project_slug, date(e.start), date(e.end), o.name, e.role from enrollments e, organizations o where e.organization_id = o.id and e.uuid = '${uuid}' order by e.project_slug, e.start\""
