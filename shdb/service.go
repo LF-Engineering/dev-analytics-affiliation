@@ -2719,6 +2719,16 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 	return
 }
 
+// ToLowerAndNone takes a string if it is empty it is set to none
+// else it's contents are changed to the lower case
+func ToLowerAndNone(value string) string {
+	if value == "" {
+		return "none"
+	}else {
+		return strings.ToLower(value)
+	}
+}
+
 func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash string, err error) {
 	log.Info(fmt.Sprintf("IdentityIDHash: identity:%+v", s.ToLocalIdentity(identity)))
 	defer func() {
@@ -2751,6 +2761,17 @@ func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash st
 	if identity.Username != nil {
 		username = *(identity.Username)
 	}
+	if identity.Source == "" {
+		err = fmt.Errorf("identity without source is not allowed")
+		return
+	}
+	if email == "" && name == "" && username == "" {
+		err = fmt.Errorf("identity data(name, email, username) can not be empty")
+		return
+	}
+	email = ToLowerAndNone(email)
+	name = ToLowerAndNone(name)
+	username = ToLowerAndNone(username)
 	arg := stripF(identity.Source) + ":" + stripF(email) + ":" + stripF(name) + ":" + stripF(username)
 	hash := sha1.New()
 	_, err = hash.Write([]byte(arg))
