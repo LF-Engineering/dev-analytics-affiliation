@@ -2761,17 +2761,17 @@ func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash st
 	if identity.Username != nil {
 		username = *(identity.Username)
 	}
-	email = ToLowerAndNone(email)
-	name = ToLowerAndNone(name)
-	username = ToLowerAndNone(username)
 	if identity.Source == "" {
 		err = fmt.Errorf("identity without source is not allowed")
 		return
 	}
-	if (email == "" && name == "" && username == "") || (email == "none" && name == "none" && username == "none") {
+	if email == "" && name == "" && username == "" {
 		err = fmt.Errorf("identity data(name, email, username) can not be empty")
 		return
 	}
+	email = ToLowerAndNone(email)
+	name = ToLowerAndNone(name)
+	username = ToLowerAndNone(username)
 	arg := stripF(identity.Source) + ":" + stripF(email) + ":" + stripF(name) + ":" + stripF(username)
 	hash := sha1.New()
 	_, err = hash.Write([]byte(arg))
