@@ -2724,7 +2724,7 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 func ToLowerAndNone(value string) string {
 	if value == "" {
 		return "none"
-	}else {
+	} else {
 		return strings.ToLower(value)
 	}
 }

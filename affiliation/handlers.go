@@ -421,7 +421,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 
 			return affiliation.NewGetIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
-		)
+	)
 	api.AffiliationGetProfileHandler = affiliation.GetProfileHandlerFunc(
 		func(params affiliation.GetProfileParams) middleware.Responder {
 			log.Info("GetProfileHandlerFunc")

@@ -1997,11 +1997,11 @@ func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdenti
 	defer func() {
 		log.Info(fmt.Sprintf("GetIdentity(exit): apiName:%s username:%s err:%v", apiName, username, err))
 	}()
-	if err != nil{
+	if err != nil {
 		return
 	}
 	i, err = s.shDB.GetIdentity(id, true, nil)
-	if err != nil{
+	if err != nil {
 		err = errs.Wrap(fmt.Errorf("Identity with ID '%s' not found", id), apiName)
 		return
 	}
