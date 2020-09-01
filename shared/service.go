@@ -763,7 +763,7 @@ func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
 		} else if b >= 0x61 && b <= 0x7a {
 			ret += "[" + string(b) + string(b-0x20) + "]"
 		} else if b == 0x20 {
-			ret += `\s+`
+			ret += ` +`
 		} else {
 			ret += string(b)
 		}
