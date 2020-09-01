@@ -35,13 +35,7 @@ const (
 	maxConcurrentRequests = 50
 )
 
-type topContributorsCacheEntry struct {
-	Top *models.TopContributorsFlatOutput
-	Tm  time.Time
-}
-
 var (
-	topContributorsCache    = make(map[string]topContributorsCacheEntry)
 	topContributorsCacheMtx = &sync.RWMutex{}
 )
 
@@ -491,10 +485,8 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 	}
 	t := time.Now()
 	topContributorsCacheMtx.RLock()
-	entry, ok := topContributorsCache[k]
-	cSize := len(topContributorsCache)
+	entry, ok := s.es.TopContributorsCacheGet(k)
 	topContributorsCacheMtx.RUnlock()
-	log.Info(fmt.Sprintf("TopContributors cache size(get): %d", cSize))
 	if !ok {
 		log.Info(fmt.Sprintf("getTopContributorsCache(%s): miss", k))
 		return
@@ -503,7 +495,7 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 	if age > shared.TopContributorsCacheTTL {
 		ok = false
 		topContributorsCacheMtx.Lock()
-		delete(topContributorsCache, k)
+		s.es.TopContributorsCacheDelete(k)
 		topContributorsCacheMtx.Unlock()
 		log.Info(fmt.Sprintf("getTopContributorsCache(%s): expired", k))
 		return
@@ -520,19 +512,17 @@ func (s *service) setTopContributorsCache(key string, projects []string, top *mo
 	}
 	t := time.Now()
 	topContributorsCacheMtx.RLock()
-	_, ok := topContributorsCache[k]
-	cSize := len(topContributorsCache)
+	_, ok := s.es.TopContributorsCacheGet(k)
 	topContributorsCacheMtx.RUnlock()
-	log.Info(fmt.Sprintf("TopContributors cache size(set): %d", cSize))
 	if ok {
 		topContributorsCacheMtx.Lock()
-		delete(topContributorsCache, k)
-		topContributorsCache[k] = topContributorsCacheEntry{Top: top, Tm: t}
+		s.es.TopContributorsCacheDelete(k)
+		s.es.TopContributorsCacheSet(k, &elastic.TopContributorsCacheEntry{Top: top, Tm: t})
 		topContributorsCacheMtx.Unlock()
 		log.Info(fmt.Sprintf("setTopContributorsCache(%s): replaced", k))
 	} else {
 		topContributorsCacheMtx.Lock()
-		topContributorsCache[k] = topContributorsCacheEntry{Top: top, Tm: t}
+		s.es.TopContributorsCacheSet(k, &elastic.TopContributorsCacheEntry{Top: top, Tm: t})
 		topContributorsCacheMtx.Unlock()
 		log.Info(fmt.Sprintf("setTopContributorsCache(%s): added", k))
 	}
@@ -542,17 +532,12 @@ func (s *service) maybeCacheCleanup() {
 	// 10% chance for cache cleanup
 	t := time.Now()
 	if t.Second()%10 == 0 {
-		deleted := 0
-		topContributorsCacheMtx.Lock()
-		for i, e := range topContributorsCache {
-			age := t.Sub(e.Tm)
-			if age > shared.TopContributorsCacheTTL {
-				delete(topContributorsCache, i)
-				deleted++
-			}
-		}
-		topContributorsCacheMtx.Unlock()
-		log.Info(fmt.Sprintf("ContributorsCache: deleted %d items", deleted))
+		go func() {
+			topContributorsCacheMtx.Lock()
+			s.es.TopContributorsCacheDeleteExpired()
+			topContributorsCacheMtx.Unlock()
+			log.Info(fmt.Sprintf("ContributorsCache: deleted expired items"))
+		}()
 	}
 }
 

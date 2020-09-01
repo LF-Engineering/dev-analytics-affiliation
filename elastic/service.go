@@ -29,6 +29,12 @@ import (
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 )
 
+type TopContributorsCacheEntry struct {
+	Top *models.TopContributorsFlatOutput `json:"v"`
+	Tm  time.Time                         `json:"t"`
+	Key string                            `json:"k"`
+}
+
 // Service - interface to access ES data
 type Service interface {
 	shared.ServiceInterface
@@ -40,6 +46,11 @@ type Service interface {
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
 	GetUUIDsProjects([]string) (map[string][]string, string, error)
+	// ES Cache methods
+	TopContributorsCacheGet(string) (*TopContributorsCacheEntry, bool)
+	TopContributorsCacheSet(string, *TopContributorsCacheEntry)
+	TopContributorsCacheDelete(string)
+	TopContributorsCacheDeleteExpired()
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -74,6 +85,154 @@ type aggsUnaffiliatedResult struct {
 			} `json:"unaffiliated"`
 		} `json:"unaffiliated"`
 	} `json:"aggregations"`
+}
+
+func (s *service) TopContributorsCacheGet(key string) (entry *TopContributorsCacheEntry, ok bool) {
+	data := `{"query":{"term":{"k.keyword":{"value": "` + s.JSONEscape(key) + `"}}}}`
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/es_cache/_search", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		log.Warn(fmt.Sprintf("New request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Warn(fmt.Sprintf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Warn(fmt.Sprintf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != 200 {
+		log.Warn(fmt.Sprintf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body))
+		return
+	}
+	type Result struct {
+		Hits struct {
+			Hits []struct {
+				Source TopContributorsCacheEntry `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+		Data []interface{} `json:"rows"`
+	}
+	var result Result
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: %+v", err))
+		return
+	}
+	if len(result.Hits.Hits) == 0 {
+		return
+	}
+	entry = &(result.Hits.Hits[0].Source)
+	ok = true
+	return
+}
+
+func (s *service) TopContributorsCacheSet(key string, entry *TopContributorsCacheEntry) {
+	entry.Key = key
+	payloadBytes, err := json.Marshal(entry)
+	if err != nil {
+		log.Warn(fmt.Sprintf("json %+v marshal error: %+v\n", entry, err))
+		return
+	}
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/es_cache/_doc", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		data := string(payloadBytes)
+		log.Warn(fmt.Sprintf("New request :eerror: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		data := string(payloadBytes)
+		log.Warn(fmt.Sprintf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != 201 {
+		data := string(payloadBytes)
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Warn(fmt.Sprintf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+			return
+		}
+		log.Warn(fmt.Sprintf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body))
+		return
+	}
+	return
+}
+
+func (s *service) TopContributorsCacheDelete(key string) {
+	data := `{"query":{"term":{"k.keyword":{"value": "` + s.JSONEscape(key) + `"}}}}`
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/es_cache/_delete_by_query", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		log.Warn(fmt.Sprintf("New request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Warn(fmt.Sprintf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != 200 {
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Warn(fmt.Sprintf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+			return
+		}
+		log.Warn(fmt.Sprintf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body))
+		return
+	}
+}
+
+func (s *service) TopContributorsCacheDeleteExpired() {
+	data := `{"query":{"range":{"t":{"lte": "` + shared.ESCacheTTL + `"}}}}`
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/es_cache/_delete_by_query", s.url)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		log.Warn(fmt.Sprintf("New request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Warn(fmt.Sprintf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != 200 {
+		var body []byte
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Warn(fmt.Sprintf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
+			return
+		}
+		log.Warn(fmt.Sprintf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body))
+		return
+	}
 }
 
 // New return ES connection

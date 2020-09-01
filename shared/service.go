@@ -40,6 +40,8 @@ const (
 	MaxAggsSize = 10000
 	// CacheTimeResolution - when caching top contributors from and to parameters are rounded using this parameter (ms)
 	CacheTimeResolution = 43200000 // 12 hours
+	// ESCacheTTL - used by ES query
+	ESCacheTTL = "now-12h"
 )
 
 var (
