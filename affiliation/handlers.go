@@ -33,7 +33,7 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 		}
 		return fmt.Sprintf("Request IP: %s, method: %s, path: %s", r.RemoteAddr, method, path)
 	}
-	maxPayload := 0x4000
+	maxPayload := 0x1000
 	logPayload := func(payload interface{}) interface{} {
 		s := fmt.Sprintf("%+v", payload)
 		l := len(s)
