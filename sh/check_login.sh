@@ -114,7 +114,7 @@ do
       echo "${data}"
     fi
     echo "ElasticSearch ${PATTERN}:"
-    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select origin, author_org_name, count(*) as cnt from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') group by origin, author_org_name order by cnt desc\"}" | tail -n +2`
+    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select origin, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') group by origin, author_org_name order by cnt desc\"}" | tail -n +2`
     echo "${es}"
     ((i=i+1))
   done
