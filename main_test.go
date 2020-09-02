@@ -52,7 +52,7 @@ func TestToCaseInsensitiveRegexp(t *testing.T) {
 		},
 		{
 			from: "ą ę jest ż",
-			to:   `'.*ą\s+ę\s+[jJ][eE][sS][tT]\s+ż.*'`,
+			to:   `'.*ą +ę +[jJ][eE][sS][tT] +ż.*'`,
 		},
 	}
 	s := &shared.ServiceStruct{}

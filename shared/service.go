@@ -101,6 +101,7 @@ type ServiceInterface interface {
 	JSONEscape(string) string
 	StripUnicode(string) string
 	ToCaseInsensitiveRegexp(string) string
+	SpecialUnescape(string) string
 	SanitizeShortProfile(*models.AllOutput, bool)
 	SanitizeShortIdentity(*models.IdentityShortOutput, bool)
 	SanitizeShortEnrollment(*models.EnrollmentShortOutput, bool)
@@ -756,16 +757,33 @@ func (s *ServiceStruct) RoundMSTime(t int64) int64 {
 	return (t / CacheTimeResolution) * CacheTimeResolution
 }
 
+// SpecialUnescape - some special characters are JSON escaped - but we must do it to avid injections
+// This function restores them, currently: &
+func (s *ServiceStruct) SpecialUnescape(str string) (ostr string) {
+	ostr = strings.Replace(str, `??and??`, `\\&`, -1)
+	return
+}
+
 // ToCaseInsensitiveRegexp - transform string say "abc" to ".*[aA][bB][cC].*"
 func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
 	ret := "'.*"
 	for _, b := range str {
+		// fmt.Printf("0x%x %s\n", b, string(b))
 		if b >= 0x41 && b <= 0x5a {
 			ret += "[" + string(b+0x20) + string(b) + "]"
 		} else if b >= 0x61 && b <= 0x7a {
 			ret += "[" + string(b) + string(b-0x20) + "]"
 		} else if b == 0x20 {
-			ret += ` +`
+			ret += " +"
+			// } else if b == 0x2e || b == 0x3f || b == 0x2b || b == 0x2a || b == 0x7c || b == 0x7b || b == 0x7d || b == 0x5b || b == 0x5d || b == 0x28 || b == 0x29 || b == 0x22 || b == 0x5c || b == 0x23 || b == 0x40 || b == 0x3c || b == 0x3e || b == 0x7e {
+		} else if b == 0x22 || b == 0x23 || b == 0x40 || b == 0x3c || b == 0x3e || b == 0x7e {
+			// https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
+			// Escaping " # @ < > ~
+			// Allowing special characters (you can escape all of them via \) \ . * + ? | { } [ ] ( )
+			// 0x2e . 0x3f ? 0x2b + 0x2a * 0x7c | 0x7b { 0x7d } 0x5b [ 0x5d ] 0x28 ( 0x29 ) 0x22 " 0x5c \ 0x23 # 0x40 @ 0x3c < 0x3e > 0x7e ~
+			ret += `\` + string(b)
+		} else if b == 0x26 {
+			ret += "??and??"
 		} else {
 			ret += string(b)
 		}

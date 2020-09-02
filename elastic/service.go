@@ -1168,7 +1168,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			}
 		}
 		for _, value := range valuesAry {
-			value := s.JSONEscape(s.ToCaseInsensitiveRegexp(value))
+			value := s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(value)))
 			for _, field := range fieldsAry {
 				field = `\"` + s.JSONEscape(field) + `\"`
 				if condition == "" {
@@ -1182,7 +1182,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			condition += ")"
 		}
 	} else {
-		escaped := s.JSONEscape(s.ToCaseInsensitiveRegexp(search))
+		escaped := s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(search)))
 		condition = fmt.Sprintf(`
 			and (\"author_name\" rlike %[1]s
 			or \"author_org_name\" rlike %[1]s
@@ -1190,6 +1190,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			`,
 			escaped,
 		)
+		// fmt.Printf("condition = %s\n", condition)
 	}
 	return
 }
