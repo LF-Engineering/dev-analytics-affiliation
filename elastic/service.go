@@ -1147,6 +1147,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 	// 'author_name,committer_name,reporter_name=re: *[jJ]ohn( [sS]mith)? *'
 	// 'at&t'
 	// 're:.*[iI][nN][cC].?'
+  // 'author_org_name=re:.*([gG]oogle|[rR]ed *[hH]at).*'
 	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s", indexPattern, search))
 	defer func() {
 		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s condition:%s err:%v", indexPattern, search, condition, err))
