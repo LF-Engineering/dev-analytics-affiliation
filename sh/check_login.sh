@@ -187,7 +187,7 @@ do
     continue
   fi
   echo 'Affiliations:'
-  cmd="$PSQL \"select distinct date(dt_from), date(dt_to), company_name, source from gha_actors_affiliations where actor_id in (${pcond}) order by dt_from, dt_to\""
+  cmd="$PSQL \"select distinct date(dt_from) as dt_from, date(dt_to) as dt_to, company_name, source from gha_actors_affiliations where actor_id in (${pcond}) order by dt_from, dt_to\""
   data=$(eval "${cmd}")
   if [ -z "${data}" ]
   then
