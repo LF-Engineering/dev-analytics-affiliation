@@ -766,10 +766,6 @@ func (s *ServiceStruct) SpecialUnescape(str string) (ostr string) {
 
 // ToCaseInsensitiveRegexp - transform string say "abc" to ".*[aA][bB][cC].*"
 func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) (ret string) {
-	istr := str
-	defer func() {
-		fmt.Printf("ToCaseInsensitiveRegexp: '%s' -> '%s'\n", istr, ret)
-	}()
 	re := false
 	if strings.HasPrefix(str, "re:") {
 		re = true

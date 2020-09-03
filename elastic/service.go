@@ -1141,6 +1141,12 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 }
 
 func (s *service) searchCondition(indexPattern, search string) (condition string, err error) {
+	// Example search queries:
+	// 'author_org_name=re:Red Hat.*'
+	// 'all=red*hat'
+	// 'author_name,committer_name,reporter_name=re: *[jJ]ohn( [sS]mith)? *'
+	// 'at&t'
+	// 're:.*[iI][nN][cC].?'
 	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s", indexPattern, search))
 	defer func() {
 		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s condition:%s err:%v", indexPattern, search, condition, err))
@@ -1181,6 +1187,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 		if condition != "" {
 			condition += ")"
 		}
+		fmt.Printf("searchCondition: '%s' => '%s'\n", search, condition)
 	} else {
 		escaped := s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(search)))
 		condition = fmt.Sprintf(`
@@ -1190,7 +1197,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			`,
 			escaped,
 		)
-		fmt.Printf("condition = %s\n", condition)
+		fmt.Printf("searchCondition: '%s' => '%s'\n", search, condition)
 	}
 	return
 }
