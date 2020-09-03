@@ -765,8 +765,35 @@ func (s *ServiceStruct) SpecialUnescape(str string) (ostr string) {
 }
 
 // ToCaseInsensitiveRegexp - transform string say "abc" to ".*[aA][bB][cC].*"
-func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
-	ret := "'.*"
+func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) (ret string) {
+	istr := str
+	defer func() {
+		fmt.Printf("ToCaseInsensitiveRegexp: '%s' -> '%s'\n", istr, ret)
+	}()
+	re := false
+	if strings.HasPrefix(str, "re:") {
+		re = true
+		str = str[3:]
+	}
+	if re {
+		ret = "'"
+		for _, b := range str {
+			// fmt.Printf("0x%x %s\n", b, string(b))
+			if b == 0x22 || b == 0x23 || b == 0x40 || b == 0x3c || b == 0x3e || b == 0x7e {
+				// https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
+				// Escaping " # @ < > ~
+				// 0x2e . 0x3f ? 0x2b + 0x2a * 0x7c | 0x7b { 0x7d } 0x5b [ 0x5d ] 0x28 ( 0x29 ) 0x22 " 0x5c \ 0x23 # 0x40 @ 0x3c < 0x3e > 0x7e ~
+				ret += `\` + string(b)
+			} else if b == 0x26 {
+				ret += "??and??"
+			} else {
+				ret += string(b)
+			}
+		}
+		return ret + "'"
+	}
+	str = strings.ToLower(strings.TrimSpace(str))
+	ret = "'.*"
 	for _, b := range str {
 		// fmt.Printf("0x%x %s\n", b, string(b))
 		if b >= 0x41 && b <= 0x5a {
@@ -774,13 +801,16 @@ func (s *ServiceStruct) ToCaseInsensitiveRegexp(str string) string {
 		} else if b >= 0x61 && b <= 0x7a {
 			ret += "[" + string(b) + string(b-0x20) + "]"
 		} else if b == 0x20 {
+			// space
 			ret += " +"
+		} else if b == 0x2a {
+			// * -> .*
+			ret += ".*"
 			// } else if b == 0x2e || b == 0x3f || b == 0x2b || b == 0x2a || b == 0x7c || b == 0x7b || b == 0x7d || b == 0x5b || b == 0x5d || b == 0x28 || b == 0x29 || b == 0x22 || b == 0x5c || b == 0x23 || b == 0x40 || b == 0x3c || b == 0x3e || b == 0x7e {
-		} else if b == 0x22 || b == 0x23 || b == 0x40 || b == 0x3c || b == 0x3e || b == 0x7e {
+		} else if b == 0x22 || b == 0x23 || b == 0x40 || b == 0x3c || b == 0x3e || b == 0x7e || b == 0x7c || b == 0x7b || b == 0x7d || b == 0x5b || b == 0x5d || b == 0x28 || b == 0x29 || b == 0x5c || b == 0x2b || b == 0x3f || b == 0x2e {
 			// https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
-			// Escaping " # @ < > ~
-			// Allowing special characters (you can escape all of them via \) \ . * + ? | { } [ ] ( )
 			// 0x2e . 0x3f ? 0x2b + 0x2a * 0x7c | 0x7b { 0x7d } 0x5b [ 0x5d ] 0x28 ( 0x29 ) 0x22 " 0x5c \ 0x23 # 0x40 @ 0x3c < 0x3e > 0x7e ~
+			// Escaping " # @ < > ~ . | { } [ ] ( )
 			ret += `\` + string(b)
 		} else if b == 0x26 {
 			ret += "??and??"

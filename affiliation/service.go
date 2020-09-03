@@ -2528,7 +2528,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 		}
 	}
 	if params.Search != nil {
-		search = strings.ToLower(strings.TrimSpace(*params.Search))
+		search = *params.Search
 	}
 	if params.SortField != nil {
 		sortField = strings.TrimSpace(*params.SortField)

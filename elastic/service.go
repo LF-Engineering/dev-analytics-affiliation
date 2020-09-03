@@ -1190,7 +1190,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 			`,
 			escaped,
 		)
-		// fmt.Printf("condition = %s\n", condition)
+		fmt.Printf("condition = %s\n", condition)
 	}
 	return
 }
