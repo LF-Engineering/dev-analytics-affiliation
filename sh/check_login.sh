@@ -163,6 +163,7 @@ do
   then
     echo "Nothing found for: ${conds}"
   else
+    echo "${conds}:"
     echo "${js}"
   fi
   pcond=''
@@ -186,12 +187,13 @@ do
     continue
   fi
   echo 'Affiliations:'
-  cmd="$PSQL \"select date(dt_from), date(dt_to), company_name, source from gha_actors_affiliations where actor_id in (${pcond})\""
+  cmd="$PSQL \"select distinct date(dt_from), date(dt_to), company_name, source from gha_actors_affiliations where actor_id in (${pcond})\""
   data=$(eval "${cmd}")
   if [ -z "${data}" ]
   then
     echo "No affiliations found for ${pcond}"
   else
+    echo "${pcond}:"
     echo "${data}"
   fi
   echo 'Commits:'
@@ -200,11 +202,11 @@ do
   echo "${data}"
   contrib="'IssuesEvent', 'PullRequestEvent', 'PushEvent', 'CommitCommentEvent', 'IssueCommentEvent', 'PullRequestReviewCommentEvent'"
   echo 'Contributions:'
-  cmd="$PSQL \"select count(*) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where type in (${contrib}) and actor_id in (${pcond})\""
+  cmd="$PSQL \"select count(distinct id) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where type in (${contrib}) and actor_id in (${pcond})\""
   data=$(eval "${cmd}")
   echo "${data}"
   echo 'Contribution types:'
-  cmd="$PSQL \"select type, count(*) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where type in (${contrib}) and actor_id in (${pcond}) group by type order by cnt desc\""
+  cmd="$PSQL \"select type, count(distinct id) as cnt, date(min(created_at)), date(max(created_at)) from gha_events where type in (${contrib}) and actor_id in (${pcond}) group by type order by cnt desc\""
   data=$(eval "${cmd}")
   echo "${data}"
 done
