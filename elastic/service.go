@@ -1134,7 +1134,6 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 			ary := result[col]
 			ary = append(ary, val)
 			result[col] = ary
-
 		}
 	}
 	return
@@ -1147,7 +1146,7 @@ func (s *service) searchCondition(indexPattern, search string) (condition string
 	// 'author_name,committer_name,reporter_name=re: *[jJ]ohn( [sS]mith)? *'
 	// 'at&t'
 	// 're:.*[iI][nN][cC].?'
-  // 'author_org_name=re:.*([gG]oogle|[rR]ed *[hH]at).*'
+	// 'author_org_name=re:.*([gG]oogle|[rR]ed *[hH]at).*'
 	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s", indexPattern, search))
 	defer func() {
 		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s condition:%s err:%v", indexPattern, search, condition, err))
@@ -1726,6 +1725,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	// is different in each index pattern (some columns are data source type specific)
 	// If we set this to false, only UUIDs from the main query will be used as a condition
 	useSearchInMergeQueries := os.Getenv("USE_SEARCH_IN_MERGE") != ""
+	// useCaptureAllPatternToCountContributors specifies how to count all contributors:
+	// true: will use pattern matching all current project(s) data so for example 'sds-proj1-*,sds-proj2-*,...,sds-projN-*,-*-raw,-*-for-merge'
+	//       this can give more contributors than actual results, because the main query depending on 'sort_filed' will query one of data-sources, not all of them
+	// false: will use the pattern as the main data query uses (depending on sort_field), this will give the same number of records (so pagination will always be OK)
+	//       but when sort_filed is changed, numbe rof contributors will change too
+	useCaptureAllPatternToCountContributors := false
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
 	patternAll := s.projectSlugsToIndexPattern(projectSlugs)
@@ -1893,18 +1898,37 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 
 	// Get count of all contributors
 	var searchCondAll string
-	searchCondAll, err = s.searchCondition(patternAll, search)
+	if useCaptureAllPatternToCountContributors {
+		searchCondAll, err = s.searchCondition(patternAll, search)
+	} else {
+		searchCondAll, err = s.searchCondition(mainPattern, search)
+	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
 	// Add from, to filter
 	searchCondAll += fmt.Sprintf(
-		` and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
+		` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
 		from,
 		to,
 	)
-	top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll)
+	if !useCaptureAllPatternToCountContributors {
+		cnd := ""
+		cnd, err = s.additionalWhere(mainDataSourceType, mainSortField)
+		if err != nil {
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+			return
+		}
+		if cnd != "" {
+			searchCondAll += " " + cnd
+		}
+	}
+	if useCaptureAllPatternToCountContributors {
+		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll)
+	} else {
+		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll)
+	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
