@@ -467,6 +467,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 			projects = append(projects, projectsAry[i])
 		}
 		if len(projectsAry) > 0 && len(projects) == 0 {
+			if apiName == "GetTopContributorsCSV" || apiName == "GetTopContributors" {
+				projects = projectsAry
+				return
+			}
 			err = errs.Wrap(errs.New(fmt.Errorf("user '%s' is not allowed to manage identities in '%+v'", username, projectsAry), errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 			return
 		}
