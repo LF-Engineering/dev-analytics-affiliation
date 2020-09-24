@@ -527,7 +527,7 @@ func (s *service) setTopContributorsCacheMult(key string, projects []string, top
 	replFrom := fmt.Sprintf("%d:0:", size)
 	for i := int64(0); i < nPacks; i++ {
 		from := i * packSize
-		replTo := fmt.Sprintf("%d:%d:", packSize, from)
+		replTo := fmt.Sprintf("%d:%d:", packSize, i)
 		nKey := strings.Replace(key, replFrom, replTo, -1)
 		_, ok := s.getTopContributorsCache(nKey, projects)
 		if ok {
