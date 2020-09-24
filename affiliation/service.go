@@ -3396,7 +3396,7 @@ func (s *service) precacheTopContributors() {
 			topContributorsPub, okPub := s.getTopContributorsCache(keyPub, projs)
 			if ok && okPub {
 				log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) (already cached)", project, from, to, uFrom, uTo))
-				fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
+				// fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
 				continue
 			}
 			if !ok {
@@ -3442,7 +3442,7 @@ func (s *service) precacheTopContributors() {
 				topContributorsPub = &pub
 				s.setTopContributorsCache(keyPub, projs, topContributorsPub)
 			}
-			fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
+			// fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
 		}
 	}
 }
