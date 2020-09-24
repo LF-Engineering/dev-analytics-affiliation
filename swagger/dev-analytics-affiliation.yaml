@@ -1706,6 +1706,37 @@ paths:
         - $ref: '#/parameters/new-da-name'
         - $ref: '#/parameters/new-sf-name'
         - $ref: '#/parameters/new-sf-id'
+  /affiliation/cache_top_contributors:
+    put:
+      summary: Precalculate top_contributors API for all currently defined projects for a few predefined data ranges
+      operationId: putCacheTopContributors
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Spawned caching job"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - cache_top_contributors
+        - all
+      parameters:
+        - $ref: '#/parameters/auth'
 parameters:
   auth:
     name: Authorization

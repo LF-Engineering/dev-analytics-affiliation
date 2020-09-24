@@ -1259,4 +1259,31 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutEditSlugMappingOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutCacheTopContributorsHandler = affiliation.PutCacheTopContributorsHandlerFunc(
+		func(params affiliation.PutCacheTopContributorsParams) middleware.Responder {
+			log.Info("PutCacheTopContributorsHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutCacheTopContributorsHandlerFunc: " + info)
+
+			result, err := service.PutCacheTopContributors(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutCacheTopContributorsHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutCacheTopContributorsHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutCacheTopContributorsOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

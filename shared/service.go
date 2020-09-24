@@ -39,9 +39,9 @@ const (
 	// MaxAggsSize - maximum number of results to get for top contributors
 	MaxAggsSize = 10000
 	// CacheTimeResolution - when caching top contributors from and to parameters are rounded using this parameter (ms)
-	CacheTimeResolution = 43200000 // 12 hours
+	CacheTimeResolution = 86400000 // 24 hours
 	// ESCacheTTL - used by ES query
-	ESCacheTTL = "now-12h"
+	ESCacheTTL = "now-24h"
 )
 
 var (
@@ -59,8 +59,8 @@ var (
 	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Roles - all currently defined roles
 	Roles = []string{"Contributor", "Maintainer"}
-	// TopContributorsCacheTTL - top contributors cache TTL (12 hours)
-	TopContributorsCacheTTL = time.Duration(12) * time.Hour
+	// TopContributorsCacheTTL - top contributors cache TTL (24 hours)
+	TopContributorsCacheTTL = time.Duration(24) * time.Hour
 )
 
 // ServiceInterface - Shared API interface
@@ -97,6 +97,8 @@ type ServiceInterface interface {
 	Now() *strfmt.DateTime
 	TimeParseAny(string) (time.Time, error)
 	DayStart(time.Time) time.Time
+	MonthStart(time.Time) time.Time
+	YearStart(time.Time) time.Time
 	RoundMSTime(int64) int64
 	JSONEscape(string) string
 	StripUnicode(string) string
@@ -752,7 +754,35 @@ func (s *ServiceStruct) DayStart(dt time.Time) time.Time {
 	)
 }
 
-// RoundMSTime - round using CacheTimeResolution (12 hours)
+// MonthStart - round date to month start
+func (s *ServiceStruct) MonthStart(dt time.Time) time.Time {
+	return time.Date(
+		dt.Year(),
+		dt.Month(),
+		1,
+		0,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+}
+
+// YearStart - round date to year start
+func (s *ServiceStruct) YearStart(dt time.Time) time.Time {
+	return time.Date(
+		dt.Year(),
+		1,
+		1,
+		0,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+}
+
+// RoundMSTime - round using CacheTimeResolution (24 hours)
 func (s *ServiceStruct) RoundMSTime(t int64) int64 {
 	return (t / CacheTimeResolution) * CacheTimeResolution
 }

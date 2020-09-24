@@ -37,6 +37,8 @@ const (
 
 var (
 	topContributorsCacheMtx = &sync.RWMutex{}
+	precacheMtx             = &sync.Mutex{}
+	precaching              bool
 )
 
 // Service - API interface
@@ -81,6 +83,7 @@ type Service interface {
 	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
 	PutHideEmails(ctx context.Context, in *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
+	PutCacheTopContributors(ctx context.Context, in *affiliation.PutCacheTopContributorsParams) (*models.TextStatusOutput, error)
 	PutMapOrgNames(ctx context.Context, in *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
 	PutDetAffRange(ctx context.Context, in *affiliation.PutDetAffRangeParams) (*models.TextStatusOutput, error)
 	GetListProjects(ctx context.Context, in *affiliation.GetListProjectsParams) (*models.ListProjectsOutput, error)
@@ -100,6 +103,7 @@ type Service interface {
 	getTopContributorsCache(string, []string) (*models.TopContributorsFlatOutput, bool)
 	setTopContributorsCache(string, []string, *models.TopContributorsFlatOutput)
 	maybeCacheCleanup()
+	precacheTopContributors()
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -399,6 +403,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	case *affiliation.PutHideEmailsParams:
 		auth = params.Authorization
 		apiName = "PutHideEmails"
+	case *affiliation.PutCacheTopContributorsParams:
+		auth = params.Authorization
+		apiName = "PutCacheTopContributors"
 	case *affiliation.PutMapOrgNamesParams:
 		auth = params.Authorization
 		apiName = "PutMapOrgNames"
@@ -3328,5 +3335,144 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	return
+}
+
+func (s *service) precacheTopContributors() {
+	log.Info("precacheTopContributors: started")
+	defer func() {
+		precacheMtx.Lock()
+		precaching = false
+		precacheMtx.Unlock()
+		log.Info("precacheTopContributors: finished")
+	}()
+	projects, err := s.apiDB.GetAllProjects()
+	if err != nil {
+		log.Info(fmt.Sprintf("precacheTopContributors: error: %+v", err))
+		return
+	}
+
+	// Invalidate current cache (delete expired keys)
+	topContributorsCacheMtx.Lock()
+	s.es.TopContributorsCacheDeleteExpired()
+	topContributorsCacheMtx.Unlock()
+
+	// Iterate for all projects
+	for _, project := range projects {
+		log.Info("precacheTopContributors: " + project)
+		// this month, this year, month to date, year to date, last 7 days, last 30 days, last 60 days, last 90 days, last 6 months, last 1 year, last 2 years, last 5 years
+		now := time.Now()
+		ranges := [][2]time.Time{
+			{s.MonthStart(now), now},      // current month
+			{s.YearStart(now), now},       // current year
+			{now.AddDate(0, 0, -7), now},  // last 7 days
+			{now.AddDate(0, 0, -10), now}, // last 10 days
+			{now.AddDate(0, 0, -30), now}, // last 30 days
+			{now.AddDate(0, 0, -60), now}, // last 60 days
+			{now.AddDate(0, 0, -90), now}, // last 90 days
+			{now.AddDate(0, -1, 0), now},  // last month
+			{now.AddDate(0, -3, 0), now},  // last quarter
+			{now.AddDate(0, -6, 0), now},  // last 6 months
+			{now.AddDate(-1, 0, 0), now},  // last year
+			{now.AddDate(-2, 0, 0), now},  // last 2 years
+			{now.AddDate(-5, 0, 0), now},  // last 5 years
+			{now.AddDate(-10, 0, 0), now}, // last decade
+		}
+		for _, rng := range ranges {
+			from := s.RoundMSTime(rng[0].UnixNano() / 1e6)
+			to := s.RoundMSTime(rng[1].UnixNano() / 1e6)
+			uFrom := time.Unix(0, from*1e6)
+			uTo := time.Unix(0, to*1e6)
+			log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v)", project, from, to, uFrom, uTo))
+			limit := int64(10)
+			offset := int64(0)
+			search := ""
+			sortField := ""
+			sortOrder := ""
+			key := fmt.Sprintf("%d:%d:%d:%d:%s:%s:%s", limit, offset, from, to, search, sortField, sortOrder)
+			keyPub := key + ":pub"
+			projs := []string{project}
+			topContributors, ok := s.getTopContributorsCache(key, []string{project})
+			topContributorsPub, okPub := s.getTopContributorsCache(keyPub, projs)
+			if ok && okPub {
+				log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) (already cached)", project, from, to, uFrom, uTo))
+				fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
+				continue
+			}
+			if !ok {
+				var dataSourceTypes []string
+				dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projs)
+				if err != nil {
+					log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) GetDataSourceTypes error: %+v", project, from, to, uFrom, uTo, err))
+					continue
+				}
+				topContributors, err = s.es.GetTopContributors(projs, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
+				if err != nil {
+					log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) GetTopContributors error: %+v", project, from, to, uFrom, uTo, err))
+					continue
+				}
+				if len(topContributors.Contributors) > 0 {
+					err = s.shDB.EnrichContributors(topContributors.Contributors, projs, to, nil)
+					if err != nil {
+						log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) EnrichContributors error: %+v", project, from, to, uFrom, uTo, err))
+						continue
+					}
+				}
+				topContributors.From = from
+				topContributors.To = to
+				topContributors.Limit = limit
+				topContributors.Offset = offset
+				topContributors.Search = search
+				topContributors.SortField = sortField
+				topContributors.SortOrder = sortOrder
+				topContributors.User = "precache"
+				topContributors.Scope = s.AryDA2SF(projs)
+				topContributors.Public = false
+				s.setTopContributorsCache(key, projs, topContributors)
+			}
+			if !okPub {
+				pub := *topContributors
+				pub.Contributors = []*models.ContributorFlatStats{}
+				for _, contributor := range topContributors.Contributors {
+					contributorPub := *contributor
+					contributorPub.Email = ""
+					pub.Contributors = append(pub.Contributors, &contributorPub)
+				}
+				pub.Public = true
+				topContributorsPub = &pub
+				s.setTopContributorsCache(keyPub, projs, topContributorsPub)
+			}
+			fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
+		}
+	}
+}
+
+// PutCacheTopContributors: API
+// ===========================================================================
+// Precalculate top_contributors API for all currently defined projects for a few predefined data ranges
+// ===========================================================================
+// /v1/affiliation/cache_top_contributors:
+func (s *service) PutCacheTopContributors(ctx context.Context, params *affiliation.PutCacheTopContributorsParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PutCacheTopContributors")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PutCacheTopContributors(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+	}()
+	if err != nil {
+		return
+	}
+	precacheMtx.Lock()
+	if precaching {
+		precacheMtx.Unlock()
+		status.Text = "Another precaching in progress - only one precaching can run at a time, try again later"
+		err = errs.Wrap(fmt.Errorf(status.Text), apiName)
+		return
+	}
+	precaching = true
+	precacheMtx.Unlock()
+	status.Text = "Spawned a new precaching process"
+	go s.precacheTopContributors()
 	return
 }
