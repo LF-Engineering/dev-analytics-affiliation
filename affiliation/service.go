@@ -540,7 +540,7 @@ func (s *service) setTopContributorsCacheMult(key string, projects []string, top
 		}
 		nTop := *top
 		nTop.Limit = packSize
-		nTop.Offset = from
+		nTop.Offset = i
 		nTop.Contributors = []*models.ContributorFlatStats{}
 		for j := from; j < to; j++ {
 			nTop.Contributors = append(nTop.Contributors, top.Contributors[j])
