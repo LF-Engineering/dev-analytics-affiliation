@@ -102,6 +102,7 @@ type Service interface {
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
 	getTopContributorsCache(string, []string) (*models.TopContributorsFlatOutput, bool)
 	setTopContributorsCache(string, []string, *models.TopContributorsFlatOutput)
+	setTopContributorsCacheMult(string, []string, *models.TopContributorsFlatOutput, int64, int64)
 	maybeCacheCleanup()
 	precacheTopContributors()
 }
@@ -515,6 +516,39 @@ func (s *service) getTopContributorsCache(key string, projects []string) (top *m
 	log.Info(fmt.Sprintf("getTopContributorsCache(%s): hit", k))
 	return
 }
+
+func (s *service) setTopContributorsCacheMult(key string, projects []string, top *models.TopContributorsFlatOutput, size, packSize int64) {
+	s.setTopContributorsCache(key, projects, top)
+	nContributors := int64(len(top.Contributors))
+	nPacks := nContributors / packSize
+	if nContributors%packSize != 0 {
+		nPacks++
+	}
+	replFrom := fmt.Sprintf("%d:0:", size)
+	for i := int64(0); i < nPacks; i++ {
+		from := i * packSize
+		replTo := fmt.Sprintf("%d:%d:", packSize, from)
+		nKey := strings.Replace(key, replFrom, replTo, -1)
+		_, ok := s.getTopContributorsCache(nKey, projects)
+		if ok {
+			// fmt.Printf("Sub pack already calculated: %s:%v\n", nKey, projects)
+			continue
+		}
+		to := from + packSize
+		if to > nContributors {
+			to = nContributors
+		}
+		nTop := *top
+		nTop.Limit = packSize
+		nTop.Offset = from
+		nTop.Contributors = []*models.ContributorFlatStats{}
+		for j := from; j < to; j++ {
+			nTop.Contributors = append(nTop.Contributors, top.Contributors[j])
+		}
+		s.setTopContributorsCache(nKey, projects, &nTop)
+	}
+}
+
 func (s *service) setTopContributorsCache(key string, projects []string, top *models.TopContributorsFlatOutput) {
 	defer s.maybeCacheCleanup()
 	k := key
@@ -3384,7 +3418,7 @@ func (s *service) precacheTopContributors() {
 			uFrom := time.Unix(0, from*1e6)
 			uTo := time.Unix(0, to*1e6)
 			log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v)", project, from, to, uFrom, uTo))
-			limit := int64(10)
+			limit := int64(100)
 			offset := int64(0)
 			search := ""
 			sortField := ""
@@ -3428,7 +3462,7 @@ func (s *service) precacheTopContributors() {
 				topContributors.User = "precache"
 				topContributors.Scope = s.AryDA2SF(projs)
 				topContributors.Public = false
-				s.setTopContributorsCache(key, projs, topContributors)
+				s.setTopContributorsCacheMult(key, projs, topContributors, int64(100), int64(10))
 			}
 			if !okPub {
 				pub := *topContributors
@@ -3440,7 +3474,7 @@ func (s *service) precacheTopContributors() {
 				}
 				pub.Public = true
 				topContributorsPub = &pub
-				s.setTopContributorsCache(keyPub, projs, topContributorsPub)
+				s.setTopContributorsCacheMult(keyPub, projs, topContributorsPub, int64(100), int64(10))
 			}
 			// fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
 		}

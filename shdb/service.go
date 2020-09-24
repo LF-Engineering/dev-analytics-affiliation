@@ -1035,7 +1035,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 }
 
 func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, projectSlugs []string, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
-	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlugs:%=v tx:%v", columns, values, isDate, missingFatal, projectSlugs, tx != nil))
+	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlugs:%v tx:%v", columns, values, isDate, missingFatal, projectSlugs, tx != nil))
 	s.SetOrigin()
 	defer func() {
 		log.Info(
@@ -2724,9 +2724,8 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 func ToLowerAndNone(value string) string {
 	if value == "" {
 		return "none"
-	} else {
-		return strings.ToLower(value)
 	}
+	return strings.ToLower(value)
 }
 
 func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash string, err error) {
@@ -7846,7 +7845,7 @@ func (s *service) DropSlugMapping(sfID string, missingFatal bool, tx *sql.Tx) (e
 }
 
 func (s *service) EditSlugMapping(key, inMapping *models.SlugMapping, tx *sql.Tx) (mapping *models.SlugMapping, err error) {
-	log.Info(fmt.Sprintf("EditSLugMapping: key:%+v inMapping:%+v tx:%v", inMapping, tx != nil))
+	log.Info(fmt.Sprintf("EditSLugMapping: key:%+v inMapping:%+v tx:%v", key, inMapping, tx != nil))
 	mapping = inMapping
 	defer func() {
 		log.Info(

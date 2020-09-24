@@ -29,6 +29,7 @@ import (
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 )
 
+// TopContributorsCacheEntry - top contributors single cache entry
 type TopContributorsCacheEntry struct {
 	Top *models.TopContributorsFlatOutput `json:"v"`
 	Tm  time.Time                         `json:"t"`

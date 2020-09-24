@@ -29,12 +29,13 @@ build: swagger deps
 docker: fmt
 	${GO_STATIC} go build -o ./main -a $(LDFLAGS)
 
-run: fmt vet lint
+buildmain: fmt
 	go build -o ./main -a $(LDFLAGS)
+
+run: vet lint buildmain
 	./main
 
-fastrun: fmt
-	go build -o ./main -a $(LDFLAGS)
+fastrun: buildmain
 	./main
 
 clean:
