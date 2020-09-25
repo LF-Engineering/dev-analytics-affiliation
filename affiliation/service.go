@@ -38,7 +38,7 @@ const (
 var (
 	topContributorsCacheMtx = &sync.RWMutex{}
 	precacheMtx             = &sync.Mutex{}
-	precaching              bool
+	precacheStop            bool
 )
 
 // Service - API interface
@@ -92,6 +92,7 @@ type Service interface {
 	PostAddSlugMapping(ctx context.Context, in *affiliation.PostAddSlugMappingParams) (*models.SlugMapping, error)
 	DeleteSlugMapping(ctx context.Context, in *affiliation.DeleteSlugMappingParams) (*models.TextStatusOutput, error)
 	PutEditSlugMapping(ctx context.Context, in *affiliation.PutEditSlugMappingParams) (*models.SlugMapping, error)
+	ClearPrecacheRunning()
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
 
@@ -105,6 +106,9 @@ type Service interface {
 	setTopContributorsCacheMult(string, []string, *models.TopContributorsFlatOutput, int64, int64)
 	maybeCacheCleanup()
 	precacheTopContributors()
+	isPrecacheRunning() bool
+	setPrecacheRunning()
+	clearPrecacheRunning()
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -486,6 +490,65 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		projects = projectsAry
 	}
 	return
+}
+
+func (s *service) isPrecacheRunning() (run bool) {
+	k := "precaching"
+	t := time.Now()
+	var entry *elastic.TopContributorsCacheEntry
+	topContributorsCacheMtx.RLock()
+	entry, run = s.es.TopContributorsCacheGet(k)
+	topContributorsCacheMtx.RUnlock()
+	if !run {
+		log.Info("isPrecacheRunning: no")
+		return
+	}
+	age := t.Sub(entry.Tm)
+	if age > shared.TopContributorsCacheTTL {
+		run = false
+		topContributorsCacheMtx.Lock()
+		s.es.TopContributorsCacheDelete(k)
+		precacheStop = true
+		topContributorsCacheMtx.Unlock()
+		log.Info("isPrecacheRunning: expired")
+		return
+	}
+	log.Info("isPrecacheRunning: yes")
+	return
+}
+
+func (s *service) setPrecacheRunning() {
+	k := "precaching"
+	t := time.Now().AddDate(0, 0, 2)
+	top := &models.TopContributorsFlatOutput{}
+	topContributorsCacheMtx.RLock()
+	_, ok := s.es.TopContributorsCacheGet(k)
+	topContributorsCacheMtx.RUnlock()
+	if ok {
+		topContributorsCacheMtx.Lock()
+		s.es.TopContributorsCacheDelete(k)
+		s.es.TopContributorsCacheSet(k, &elastic.TopContributorsCacheEntry{Top: top, Tm: t})
+		precacheStop = true
+		topContributorsCacheMtx.Unlock()
+		log.Info(fmt.Sprintf("setPrecacheRunning: replaced", k))
+	} else {
+		topContributorsCacheMtx.Lock()
+		s.es.TopContributorsCacheSet(k, &elastic.TopContributorsCacheEntry{Top: top, Tm: t})
+		topContributorsCacheMtx.Unlock()
+		log.Info(fmt.Sprintf("setPrecacheRunning: added", k))
+	}
+}
+
+func (s *service) ClearPrecacheRunning() {
+	s.clearPrecacheRunning()
+}
+
+func (s *service) clearPrecacheRunning() {
+	k := "precaching"
+	topContributorsCacheMtx.Lock()
+	s.es.TopContributorsCacheDelete(k)
+	precacheStop = true
+	topContributorsCacheMtx.Unlock()
 }
 
 func (s *service) getTopContributorsCache(key string, projects []string) (top *models.TopContributorsFlatOutput, ok bool) {
@@ -3373,46 +3436,59 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 }
 
 func (s *service) precacheTopContributors() {
-	log.Info("precacheTopContributors: started")
+	log.Warn("precacheTopContributors: started")
 	defer func() {
 		precacheMtx.Lock()
-		precaching = false
+		s.clearPrecacheRunning()
 		precacheMtx.Unlock()
-		log.Info("precacheTopContributors: finished")
+		log.Warn("precacheTopContributors: finished")
 	}()
 	projects, err := s.apiDB.GetAllProjects()
 	if err != nil {
-		log.Info(fmt.Sprintf("precacheTopContributors: error: %+v", err))
+		log.Warn(fmt.Sprintf("precacheTopContributors: error: %+v", err))
 		return
 	}
 
 	// Invalidate current cache (delete expired keys)
 	topContributorsCacheMtx.Lock()
 	s.es.TopContributorsCacheDeleteExpired()
+	precacheStop = false
 	topContributorsCacheMtx.Unlock()
 
-	// Iterate for all projects
-	for _, project := range projects {
+	// Worker func - precache a single project
+	precacheProject := func(ch chan struct{}, project string) {
+		defer func() {
+			if ch != nil {
+				ch <- struct{}{}
+			}
+		}()
 		log.Info("precacheTopContributors: " + project)
 		// this month, this year, month to date, year to date, last 7 days, last 30 days, last 60 days, last 90 days, last 6 months, last 1 year, last 2 years, last 5 years
 		now := time.Now()
 		ranges := [][2]time.Time{
-			{s.MonthStart(now), now},      // current month
-			{s.YearStart(now), now},       // current year
-			{now.AddDate(0, 0, -7), now},  // last 7 days
-			{now.AddDate(0, 0, -10), now}, // last 10 days
+			{s.MonthStart(now), now},     // current month
+			{s.YearStart(now), now},      // current year
+			{now.AddDate(0, 0, -7), now}, // last 7 days
+			// {now.AddDate(0, 0, -10), now}, // last 10 days
 			{now.AddDate(0, 0, -30), now}, // last 30 days
 			{now.AddDate(0, 0, -60), now}, // last 60 days
 			{now.AddDate(0, 0, -90), now}, // last 90 days
 			{now.AddDate(0, -1, 0), now},  // last month
-			{now.AddDate(0, -3, 0), now},  // last quarter
-			{now.AddDate(0, -6, 0), now},  // last 6 months
-			{now.AddDate(-1, 0, 0), now},  // last year
-			{now.AddDate(-2, 0, 0), now},  // last 2 years
-			{now.AddDate(-5, 0, 0), now},  // last 5 years
-			{now.AddDate(-10, 0, 0), now}, // last decade
+			// {now.AddDate(0, -3, 0), now},  // last quarter
+			{now.AddDate(0, -6, 0), now}, // last 6 months
+			{now.AddDate(-1, 0, 0), now}, // last year
+			{now.AddDate(-2, 0, 0), now}, // last 2 years
+			{now.AddDate(-5, 0, 0), now}, // last 5 years
+			// {now.AddDate(-10, 0, 0), now}, // last decade
 		}
 		for _, rng := range ranges {
+			topContributorsCacheMtx.Lock()
+			stop := precacheStop
+			topContributorsCacheMtx.Unlock()
+			if stop {
+				log.Warn("precacheTopContributors: stopping due to stop request")
+				return
+			}
 			from := s.RoundMSTime(rng[0].UnixNano() / 1e6)
 			to := s.RoundMSTime(rng[1].UnixNano() / 1e6)
 			uFrom := time.Unix(0, from*1e6)
@@ -3431,24 +3507,27 @@ func (s *service) precacheTopContributors() {
 			if ok && okPub {
 				log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) (already cached)", project, from, to, uFrom, uTo))
 				// fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
+				fmt.Printf("%s: %v - %v: already cached\n", project, uFrom, uTo)
 				continue
 			}
+			dtF := time.Now()
+			fmt.Printf("%s: %v - %v: calculating\n", project, uFrom, uTo)
 			if !ok {
 				var dataSourceTypes []string
 				dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projs)
 				if err != nil {
-					log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) GetDataSourceTypes error: %+v", project, from, to, uFrom, uTo, err))
+					log.Warn(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) GetDataSourceTypes error: %+v", project, from, to, uFrom, uTo, err))
 					continue
 				}
 				topContributors, err = s.es.GetTopContributors(projs, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 				if err != nil {
-					log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) GetTopContributors error: %+v", project, from, to, uFrom, uTo, err))
+					log.Warn(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) GetTopContributors error: %+v", project, from, to, uFrom, uTo, err))
 					continue
 				}
 				if len(topContributors.Contributors) > 0 {
 					err = s.shDB.EnrichContributors(topContributors.Contributors, projs, to, nil)
 					if err != nil {
-						log.Info(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) EnrichContributors error: %+v", project, from, to, uFrom, uTo, err))
+						log.Warn(fmt.Sprintf("precacheTopContributors: %s: %v - %v (%v - %v) EnrichContributors error: %+v", project, from, to, uFrom, uTo, err))
 						continue
 					}
 				}
@@ -3476,8 +3555,27 @@ func (s *service) precacheTopContributors() {
 				topContributorsPub = &pub
 				s.setTopContributorsCacheMult(keyPub, projs, topContributorsPub, int64(100), int64(10))
 			}
+			dtT := time.Now()
 			// fmt.Printf("%s: %s: %v %v %d %d\n", project, key, ok, okPub, len(topContributors.Contributors), len(topContributorsPub.Contributors))
+			fmt.Printf("%s: %v - %v: calculated in %v\n", project, uFrom, uTo, dtT.Sub(dtF))
 		}
+	}
+
+	// Iterate for all projects
+	thrN := 6
+	ch := make(chan struct{})
+	nThreads := 0
+	for _, project := range projects {
+		go precacheProject(ch, project)
+		nThreads++
+		if nThreads == thrN {
+			<-ch
+			nThreads--
+		}
+	}
+	for nThreads > 0 {
+		<-ch
+		nThreads--
 	}
 }
 
@@ -3498,13 +3596,13 @@ func (s *service) PutCacheTopContributors(ctx context.Context, params *affiliati
 		return
 	}
 	precacheMtx.Lock()
-	if precaching {
+	if s.isPrecacheRunning() {
 		precacheMtx.Unlock()
 		status.Text = "Another precaching in progress - only one precaching can run at a time, try again later"
 		err = errs.Wrap(fmt.Errorf(status.Text), apiName)
 		return
 	}
-	precaching = true
+	s.setPrecacheRunning()
 	precacheMtx.Unlock()
 	status.Text = "Spawned a new precaching process"
 	go s.precacheTopContributors()

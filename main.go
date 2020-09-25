@@ -149,6 +149,9 @@ func main() {
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)
 
+	// When redeploying this needs to be cleared
+	affiliationService.ClearPrecacheRunning()
+
 	if err := cmd.Start(api, *portFlag); err != nil {
 		logrus.Panicln(err)
 	}
