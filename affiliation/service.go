@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -3448,6 +3449,7 @@ func (s *service) precacheTopContributors() {
 		log.Warn(fmt.Sprintf("precacheTopContributors: error: %+v", err))
 		return
 	}
+	sort.Strings(projects)
 
 	// Invalidate current cache (delete expired keys)
 	topContributorsCacheMtx.Lock()
