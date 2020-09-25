@@ -3438,11 +3438,13 @@ func (s *service) PutEditSlugMapping(ctx context.Context, params *affiliation.Pu
 
 func (s *service) precacheTopContributors() {
 	log.Warn("precacheTopContributors: started")
+	precacheDtStart := time.Now()
 	defer func() {
 		precacheMtx.Lock()
 		s.clearPrecacheRunning()
 		precacheMtx.Unlock()
-		log.Warn("precacheTopContributors: finished")
+		precacheDtEnd := time.Now()
+		log.Warn(fmt.Sprintf("precacheTopContributors: finished in %v", precacheDtEnd.Sub(precacheDtStart)))
 	}()
 	projects, err := s.apiDB.GetAllProjects()
 	if err != nil {
