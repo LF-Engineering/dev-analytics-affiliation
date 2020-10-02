@@ -3591,6 +3591,11 @@ func (s *service) precacheTopContributors() {
 func (s *service) PutCacheTopContributors(ctx context.Context, params *affiliation.PutCacheTopContributorsParams) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info("PutCacheTopContributors")
+	// FIXME: disable until agree with UI date ranges
+	if 1 == 1 {
+		status.Text = "Disabled temporarily"
+		return
+	}
 	// Check token and permission
 	apiName, _, username, err := s.checkTokenAndPermission(params)
 	defer func() {
