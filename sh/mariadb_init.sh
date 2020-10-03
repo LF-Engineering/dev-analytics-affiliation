@@ -17,7 +17,7 @@ echo "grant all privileges on ``${SH_DB}``.* to '$SH_USR'@localhost;" | mysql -h
 echo "flush privileges;" | mysql -h127.0.0.1 -P13306 -p"${PASS}" -u"${USR}"
 if [ -z "$FULL" ]
 then
-  mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}" < sh/sh_structure.sql
+  mysql -h127.0.0.1 -P13306 -p"${PASS}" -u"${USR}" "${SH_DB}" < sh/sh_structure.sql
 else
   mysql -h127.0.0.1 -P13306 -p"${PASS}" -u"${USR}" "${SH_DB}" < sh/sh_full.sql
 fi
