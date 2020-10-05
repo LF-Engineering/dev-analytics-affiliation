@@ -77,7 +77,8 @@ type Service interface {
 	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
-	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string, string)
+	FilterDataSources([]string, []string) []string
+	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string, string, []string)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
 	GetTopContributorsCSV(ctx context.Context, in *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
 	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
@@ -2593,17 +2594,45 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 	return
 }
 
-func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsParams, paramsCSV *affiliation.GetTopContributorsCSVParams) (limit, offset, from, to int64, search, sortField, sortOrder, key string) {
+func (s *service) FilterDataSources(dsIn, filter []string) (dsOut []string) {
+	//defer func() {
+	//	fmt.Printf("FilterDataSources(%v, %v) -> %v\n", dsIn, filter, dsOut)
+	//}()
+	if len(filter) == 0 {
+		dsOut = dsIn
+		return
+	}
+	if filter[0] == "all" {
+		dsOut = dsIn
+		return
+	}
+	m := make(map[string]struct{})
+	for _, f := range filter {
+		m[f] = struct{}{}
+	}
+	dsOut = []string{}
+	for _, ds := range dsIn {
+		dsa := strings.Split(ds, "/")
+		_, ok := m[dsa[0]]
+		if ok {
+			dsOut = append(dsOut, ds)
+		}
+	}
+	return
+}
+
+func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsParams, paramsCSV *affiliation.GetTopContributorsCSVParams) (limit, offset, from, to int64, search, sortField, sortOrder, key string, dataSources []string) {
 	csvParams := false
 	if params == nil {
 		params = &affiliation.GetTopContributorsParams{
-			From:      paramsCSV.From,
-			To:        paramsCSV.To,
-			Limit:     paramsCSV.Limit,
-			Offset:    paramsCSV.Offset,
-			Search:    paramsCSV.Search,
-			SortField: paramsCSV.SortField,
-			SortOrder: paramsCSV.SortOrder,
+			From:       paramsCSV.From,
+			To:         paramsCSV.To,
+			Limit:      paramsCSV.Limit,
+			Offset:     paramsCSV.Offset,
+			Search:     paramsCSV.Search,
+			SortField:  paramsCSV.SortField,
+			SortOrder:  paramsCSV.SortOrder,
+			DataSource: paramsCSV.DataSource,
 		}
 		csvParams = true
 	}
@@ -2648,7 +2677,20 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	if params.SortOrder != nil {
 		sortOrder = strings.ToLower(strings.TrimSpace(*params.SortOrder))
 	}
-	key = fmt.Sprintf("%d:%d:%d:%d:%s:%s:%s", limit, offset, s.RoundMSTime(from), s.RoundMSTime(to), search, sortField, sortOrder)
+	var dss string
+	if params.DataSource != nil {
+		dss = *params.DataSource
+	} else {
+		dss = "all"
+	}
+	dsa := strings.Split(dss, ",")
+	for _, ds := range dsa {
+		dataSources = append(dataSources, strings.ToLower(strings.TrimSpace(ds)))
+	}
+	sort.Strings(dataSources)
+	dss = strings.Join(dataSources, ",")
+	//fmt.Printf("dss=%s\n", dss)
+	key = fmt.Sprintf("%d:%d:%d:%d:%s:%s:%s:%s", limit, offset, s.RoundMSTime(from), s.RoundMSTime(to), search, sortField, sortOrder, strings.Join, dss)
 	return
 }
 
@@ -2673,7 +2715,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 //     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
 //     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
-	limit, offset, from, to, search, sortField, sortOrder, key := s.TopContributorsParams(params, nil)
+	limit, offset, from, to, search, sortField, sortOrder, key, dataSources := s.TopContributorsParams(params, nil)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
@@ -2724,7 +2766,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errs.Wrap(err, apiName)
 		return
 	}
-
+	dataSourceTypes = s.FilterDataSources(dataSourceTypes, dataSources)
 	topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
@@ -2777,7 +2819,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 //     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
 //     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
-	limit, offset, from, to, search, sortField, sortOrder, key := s.TopContributorsParams(nil, params)
+	limit, offset, from, to, search, sortField, sortOrder, key, dataSources := s.TopContributorsParams(nil, params)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
@@ -2826,6 +2868,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			err = errs.Wrap(err, apiName)
 			return
 		}
+		dataSourceTypes = s.FilterDataSources(dataSourceTypes, dataSources)
 		topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 		if err != nil {
 			err = errs.Wrap(err, apiName)

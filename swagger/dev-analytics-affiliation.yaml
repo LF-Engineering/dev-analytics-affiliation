@@ -80,6 +80,7 @@ paths:
         - $ref: '#/parameters/search'
         - $ref: '#/parameters/sort-field'
         - $ref: '#/parameters/sort-order'
+        - $ref: '#/parameters/data-source'
   /affiliation/{projectSlugs}/top_contributors:
     get:
       summary: Get top contributors with their stats
@@ -120,6 +121,7 @@ paths:
         - $ref: '#/parameters/search'
         - $ref: '#/parameters/sort-field'
         - $ref: '#/parameters/sort-order'
+        - $ref: '#/parameters/data-source'
   /affiliation/{projectSlugs}/unaffiliated:
     get:
       summary: Get top unaffiliated users
@@ -1952,6 +1954,11 @@ parameters:
     in: query
     type: string
     description: 'For example: 1234-deadbeef'
+  data-source:
+    name: data_source
+    in: query
+    type: string
+    description: 'comma separated list of data source types, not case sensitive'
 definitions:
   health:
     type: object
