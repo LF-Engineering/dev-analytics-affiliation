@@ -2760,13 +2760,16 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	if ok {
 		return
 	}
-	var dataSourceTypes []string
-	dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
+	var (
+		configuredDataSourceTypes []string
+		dataSourceTypes           []string
+	)
+	configuredDataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	dataSourceTypes = s.FilterDataSources(dataSourceTypes, dataSources)
+	dataSourceTypes = s.FilterDataSources(configuredDataSourceTypes, dataSources)
 	topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
@@ -2791,6 +2794,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.Search = search
 	topContributors.SortField = sortField
 	topContributors.SortOrder = sortOrder
+	topContributors.ConfiguredDataSources = configuredDataSourceTypes
 	topContributors.User = username
 	topContributors.Scope = s.AryDA2SF(projects)
 	topContributors.Public = public
@@ -2862,13 +2866,16 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	}
 	topContributors, ok = s.getTopContributorsCache(key, projects)
 	if !ok {
-		var dataSourceTypes []string
-		dataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
+		var (
+			configuredDataSourceTypes []string
+			dataSourceTypes           []string
+		)
+		configuredDataSourceTypes, err = s.apiDB.GetDataSourceTypes(projects)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
 			return
 		}
-		dataSourceTypes = s.FilterDataSources(dataSourceTypes, dataSources)
+		dataSourceTypes = s.FilterDataSources(configuredDataSourceTypes, dataSources)
 		topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 		if err != nil {
 			err = errs.Wrap(err, apiName)

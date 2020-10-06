@@ -2571,6 +2571,11 @@ definitions:
       contributors_count:
         type: integer
         example: 12768
+      configured_data_sources:
+        type: array
+        items:
+          type: string
+          example: jira
       contributors:
         type: array
         items:
