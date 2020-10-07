@@ -2,6 +2,8 @@ package apidb
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"database/sql"
 
@@ -148,7 +150,11 @@ func (s *service) GetDataSourceTypes(projectSlugs []string) (dataSourceTypes []s
 		if err != nil {
 			return
 		}
-		dss[dataSourceType] = struct{}{}
+		ary := strings.Split(dataSourceType, "/")
+		_, ok := shared.TopContributorsDataSources[ary[0]]
+		if ok {
+			dss[dataSourceType] = struct{}{}
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -163,6 +169,7 @@ func (s *service) GetDataSourceTypes(projectSlugs []string) (dataSourceTypes []s
 	for dataSourceType := range dss {
 		dataSourceTypes = append(dataSourceTypes, dataSourceType)
 	}
+	sort.Strings(dataSourceTypes)
 	return
 }
 

@@ -78,6 +78,7 @@ type Service interface {
 	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
 	FilterDataSources([]string, []string) []string
+	MakeDSInfo([]*models.DataSourceTypeFields, []string, []string) []*models.ConfiguredDataSourcesFields
 	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string, string, []string)
 	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
 	GetTopContributorsCSV(ctx context.Context, in *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
@@ -2595,6 +2596,8 @@ func (s *service) GetUnaffiliated(ctx context.Context, params *affiliation.GetUn
 }
 
 func (s *service) FilterDataSources(dsIn, filter []string) (dsOut []string) {
+	// dsIn: ["git", "github/pull_request", "github/issue", "jira"]
+	// filter ["git", "github", "jira"] but can be ["github/issue"]
 	//defer func() {
 	//	fmt.Printf("FilterDataSources(%v, %v) -> %v\n", dsIn, filter, dsOut)
 	//}()
@@ -2613,10 +2616,42 @@ func (s *service) FilterDataSources(dsIn, filter []string) (dsOut []string) {
 	dsOut = []string{}
 	for _, ds := range dsIn {
 		dsa := strings.Split(ds, "/")
-		_, ok := m[dsa[0]]
-		if ok {
+		_, ok1 := m[ds]
+		_, ok2 := m[dsa[0]]
+		if ok1 || ok2 {
 			dsOut = append(dsOut, ds)
 		}
+	}
+	return
+}
+
+func (s *service) MakeDSInfo(actualArray []*models.DataSourceTypeFields, configuredArray, selectedArray []string) (result []*models.ConfiguredDataSourcesFields) {
+	actual := make(map[string]struct{})
+	for _, actualItem := range actualArray {
+		actual[actualItem.Name] = struct{}{}
+	}
+	selected := make(map[string]struct{})
+	for _, selectedItem := range selectedArray {
+		selected[selectedItem] = struct{}{}
+	}
+	fmt.Printf("actual=%+v\nconfigured=%+v\nselected=%+v\n", actual, configuredArray, selected)
+	for _, configured := range configuredArray {
+		item, ok := shared.DataSourcesFields[configured]
+		if !ok {
+			log.Info("Cannot find preconfigured data for data source n" + configured)
+			continue
+		}
+		//item := &models.ConfiguredDataSourcesFields{}
+		_, sel := selected[configured]
+		item.FilterSelected = sel
+		if sel {
+			_, present := actual[configured]
+			noData := !present
+			item.NoData = &noData
+		} else {
+			item.NoData = nil
+		}
+		result = append(result, item)
 	}
 	return
 }
@@ -2681,7 +2716,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	if params.DataSource != nil {
 		dss = *params.DataSource
 	} else {
-		dss = "all"
+		dss = "git"
 	}
 	dsa := strings.Split(dss, ",")
 	for _, ds := range dsa {
@@ -2690,7 +2725,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	sort.Strings(dataSources)
 	dss = strings.Join(dataSources, ",")
 	//fmt.Printf("dss=%s\n", dss)
-	key = fmt.Sprintf("%d:%d:%d:%d:%s:%s:%s:%s", limit, offset, s.RoundMSTime(from), s.RoundMSTime(to), search, sortField, sortOrder, strings.Join, dss)
+	key = fmt.Sprintf("%d:%d:%d:%d:%s:%s:%s:%s", limit, offset, s.RoundMSTime(from), s.RoundMSTime(to), search, sortField, sortOrder, dss)
 	return
 }
 
@@ -2715,7 +2750,7 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 //     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
 //     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributors(ctx context.Context, params *affiliation.GetTopContributorsParams) (topContributors *models.TopContributorsFlatOutput, err error) {
-	limit, offset, from, to, search, sortField, sortOrder, key, dataSources := s.TopContributorsParams(params, nil)
+	limit, offset, from, to, search, sortField, sortOrder, key, dataSourcesFilter := s.TopContributorsParams(params, nil)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
@@ -2769,7 +2804,8 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	dataSourceTypes = s.FilterDataSources(configuredDataSourceTypes, dataSources)
+	dataSourceTypes = s.FilterDataSources(configuredDataSourceTypes, dataSourcesFilter)
+	// fmt.Printf("key=%s, dataSourcesFilter=%v, configuredDataSourceTypes=%v, dataSourceTypes=%v\n", key, dataSourcesFilter, configuredDataSourceTypes, dataSourceTypes)
 	topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
@@ -2794,7 +2830,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	topContributors.Search = search
 	topContributors.SortField = sortField
 	topContributors.SortOrder = sortOrder
-	topContributors.ConfiguredDataSources = configuredDataSourceTypes
+	topContributors.ConfiguredDataSources = s.MakeDSInfo(topContributors.DataSourceTypes, configuredDataSourceTypes, dataSourceTypes)
 	topContributors.User = username
 	topContributors.Scope = s.AryDA2SF(projects)
 	topContributors.Public = public
@@ -2823,7 +2859,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 //     when sorting asc (which is almost senseless) API only returns objects that have at least 1 document matching this sort criteria
 //     so for example sort by git commits asc, will start from contributors having at least one commit, not 0).
 func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation.GetTopContributorsCSVParams) (f io.ReadCloser, err error) {
-	limit, offset, from, to, search, sortField, sortOrder, key, dataSources := s.TopContributorsParams(nil, params)
+	limit, offset, from, to, search, sortField, sortOrder, key, dataSourcesFilter := s.TopContributorsParams(nil, params)
 	if to < from {
 		err = fmt.Errorf("to parameter (%d) must be higher or equal from (%d)", to, from)
 		return
@@ -2875,7 +2911,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			err = errs.Wrap(err, apiName)
 			return
 		}
-		dataSourceTypes = s.FilterDataSources(configuredDataSourceTypes, dataSources)
+		dataSourceTypes = s.FilterDataSources(configuredDataSourceTypes, dataSourcesFilter)
 		topContributors, err = s.es.GetTopContributors(projects, dataSourceTypes, from, to, limit, offset, search, sortField, sortOrder)
 		if err != nil {
 			err = errs.Wrap(err, apiName)
@@ -2910,15 +2946,16 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"jira_issues_created",
 		"jira_issues_assigned",
 		"jira_issues_closed",
-		"jira_average_issues_open_days",
+		"jira_average_issue_open_days",
 		"confluence_pages_created",
 		"confluence_pages_edited",
 		"confluence_blog_posts",
 		"confluence_comments",
 		"confluence_last_documentation",
-		"confluence_date_since_last_documentation",
+		"confluence_days_since_last_documentation",
 		"github_issue_issues_created",
 		"github_issue_issues_assigned",
+		"github_issue_issues_closed",
 		"github_issue_average_time_open_days",
 		"github_pull_request_prs_created",
 		"github_pull_request_prs_merged",
@@ -2927,6 +2964,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"bugzilla_issues_created",
 		"bugzilla_issues_closed",
 		"bugzilla_issues_assigned",
+		"bugzilla_average_issue_open_days",
 	}
 	if !public {
 		hdr = append(hdr, "email")
@@ -2963,6 +3001,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatFloat(contributor.ConfluenceDaysSinceLastDocumentation, 'f', -1, 64),
 			strconv.FormatInt(contributor.GithubIssueIssuesCreated, 10),
 			strconv.FormatInt(contributor.GithubIssueIssuesAssigned, 10),
+			strconv.FormatInt(contributor.GithubIssueIssuesClosed, 10),
 			strconv.FormatFloat(contributor.GithubIssueAverageTimeOpenDays, 'f', -1, 64),
 			strconv.FormatInt(contributor.GithubPullRequestPrsCreated, 10),
 			strconv.FormatInt(contributor.GithubPullRequestPrsMerged, 10),
@@ -2971,6 +3010,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 			strconv.FormatInt(contributor.BugzillaIssuesCreated, 10),
 			strconv.FormatInt(contributor.BugzillaIssuesClosed, 10),
 			strconv.FormatInt(contributor.BugzillaIssuesAssigned, 10),
+			strconv.FormatFloat(contributor.BugzillaAverageIssueOpenDays, 'f', -1, 64),
 		}
 		if !public {
 			row = append(row, contributor.Email)

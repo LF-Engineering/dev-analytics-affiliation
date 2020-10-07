@@ -2479,6 +2479,10 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
+      github_issue_issues_closed:
+        type: integer
+        example: 123
+        x-omitempty: false
       github_issue_issues_assigned:
         type: integer
         example: 123
@@ -2515,6 +2519,10 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
+      bugzilla_average_issue_open_days:
+        type: number
+        example: 123.5
+        x-omitempty: false
   data-source-type-fields:
     title: Data source type data
     description: Data source type name + list of its columns returned by Top Contributors API
@@ -2528,6 +2536,38 @@ definitions:
         items:
           type: string
           example: git_commits
+  data-source-type-items:
+    title: Data source type items fields
+    description: Data source type items fields
+    properties:
+      key:
+        type: string
+        example: git_lines_added
+      name:
+        type: string
+        example: LOC added
+  configured-data-sources-fields:
+    title: Configured data sources
+    description: Configured data sources
+    type: object
+    properties:
+      key:
+        type: string
+        example: github/pull_request
+      name:
+        type: string
+        example: Github PRs
+      filter_selected:
+        type: boolean
+        example: true
+      no_data:
+        type: boolean
+        x-nullable: true
+        example: true
+      data_types:
+        type: array
+        items:
+          $ref: "#/definitions/data-source-type-items"
   top-contributors-flat-output:
     title: Top contributors output
     description: Top contributors output
@@ -2568,14 +2608,13 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/data-source-type-fields"
-      contributors_count:
-        type: integer
-        example: 12768
       configured_data_sources:
         type: array
         items:
-          type: string
-          example: jira
+          $ref: "#/definitions/configured-data-sources-fields"
+      contributors_count:
+        type: integer
+        example: 12768
       contributors:
         type: array
         items:

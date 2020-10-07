@@ -61,6 +61,101 @@ var (
 	Roles = []string{"Contributor", "Maintainer"}
 	// TopContributorsCacheTTL - top contributors cache TTL (24 hours)
 	TopContributorsCacheTTL = time.Duration(24) * time.Hour
+	// TopContributorsDataSources - defined data sources
+	TopContributorsDataSources = map[string]struct{}{
+		"git":          {},
+		"github":       {},
+		"gerrit":       {},
+		"jira":         {},
+		"confluence":   {},
+		"bugzilla":     {},
+		"bugzillarest": {},
+	}
+	// DataSourcesFields - predefined data for data source types
+	DataSourcesFields = map[string]*models.ConfiguredDataSourcesFields{
+		"git": {
+			Key:  "git",
+			Name: "Code",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "git_commits", Name: "Commits"},
+				{Key: "git_lines_added", Name: "LOC Added"},
+				{Key: "git_lines_changed", Name: "LOC Modified"},
+				{Key: "git_lines_removed", Name: "LOC Deleted"},
+			},
+		},
+		"github/issue": {
+			Key:  "github/issue",
+			Name: "Github Issues",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "github_issue_average_time_open_days", Name: "Issues Avg Days in Open"},
+				{Key: "github_issue_issues_created", Name: "Created"},
+				{Key: "github_issue_issues_assigned", Name: "Issues Assigned"},
+				{Key: "github_issue_issues_closed", Name: "Issues Closed"},
+			},
+		},
+		"github/pull_request": {
+			Key:  "github/pull_request",
+			Name: "Github PRs",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "github_pull_request_prs_created", Name: "PRs Created"},
+				{Key: "github_pull_request_prs_open", Name: "PRs Open"},
+				{Key: "github_pull_request_prs_closed", Name: "PRs Closed"},
+				{Key: "github_pull_request_prs_merged", Name: "PRs Merged"},
+			},
+		},
+		"gerrit": {
+			Key:  "gerrit",
+			Name: "Gerrit",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "gerrit_approvals", Name: "Approvals"},
+				{Key: "gerrit_changesets", Name: "Active Changesets"},
+				{Key: "gerrit_merged_changesets", Name: "Merged Changesets"},
+			},
+		},
+		"bugzilla": {
+			Key:  "bugzilla",
+			Name: "Bugzilla",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "bugzilla_issues_assigned", Name: "Issues Assigned"},
+				{Key: "bugzilla_issues_created", Name: "Issues Created"},
+				{Key: "bugzilla_issues_closed", Name: "Issues Closed"},
+				{Key: "bugzilla_average_issue_open_days", Name: "Issues Avg Days in Open"},
+			},
+		},
+		"bugzillarest": {
+			Key:  "bugzillarest",
+			Name: "Bugzilla",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "bugzilla_issues_assigned", Name: "Issues Assigned"},
+				{Key: "bugzilla_issues_created", Name: "Issues Created"},
+				{Key: "bugzilla_issues_closed", Name: "Issues Closed"},
+				{Key: "bugzilla_average_issue_open_days", Name: "Issues Avg Days in Open"},
+			},
+		},
+		"jira": {
+			Key:  "jira",
+			Name: "Jira",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "jira_comments", Name: "Comments"},
+				{Key: "jira_issues_assigned", Name: "Issues Assigned"},
+				{Key: "jira_issues_created", Name: "Issues Created"},
+				{Key: "jira_issues_closed", Name: "Issues Closed"},
+				{Key: "jira_average_issue_open_days", Name: "Issues Avg Days in Open"},
+			},
+		},
+		"confluence": {
+			Key:  "confluence",
+			Name: "Confluence",
+			DataTypes: []*models.DataSourceTypeItems{
+				{Key: "confluence_comments", Name: "Comments"},
+				{Key: "confluence_blog_posts", Name: "Posts"},
+				{Key: "confluence_pages_created", Name: "Pages Created"},
+				{Key: "confluence_pages_edited", Name: "Pages Edited"},
+				{Key: "confluence_last_action_date", Name: "Last Update"},
+				{Key: "confluence_days_since_last_documentation", Name: "Days Since Last Documentation"},
+			},
+		},
+	}
 )
 
 // ServiceInterface - Shared API interface

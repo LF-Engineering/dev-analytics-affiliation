@@ -151,7 +151,7 @@ func (s *service) TopContributorsCacheSet(key string, entry *TopContributorsCach
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
 		data := string(payloadBytes)
-		log.Warn(fmt.Sprintf("New request :eerror: %+v for %s url: %s, data: %s\n", err, method, url, data))
+		log.Warn(fmt.Sprintf("New request error: %+v for %s url: %s, data: %s\n", err, method, url, data))
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -1242,6 +1242,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		fields = map[string]string{
 			"github_issue_issues_created":         "count(distinct id) as github_issue_issues_created",
 			"github_issue_issues_assigned":        "count(distinct assignee_data_uuid) as github_issue_issues_assigned",
+			"github_issue_issues_closed":          "count(distinct id) as github_issue_issues_closed",
 			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
 		}
 	case "github/pull_request":
@@ -1253,15 +1254,17 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "bugzillarest":
 		fields = map[string]string{
-			"bugzilla_issues_created":  "count(distinct url) as bugzilla_issues_created",
-			"bugzilla_issues_closed":   "count(is_open) as bugzilla_issues_closed",
-			"bugzilla_issues_assigned": "count(distinct url) as bugzilla_issues_assigned",
+			"bugzilla_issues_created":          "count(distinct url) as bugzilla_issues_created",
+			"bugzilla_issues_closed":           "count(is_open) as bugzilla_issues_closed",
+			"bugzilla_issues_assigned":         "count(distinct url) as bugzilla_issues_assigned",
+			"bugzilla_average_issue_open_days": "avg(timeopen_days) as bugzilla_average_issue_open_days",
 		}
 	case "bugzilla":
 		fields = map[string]string{
-			"bugzilla_issues_created":  "count(distinct url) as bugzilla_issues_created",
-			"bugzilla_issues_closed":   "count(status) as bugzilla_issues_closed",
-			"bugzilla_issues_assigned": "count(distinct url) as bugzilla_issues_assigned",
+			"bugzilla_issues_created":          "count(distinct url) as bugzilla_issues_created",
+			"bugzilla_issues_closed":           "count(status) as bugzilla_issues_closed",
+			"bugzilla_issues_assigned":         "count(distinct url) as bugzilla_issues_assigned",
+			"bugzilla_average_issue_open_days": "avg(timeopen_days) as bugzilla_average_issue_open_days",
 		}
 	default:
 		// FIXME: in the future create err log.Error it and return error to caller (now only logs)
@@ -1362,6 +1365,9 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "github_issue_issues_created", "github_issue_average_time_open_days":
 			cond = `and \"id\" is not null and \"pull_request\" = false`
 			return
+		case "github_issue_issues_closed":
+			cond = `and \"id\" is not null and \"pull_request\" = false and \"state\" = 'closed'`
+			return
 		case "github_issue_issues_assigned":
 			cond = `and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
 			return
@@ -1398,6 +1404,9 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "bugzilla_issues_assigned":
 			cond = `and \"assigned_to_uuid\" is not null`
 			return
+		case "bugzilla_average_issue_open_days":
+			cond = `and \"timeopen_days\" is not null`
+			return
 		}
 	case "bugzilla":
 		if len(sortField) > 9 && sortField[:9] != "bugzilla_" {
@@ -1412,6 +1421,9 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		case "bugzilla_issues_assigned":
 			cond = `and \"assigned_to_uuid\" is not null`
+			return
+		case "bugzilla_average_issue_open_days":
+			cond = `and \"timeopen_days\" is not null`
 			return
 		}
 
@@ -1478,7 +1490,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed":
 			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -1496,7 +1508,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned":
+		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned", "bugzilla_average_issue_open_days":
 			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -1552,7 +1564,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "github/issue":
 		switch sortField {
-		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
@@ -1564,7 +1576,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "bugzilla", "bugzillarest":
 		switch sortField {
-		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned":
+		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned", "bugzilla_average_issue_open_days":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
@@ -2299,6 +2311,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			ConfluenceLastActionDate:             confluenceLastActionDate,
 			ConfluenceDaysSinceLastDocumentation: daysAgo,
 			GithubIssueIssuesCreated:             getInt(uuid, "github_issue_issues_created"),
+			GithubIssueIssuesClosed:              getInt(uuid, "github_issue_issues_closed"),
 			GithubIssueIssuesAssigned:            getInt(uuid, "github_issue_issues_assigned"),
 			GithubIssueAverageTimeOpenDays:       getFloat(uuid, "github_issue_average_time_open_days"),
 			GithubPullRequestPrsCreated:          getInt(uuid, "github_pull_request_prs_created"),
@@ -2308,6 +2321,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
 			BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
 			BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
+			BugzillaAverageIssueOpenDays:         getFloat(uuid, "bugzilla_average_issue_open_days"),
 		}
 		top.Contributors = append(top.Contributors, contributor)
 	}
