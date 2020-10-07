@@ -39,9 +39,9 @@ const (
 	// MaxAggsSize - maximum number of results to get for top contributors
 	MaxAggsSize = 10000
 	// CacheTimeResolution - when caching top contributors from and to parameters are rounded using this parameter (ms)
-	CacheTimeResolution = 86400000 // 24 hours
+	CacheTimeResolution = 10800000 // 3 hours 10,800,000 ms
 	// ESCacheTTL - used by ES query
-	ESCacheTTL = "now-24h"
+	ESCacheTTL = "now-3h"
 )
 
 var (
@@ -59,8 +59,8 @@ var (
 	MaxPeriodDate = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Roles - all currently defined roles
 	Roles = []string{"Contributor", "Maintainer"}
-	// TopContributorsCacheTTL - top contributors cache TTL (24 hours)
-	TopContributorsCacheTTL = time.Duration(24) * time.Hour
+	// TopContributorsCacheTTL - top contributors cache TTL (3 hours)
+	TopContributorsCacheTTL = time.Duration(3) * time.Hour
 	// TopContributorsDataSources - defined data sources
 	TopContributorsDataSources = map[string]struct{}{
 		"git":          {},
@@ -877,7 +877,7 @@ func (s *ServiceStruct) YearStart(dt time.Time) time.Time {
 	)
 }
 
-// RoundMSTime - round using CacheTimeResolution (24 hours)
+// RoundMSTime - round using CacheTimeResolution (3 hours)
 func (s *ServiceStruct) RoundMSTime(t int64) int64 {
 	return (t / CacheTimeResolution) * CacheTimeResolution
 }

@@ -2929,6 +2929,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 				topContributors.Contributors[i].Email = ""
 			}
 		}
+		topContributors.ConfiguredDataSources = s.MakeDSInfo(topContributors.DataSourceTypes, configuredDataSourceTypes, dataSourceTypes)
 		s.setTopContributorsCache(key, projects, topContributors)
 	}
 	hdr := []string{
