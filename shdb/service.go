@@ -23,14 +23,14 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
-	"github.com/LF-Engineering/ssaw/ssawsync"
-
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 	yaml "gopkg.in/yaml.v2"
 
 	// SortingHat database is MariaDB/MySQL format
 	_ "github.com/go-sql-driver/mysql"
 )
+
+// "github.com/LF-Engineering/ssaw/ssawsync"
 
 // Service - access affiliations MariaDB interface
 type Service interface {
@@ -125,8 +125,8 @@ type Service interface {
 	UpdateProjectSlugs(map[string][]string) (string, error)
 	DedupEnrollments() error
 	// SSAW related
-	NotifySSAW()
-	SetOrigin()
+	// NotifySSAW()
+	// SetOrigin()
 
 	// API endpoints
 	GetMatchingBlacklist(string, int64, int64) (*models.GetMatchingBlacklistOutput, error)
@@ -800,7 +800,7 @@ func (s *service) AddOrganization(inOrganization *models.OrganizationDataOutput,
 		)
 	}()
 	organization.Name = strings.TrimSpace(organization.Name)
-	s.SetOrigin()
+	// s.SetOrigin()
 	_, err = s.Exec(
 		s.db,
 		tx,
@@ -840,7 +840,7 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 	if uniqueIdentity.LastModified == nil {
 		uniqueIdentity.LastModified = s.Now()
 	}
-	s.SetOrigin()
+	// s.SetOrigin()
 	_, err = s.Exec(
 		s.db,
 		tx,
@@ -1036,7 +1036,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 
 func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, isDate []bool, missingFatal bool, projectSlugs []string, tx *sql.Tx) (enrollments []*models.EnrollmentNestedDataOutput, err error) {
 	log.Info(fmt.Sprintf("FindEnrollmentsNested: columns:%+v values:%+v isDate:%+v missingFatal:%v projectSlugs:%v tx:%v", columns, values, isDate, missingFatal, projectSlugs, tx != nil))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -1843,7 +1843,7 @@ func (s *service) TouchIdentity(id string, tx *sql.Tx) (affected int64, err erro
 	defer func() {
 		log.Info(fmt.Sprintf("TouchIdentity(exit): id:%s tx:%v affected:%d err:%v", id, tx != nil, affected, err))
 	}()
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, "update identities set last_modified = ? where id = ?", time.Now(), id)
 	if err != nil {
 		return
@@ -1857,7 +1857,7 @@ func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, 
 	defer func() {
 		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%v", uuid, tx != nil, affected, err))
 	}()
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
 	if err != nil {
 		return
@@ -1913,7 +1913,7 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Ti
 		}
 	}
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	if tm != nil {
 		insert := "insert into uidentities(uuid, last_modified) " +
 			"select uuid, now() from uidentities_archive " +
@@ -1978,7 +1978,7 @@ func (s *service) DropOrganization(id int64, missingFatal bool, tx *sql.Tx) (err
 		log.Info(fmt.Sprintf("DropOrganization(exit): id:%d missingFatal:%v tx:%v err:%v", id, missingFatal, tx != nil, err))
 	}()
 	del := "delete from organizations where id = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
 		return
@@ -2002,7 +2002,7 @@ func (s *service) DropOrgDomain(organization, domain string, missingFatal bool, 
 	}()
 	del := "delete from domains_organizations where organization_id in ("
 	del += "select id from organizations where name = ?) and domain = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, organization, domain)
 	if err != nil {
 		return
@@ -2053,7 +2053,7 @@ func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, 
 		}
 	}
 	del := "delete from uidentities where uuid = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, uuid)
 	if err != nil {
 		return
@@ -2116,7 +2116,7 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx 
 		}
 	}
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	if tm != nil {
 		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role) " +
 			"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive " +
@@ -2176,11 +2176,11 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 
 func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, missingFatal bool, tx *sql.Tx) (err error) {
 	log.Info(fmt.Sprintf("WithdrawEnrollment: enrollment:%+v missingFatal:%v tx:%v", enrollment, missingFatal, tx != nil))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(fmt.Sprintf("WithdrawEnrollment(exit): enrollment:%+v missingFatal:%v tx:%v err:%v", enrollment, missingFatal, tx != nil, err))
 	}()
-	s.SetOrigin()
+	// s.SetOrigin()
 	var res sql.Result
 	if enrollment.ProjectSlug == nil {
 		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug is null and role = ?"
@@ -2239,7 +2239,7 @@ func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tm *tim
 		}
 	}
 	del := "delete from enrollments where id = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
 		return
@@ -2302,7 +2302,7 @@ func (s *service) UnarchiveIdentity(id string, replace bool, tm *time.Time, tx *
 		}
 	}
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	if tm != nil {
 		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
 			"select id, uuid, source, name, email, username, now() from identities_archive " +
@@ -2372,7 +2372,7 @@ func (s *service) DeleteIdentity(id string, archive, missingFatal bool, tm *time
 		}
 	}
 	del := "delete from identities where id = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
 		return
@@ -2436,7 +2436,7 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 		}
 	}
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	if tm != nil {
 		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
 			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
@@ -2507,7 +2507,7 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tm *tim
 		}
 	}
 	del := "delete from profiles where uuid = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, uuid)
 	if err != nil {
 		return
@@ -2783,7 +2783,7 @@ func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash st
 
 func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	log.Info(fmt.Sprintf("AddNestedIdentity: identity:%+v", s.ToLocalIdentity(identity)))
-	s.SetOrigin()
+	// s.SetOrigin()
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	defer func() {
 		log.Info(
@@ -2930,7 +2930,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 	}
 	insert := root + " into identities(id, uuid, source, name, email, username, last_modified) select ?, ?, ?, ?, ?, ?, str_to_date(?, ?)"
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err = s.Exec(
 		s.db,
 		tx,
@@ -3080,7 +3080,7 @@ func (s *service) FindIdentities(columns []string, values []interface{}, isDate 
 
 func (s *service) AddNestedUniqueIdentity(uuid string) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	log.Info(fmt.Sprintf("AddNestedUniqueIdentity: uuid:%s", uuid))
-	s.SetOrigin()
+	// s.SetOrigin()
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	defer func() {
 		log.Info(
@@ -3156,7 +3156,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 	}
 	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err = s.Exec(
 		s.db,
 		tx,
@@ -3244,7 +3244,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 	}
 	insert := root + " into enrollments(uuid, organization_id, role, start, end, project_slug) select ?, ?, ?, str_to_date(?, ?), str_to_date(?, ?), ?"
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err = s.Exec(
 		s.db,
 		tx,
@@ -3337,7 +3337,7 @@ func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOu
 	}
 	update := "update organizations set name = ? where id = ?"
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err = s.Exec(
 		s.db,
 		tx,
@@ -3395,7 +3395,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 	}
 	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ?, role = ? where id = ?"
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err = s.Exec(
 		s.db,
 		tx,
@@ -3500,7 +3500,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	values = append(values, DateTimeFormat)
 	values = append(values, identityData.ID)
 	var res sql.Result
-	s.SetOrigin()
+	// s.SetOrigin()
 	res, err = s.Exec(s.db, tx, update, values...)
 	if err != nil {
 		identityData = nil
@@ -3609,7 +3609,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		update += " where uuid = ?"
 		values = append(values, profileData.UUID)
 		var res sql.Result
-		s.SetOrigin()
+		// s.SetOrigin()
 		res, err = s.Exec(s.db, tx, update, values...)
 		if err != nil {
 			profileData = nil
@@ -3831,7 +3831,7 @@ func (s *service) DedupEnrollments() (err error) {
 
 func (s *service) MapOrgNames() (status string, err error) {
 	log.Info("MapOrgNames")
-	s.SetOrigin()
+	// s.SetOrigin()
 	status = ""
 	defer func() {
 		log.Info(fmt.Sprintf("MapOrgNames(exit): status:%s err:%v", status, err))
@@ -4024,7 +4024,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 
 func (s *service) HideEmails() (status string, err error) {
 	log.Info("HideEmails")
-	s.SetOrigin()
+	// s.SetOrigin()
 	status = ""
 	defer func() {
 		log.Info(fmt.Sprintf("HideEmails(exit): status:%s err:%v", status, err))
@@ -4150,7 +4150,7 @@ func (s *service) HideEmails() (status string, err error) {
 
 func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 	log.Info(fmt.Sprintf("MergeAll: debug:%d dry:%v", debug, dry))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(fmt.Sprintf("MergeAll(exit): debug:%d dry:%v status:%s err:%v", debug, dry, status, err))
 	}()
@@ -4753,7 +4753,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 
 func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (updateESUUID string, updateESIsBot bool, err error) {
 	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, err))
 	}()
@@ -5003,7 +5003,7 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 
 func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) {
 	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v err:%v", fromID, toUUID, archive, err))
 	}()
@@ -5792,7 +5792,7 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 
 func (s *service) PostMatchingBlacklist(email string) (matchingBlacklistOutput *models.MatchingBlacklistOutput, err error) {
 	log.Info(fmt.Sprintf("PostMatchingBlacklist: email:%s", email))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -5810,7 +5810,7 @@ func (s *service) PostMatchingBlacklist(email string) (matchingBlacklistOutput *
 func (s *service) DeleteOrgDomain(organization, domain string) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info(fmt.Sprintf("DeleteOrgDomain: organization:%s domain:%s", organization, domain))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -5832,7 +5832,7 @@ func (s *service) DeleteOrgDomain(organization, domain string) (status *models.T
 func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info(fmt.Sprintf("DeleteMatchingBlacklist: email:%s", email))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -5853,7 +5853,7 @@ func (s *service) DeleteMatchingBlacklist(email string) (status *models.TextStat
 func (s *service) UnarchiveProfileNested(uuid string, projects []string) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uid = &models.UniqueIdentityNestedDataOutput{}
 	log.Info(fmt.Sprintf("UnarchiveProfileNested: uuid:%s projects:%+v", uuid, projects))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -5929,7 +5929,7 @@ func (s *service) UnarchiveProfileNested(uuid string, projects []string) (uid *m
 func (s *service) DeleteProfileNested(uuid string, archive bool) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info(fmt.Sprintf("DeleteProfileNested: uuid:%s archive:%v", uuid, archive))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -5975,7 +5975,7 @@ func (s *service) DeleteProfileNested(uuid string, archive bool) (status *models
 func (s *service) DeleteOrganization(id int64) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info(fmt.Sprintf("DeleteOrganization: id:%d", id))
-	s.SetOrigin()
+	// s.SetOrigin()
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
@@ -5995,7 +5995,7 @@ func (s *service) DeleteOrganization(id int64) (status *models.TextStatusOutput,
 
 func (s *service) GetListOrganizationsDomains(orgID int64, q string, rows, page int64) (getListOrganizationsDomains *models.GetListOrganizationsDomainsOutput, err error) {
 	log.Info(fmt.Sprintf("GetListOrganizationsDomains: orgID:%d q:%s rows:%d page:%d", orgID, q, rows, page))
-	s.SetOrigin()
+	// s.SetOrigin()
 	getListOrganizationsDomains = &models.GetListOrganizationsDomainsOutput{}
 	defer func() {
 		list := ""
@@ -6044,7 +6044,7 @@ func (s *service) GetListOrganizationsDomains(orgID int64, q string, rows, page 
 
 func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrganizations *models.GetListOrganizationsOutput, err error) {
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
-	s.SetOrigin()
+	// s.SetOrigin()
 	getListOrganizations = &models.GetListOrganizationsOutput{}
 	defer func() {
 		list := ""
@@ -6092,7 +6092,7 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (getListOrgan
 
 func (s *service) GetListProfiles(q string, rows, page int64, projectSlugs []string) (getListProfiles *models.GetListProfilesOutput, err error) {
 	log.Info(fmt.Sprintf("GetListProfiles: q:%s rows:%d page:%d projectSlugs:%+v", q, rows, page, projectSlugs))
-	s.SetOrigin()
+	// s.SetOrigin()
 	getListProfiles = &models.GetListProfilesOutput{}
 	defer func() {
 		list := ""
@@ -6140,7 +6140,7 @@ func (s *service) GetListProfiles(q string, rows, page int64, projectSlugs []str
 
 func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingBlacklist *models.GetMatchingBlacklistOutput, err error) {
 	log.Info(fmt.Sprintf("GetMatchingBlacklist: q:%s rows:%d page:%d", q, rows, page))
-	s.SetOrigin()
+	// s.SetOrigin()
 	getMatchingBlacklist = &models.GetMatchingBlacklistOutput{}
 	defer func() {
 		list := ""
@@ -6188,7 +6188,7 @@ func (s *service) GetMatchingBlacklist(q string, rows, page int64) (getMatchingB
 // PutOrgDomain - add domain to organization
 func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnrollments bool) (putOrgDomain *models.PutOrgDomainOutput, err error) {
 	log.Info(fmt.Sprintf("PutOrgDomain: org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v", org, dom, overwrite, isTopDomain, skipEnrollments))
-	s.SetOrigin()
+	// s.SetOrigin()
 	putOrgDomain = &models.PutOrgDomainOutput{}
 	org = strings.TrimSpace(org)
 	dom = strings.TrimSpace(dom)
@@ -6256,7 +6256,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 		}
 	}()
 	dom = strings.TrimSpace(dom)
-	s.SetOrigin()
+	// s.SetOrigin()
 	_, err = s.Exec(
 		s.db,
 		tx,
@@ -6810,6 +6810,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 	return
 }
 
+/*
 func (s *service) NotifySSAW() {
 	go func() {
 		e := ssawsync.Sync(s.origin)
@@ -6818,6 +6819,7 @@ func (s *service) NotifySSAW() {
 		}
 	}()
 }
+*/
 
 func (s *service) SetOrigin() {
 	_, e := s.ExecDB(s.db, "set @origin = ?", s.origin)
@@ -6829,13 +6831,15 @@ func (s *service) SetOrigin() {
 func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nUpdated int, err error) {
 	s.mtx.Lock()
 	log.Info(fmt.Sprintf("BulkUpdate: add:%d del:%d", len(add), len(del)))
-	s.SetOrigin()
-	defer func() {
-		s.mtx.Unlock()
-		log.Info(fmt.Sprintf("BulkUpdate(exit): add:%d del:%d err:%+v", len(add), len(del), err))
-		// Trigger sync event
-		s.NotifySSAW()
-	}()
+	// s.SetOrigin()
+	/*
+		defer func() {
+			s.mtx.Unlock()
+			log.Info(fmt.Sprintf("BulkUpdate(exit): add:%d del:%d err:%+v", len(add), len(del), err))
+			// Trigger sync event
+			s.NotifySSAW()
+		}()
+	*/
 	mAdd := make(map[string]*models.AllOutput)
 	mDel := make(map[string]*models.AllOutput)
 	for _, obj := range add {
@@ -7865,7 +7869,7 @@ func (s *service) EditSlugMapping(key, inMapping *models.SlugMapping, tx *sql.Tx
 		return
 	}
 	update := "update slug_mapping set da_name = ?, sf_name = ?, sf_id = ? where da_name = ? and sf_name = ? and sf_id = ?"
-	s.SetOrigin()
+	// s.SetOrigin()
 	var res sql.Result
 	res, err = s.Exec(
 		s.db,

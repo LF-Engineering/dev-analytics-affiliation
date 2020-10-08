@@ -2604,6 +2604,16 @@ definitions:
         type: boolean
         x-omitempty: false
         example: false
+      warning:
+        type: string
+        example: desc
+      contributors_count:
+        type: integer
+        example: 12768
+      contributors:
+        type: array
+        items:
+          $ref: "#/definitions/contributor-flat-stats"
       data_source_types:
         type: array
         items:
@@ -2612,13 +2622,6 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/configured-data-sources-fields"
-      contributors_count:
-        type: integer
-        example: 12768
-      contributors:
-        type: array
-        items:
-          $ref: "#/definitions/contributor-flat-stats"
   unique-identity-nested-data-output:
     title: Unique identity nested data output
     description: Unique indentity nested data
