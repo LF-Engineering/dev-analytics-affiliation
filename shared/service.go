@@ -71,6 +71,17 @@ var (
 		"bugzilla":     {},
 		"bugzillarest": {},
 	}
+	// DataSourceTypesSortOrder
+	DataSourceTypesSortOrder = map[string]int{
+		"git":                 1,
+		"github/pull_request": 2,
+		"gerrit":              3,
+		"jira":                4,
+		"github/issue":        5,
+		"bugzilla":            6,
+		"bugzillarest":        7,
+		"confluence":          8,
+	}
 	// DataSourcesFields - predefined data for data source types
 	DataSourcesFields = map[string]*models.ConfiguredDataSourcesFields{
 		"git": {

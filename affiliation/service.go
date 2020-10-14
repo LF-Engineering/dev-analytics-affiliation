@@ -2657,6 +2657,20 @@ func (s *service) MakeDSInfo(actualArray []*models.DataSourceTypeFields, configu
 		}
 		result = append(result, item)
 	}
+	sort.Slice(
+		result,
+		func(i, j int) bool {
+			ordI, _ := shared.DataSourceTypesSortOrder[result[i].Key]
+			ordJ, _ := shared.DataSourceTypesSortOrder[result[j].Key]
+			if ordI == 0 {
+				ordI = 1000
+			}
+			if ordJ == 0 {
+				ordJ = 1000
+			}
+			return ordI < ordJ
+		},
+	)
 	if len(missing) > 0 {
 		warning = fmt.Sprintf("The following data sources are missing data: %s", strings.Join(missing, ", "))
 	}
