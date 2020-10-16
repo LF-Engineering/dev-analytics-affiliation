@@ -87,7 +87,9 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 			s.db,
 			nil,
 			"select distinct ace.scope, p.name from access_control_entries ace, projects p "+
-				"where ace.scope = p.slug and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
+				"where (ace.scope = p.slug or ace.scope in (select p2.slug from projects p2 "+
+				"where p.parent_id = p2.id and p.project_type = 0 and p2.project_type = 1)) "+
+				"and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
 				"and ace.scope not like $4 order by ace.scope",
 			user,
 			"identity",
@@ -96,7 +98,7 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 		)
 	}
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects.1")
 		return
 	}
 	projectSlug := ""
@@ -110,12 +112,12 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 	}
 	err = rows.Err()
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects.2")
 		return
 	}
 	err = rows.Close()
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetListProjects.3")
 		return
 	}
 	return
@@ -181,16 +183,61 @@ func (s *service) CheckIdentityManagePermission(username, scope string, tx *sql.
 	rows, err := s.Query(
 		s.db,
 		tx,
-		"select 1 from access_control_entries where "+
-			"scope in ($1, $2) and subject = $3 and resource = $4 and action = $5",
+		"select p2.slug from projects p1, projects p2 where p1.slug in ($1, $2) and p1.parent_id = p2.id and p1.project_type = 0 and p2.project_type = 1",
 		scope,
 		"/projects/"+scope,
-		username,
-		"identity",
-		"manage",
 	)
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission.1")
+		return
+	}
+	parent := ""
+	for rows.Next() {
+		err = rows.Scan(&parent)
+		if err != nil {
+			return
+		}
+		break
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission.2")
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission.3")
+		return
+	}
+	if parent == "" {
+		rows, err = s.Query(
+			s.db,
+			tx,
+			"select 1 from access_control_entries where "+
+				"scope in ($1, $2) and subject = $3 and resource = $4 and action = $5",
+			scope,
+			"/projects/"+scope,
+			username,
+			"identity",
+			"manage",
+		)
+	} else {
+		rows, err = s.Query(
+			s.db,
+			tx,
+			"select 1 from access_control_entries where "+
+				"scope in ($1, $2, $3, $4) and subject = $5 and resource = $6 and action = $7",
+			scope,
+			"/projects/"+scope,
+			parent,
+			"/projects/"+parent,
+			username,
+			"identity",
+			"manage",
+		)
+	}
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission.4")
 		return
 	}
 	var dummy int
@@ -203,12 +250,12 @@ func (s *service) CheckIdentityManagePermission(username, scope string, tx *sql.
 	}
 	err = rows.Err()
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission.5")
 		return
 	}
 	err = rows.Close()
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "CheckIdentityManagePermission.6")
 		return
 	}
 	return

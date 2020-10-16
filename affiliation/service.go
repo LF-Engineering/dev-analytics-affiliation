@@ -3293,7 +3293,7 @@ func (s *service) PutDetAffRange(ctx context.Context, params *affiliation.PutDet
 // list projects given user has affiliations management access to
 // user is determind from auth token.
 // ===========================================================================
-// /v1/affiliation/list_profiles:
+// /v1/affiliation/list_projects:
 func (s *service) GetListProjects(ctx context.Context, params *affiliation.GetListProjectsParams) (projects *models.ListProjectsOutput, err error) {
 	projects = &models.ListProjectsOutput{}
 	log.Info("GetListProjects")
