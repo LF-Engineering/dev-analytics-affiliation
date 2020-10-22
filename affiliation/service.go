@@ -186,14 +186,14 @@ func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, erro
 }
 
 func (s *service) checkToken(tokenStr string) (username string, agw bool, err error) {
-	if auth0Disabled {
-		username = "internal-api-user"
-		agw = true
-		return
-	}
 	if !strings.HasPrefix(tokenStr, "Bearer ") {
 		err = fmt.Errorf("Authorization header should start with 'Bearer '")
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+		return
+	}
+	if auth0Disabled {
+		username = "internal-api-user"
+		agw = true
 		return
 	}
 	auth0Domain := os.Getenv("AUTH0_DOMAIN")

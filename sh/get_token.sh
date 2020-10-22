@@ -42,7 +42,7 @@ fi
 payload="{\"grant_type\":\"client_credentials\",\"client_id\":\"${clientid}\",\"client_secret\":\"${clientsecret}\",\"audience\":\"${audience}\",\"scope\":\"access:api\"}"
 if [ ! -z "$DEBUG" ]
 then
-  echo "${url}/oauth/token:$payload"
+  echo "curl -XPOST -H 'Content-Type: application/json' ${url}/oauth/token -d'${payload}'"
   curl -s -XPOST -H 'Content-Type: application/json' "${url}/oauth/token" -d"${payload}"
 fi
 token=`curl -s -XPOST -H 'Content-Type: application/json' "${url}/oauth/token" -d"${payload}" | jq -r '.access_token'`
