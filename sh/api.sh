@@ -18,17 +18,9 @@ if [ -z "$SYNC_URL" ]
 then
   export SYNC_URL="`cat helm/da-affiliation/secrets/SYNC_URL.prod.secret`"
 fi
-if [ -z "$AUTH0_DOMAIN" ]
+if [ -z "$AUTH0_AUDIENCE" ]
 then
-  export AUTH0_DOMAIN=`cat secret/auth0.domain`
-fi
-if [ -z "$AUTH0_CLIENT_ID" ]
-then
-  export AUTH0_CLIENT_ID=`cat secret/auth0.client_id`
-fi
-if [ -z "$AUTH0_USERNAME_CLAIM" ]
-then
-  export AUTH0_USERNAME_CLAIM=`cat secret/auth0.username_claim`
+  export AUTH0_AUDIENCE=`cat helm/da-affiliation/secrets/AUTH0_AUDIENCE.prod.secret`
 fi
 if [ -z "$ELASTIC_URL" ]
 then

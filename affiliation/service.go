@@ -196,79 +196,65 @@ func (s *service) checkToken(tokenStr string) (username string, agw bool, err er
 		agw = true
 		return
 	}
-	auth0Domain := os.Getenv("AUTH0_DOMAIN")
-	if !strings.HasPrefix(auth0Domain, "https://") {
-		auth0Domain = "https://" + auth0Domain
+	auth0Audience := os.Getenv("AUTH0_AUDIENCE")
+	if !strings.HasPrefix(auth0Audience, "https://") {
+		auth0Audience = "https://" + auth0Audience
 	}
-	if !strings.HasSuffix(auth0Domain, "/") {
-		auth0Domain = auth0Domain + "/"
+	if !strings.HasSuffix(auth0Audience, "/") {
+		auth0Audience = auth0Audience + "/"
 	}
-	token, err := jwt.ParseWithClaims(tokenStr[7:], jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
-		certStr, err := s.getPemCert(t, auth0Domain)
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "jwt.ParseWithClaims")
-			return nil, err
-		}
-		cert, err := jwt.ParseRSAPublicKeyFromPEM([]byte(certStr))
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "jwt.ParseRSAPublicKeyFromPEM")
-			return nil, err
-		}
-		return cert, nil
-	})
+	// curl -s -XGET -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" "${audience}authping"
+	method := "GET"
+	url := auth0Audience + "authping"
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+		log.Warn(fmt.Sprintf("New request error: %+v for %s url: %s", err, method, url))
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "authping.request")
 		return
 	}
-	if !token.Valid {
-		err = fmt.Errorf("invalid token")
-		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", tokenStr)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Warn(fmt.Sprintf("do request error: %+v for %s url: %s", err, method, url))
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "authping.do")
 		return
 	}
-	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(auth0Domain, true)
-	if !checkIss {
-		checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer("https://linuxfoundation.auth0.com/", true)
-		if !checkIss {
-			err = fmt.Errorf("invalid issuer: '%s' != '%s'", token.Claims.(jwt.MapClaims)["iss"], auth0Domain)
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-			return
-		}
-		agw = true
+	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Warn(fmt.Sprintf("ReadAll error: %+v for %s url: %s\n", err, method, url))
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "authping.readall")
+		return
 	}
-	aud := os.Getenv("AUTH0_CLIENT_ID")
-	checkAud := token.Claims.(jwt.MapClaims).VerifyAudience(aud, true)
-	if !checkAud {
-		checkAud = token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.platform.linuxfoundation.org/", true)
-		if !checkAud {
-			checkAud = token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.test.platform.linuxfoundation.org/", true)
-		}
-		if !checkAud {
-			checkAud = token.Claims.(jwt.MapClaims).VerifyAudience("https://api-gw.dev.platform.linuxfoundation.org/", true)
-		}
-		if !checkAud {
-			err = fmt.Errorf("invalid audience: '%s' != '%s'", token.Claims.(jwt.MapClaims)["aud"], aud)
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-			return
-		}
-		agw = true
+	_ = resp.Body.Close()
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("validation failed: status:%d, response:%s", resp.StatusCode, body)
+		log.Warn(fmt.Sprintf("Method:%s url:%s status:%d\n%s\n", method, url, resp.StatusCode, body))
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "authping.validate")
+		return
 	}
-	if agw {
+	type Result struct {
+		Sub string `json:"sub"`
+	}
+	var result Result
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: %+v", err))
+		return
+	}
+	if strings.Contains(result.Sub, "@clients") {
+		agw = true
 		username = "internal-api-user"
-	} else {
-		ucl := os.Getenv("AUTH0_USERNAME_CLAIM")
-		iusername, ok := token.Claims.(jwt.MapClaims)[ucl]
-		if !ok {
-			err = fmt.Errorf("invalid user name claim: '%s', not present in %+v", ucl, token.Claims.(jwt.MapClaims))
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-			return
-		}
-		username, ok = iusername.(string)
-		if !ok {
-			err = fmt.Errorf("invalid user name: '%+v': is not string", iusername)
-			err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "checkToken")
-			return
-		}
+		return
 	}
+	ary := strings.Split(result.Sub, "|")
+	if len(ary) < 2 {
+		err = fmt.Errorf("expected result.sub to conbtain '|'")
+		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), "authping.parse")
+		return
+	}
+	username = strings.TrimSpace(ary[1])
 	return
 }
 
@@ -465,7 +451,8 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		}
 	}
 	log.Debug(fmt.Sprintf("checkTokenAndPermission: auth projects (SFDC): %+v\n", projectsAry))
-	// Validate JWT token, final outcome is the LFID of current authorized user
+	// Validate JWT token, final outcome is the LFID of current authorized user or a special
+	// api gateway user "agw" (when the token was requested from a service, like SDS) - "internal-api-user"
 	agw := false
 	username, agw, err = s.checkToken(auth)
 	if err != nil {
@@ -3714,7 +3701,6 @@ func (s *service) precacheTopContributors() {
 func (s *service) PutCacheTopContributors(ctx context.Context, params *affiliation.PutCacheTopContributorsParams) (status *models.TextStatusOutput, err error) {
 	status = &models.TextStatusOutput{}
 	log.Info("PutCacheTopContributors")
-	// FIXME: disable until agree with UI date ranges
 	if 1 == 1 {
 		status.Text = "Disabled temporarily"
 		return

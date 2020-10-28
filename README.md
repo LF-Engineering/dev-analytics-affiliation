@@ -39,70 +39,70 @@ Start API server using dockerized MariaDB and Postgres databases:
 
 - Start API server: `` ./sh/api.sh ``. Eventually: `` LOG_LEVEL=debug [N_CPUS=1|N|''] ONLYRUN=1 NOCHECKS=1 AUTH0_DOMAIN="`cat helm/da-affiliation/secrets/AUTH0_DOMAIN.prod.secret`" ELASTIC_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" ./sh/api.sh ``.
 - Call example clients:
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_org_domain.sh 'odpi/egeria' CNCF cncf.io 1 1 0 ``.
-  - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_merge_unique_identities.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a [0] ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_move_identity.sh 'odpi/egeria' aaa8024197795de9b90676592772633c5cfcb35a 16fe424acecf8d614d102fc0ece919a22200481d [0] ``.
-  - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_post_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations.sh odpi/egeria 'CNCF' 5 1 ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_post_add_organization.sh odpi/egeria ABC ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_id.sh odpi/egeria 28143 ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_name.sh odpi/egeria CNCF ``.
-  - `` DEBUG=1 ORIGIN=prod API_URL=prod JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_find_organization_by_name.sh lfn CNCF ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_put_edit_organization.sh odpi/egeria 28143 cncf ``.
-  - `` DEBUG='' JWT_TOKEN=`cat secret/lgryglicki.token` API_URL='http://127.0.0.1:18080' ./sh/curl_get_list_organizations.sh odpi/egeria 'google' | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 28230 '.' 2 2 | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 0 'org' 0 | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh /projects/odpi/egeria 30 2 ``.
-  - `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_unaffiliated.sh lfn/opnfv 100 | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn 0 2552790984700 30 2 '*john' git_commits desc 'git,jira' | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn 0 1852790984700 5 0 'author*,*uuid*=*7b4d728ae99fd7c989a0ce3c7*' git_commits desc all | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn 0 1852790984700 5 0 'all=*7b4*' git_commits desc all | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors.sh lfn | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors_csv.sh lfn 0 2552790984700 300 2 john git_commits desc all ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_top_contributors_csv.sh lfn 0 1852790984700 3 0 '*name,author*,*org*=*oogle*' git_commits desc git ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_org_domain.sh odpi/egeria cncf cloudnative.io ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_list_profiles.sh odpi/egeria gerrit 25 | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile.sh lfn 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_identity.sh 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_unarchive_profile.sh odpi/egeria xyz | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name=lukaszgryglicki email=lgryglicki@cncf.io gender=male gender_acc=99 is_bot=0 country_code=pl ./sh/curl_put_edit_profile.sh odpi/egeria xyz ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name='a' email=lgryglicki@cncf.io gender=male gender_acc=100 is_bot=0 country_code=BAD ./sh/curl_put_edit_profile.sh odpi/egeria xyz | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name='Lukasz Gryglicki' email='lgryglicki@cncf.io' username='' uuid='xyz' ./sh/curl_post_add_identity.sh odpi/egeria git ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name='LukaszGryglicki' email='lgryglicki@cncf.io' username='Luki' uuid='' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` name='LGryglicki' email='lukaszgryglicki@cncf.io' username='LukiG' uuid='784f77c8a68d149376094cbac8421539196206cf' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_identity.sh odpi/egeria 5d53a9a4774a912e19fc7afe4a21bcc0ea8a63bb ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria aaa8024197795de9b90676592772633c5cfcb35a | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05Z' end='2015-05-05T18:30:08Z' is_project_specific=true role=Maintainer merge=1 ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2015-05-05T15:15:05' end='2015-05-05T19:19' role=Contributor ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 new_is_project_specific=false ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true role=Contributor new_start='2031-01-01T00:00' new_end='2036-01-01T00:00' new_is_project_specific=false new_role=Maintainer merge='' ./sh/curl_put_edit_enrollment.sh cs 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` new_start='2012-08-01T00:00' new_end='2013-10-15T00:00' new_is_project_specific=false merge=1 ./sh/curl_put_edit_enrollment_by_id.sh odpi/egeria 12632 ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` start='2000-01-01T00:00' end='2021-01-01T00:00' role=Maintainer ./sh/curl_delete_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_put_org_domain.sh 'odpi/egeria' CNCF cncf.io 1 1 0 ``.
+  - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_put_merge_unique_identities.sh 'odpi/egeria' 16fe424acecf8d614d102fc0ece919a22200481d aaa8024197795de9b90676592772633c5cfcb35a [0] ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_put_move_identity.sh 'odpi/egeria' aaa8024197795de9b90676592772633c5cfcb35a 16fe424acecf8d614d102fc0ece919a22200481d [0] ``.
+  - `` DEBUG=1 JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_post_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_matching_blacklist.sh 'odpi/egeria' abc@xyz.ru ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_list_organizations.sh odpi/egeria 'CNCF' 5 1 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_post_add_organization.sh odpi/egeria ABC ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_find_organization_by_id.sh odpi/egeria 28143 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_find_organization_by_name.sh odpi/egeria CNCF ``.
+  - `` DEBUG=1 ORIGIN=prod API_URL=prod JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_find_organization_by_name.sh lfn CNCF ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_put_edit_organization.sh odpi/egeria 28143 cncf ``.
+  - `` DEBUG='' JWT_TOKEN=`cat secret/lgryglicki.prod.token` API_URL='http://127.0.0.1:18080' ./sh/curl_get_list_organizations.sh odpi/egeria 'google' | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 28230 '.' 2 2 | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_list_organizations_domains.sh odpi/egeria 0 'org' 0 | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_unaffiliated.sh /projects/odpi/egeria 30 2 ``.
+  - `` API_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_unaffiliated.sh lfn/opnfv 100 | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_top_contributors.sh lfn 0 2552790984700 30 2 '*john' git_commits desc 'git,jira' | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_top_contributors.sh lfn 0 1852790984700 5 0 'author*,*uuid*=*7b4d728ae99fd7c989a0ce3c7*' git_commits desc all | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_top_contributors.sh lfn 0 1852790984700 5 0 'all=*7b4*' git_commits desc all | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_top_contributors.sh lfn | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_top_contributors_csv.sh lfn 0 2552790984700 300 2 john git_commits desc all ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_top_contributors_csv.sh lfn 0 1852790984700 3 0 '*name,author*,*org*=*oogle*' git_commits desc git ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_org_domain.sh odpi/egeria cncf cloudnative.io ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_list_profiles.sh odpi/egeria gerrit 25 | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile.sh lfn 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_identity.sh 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_unarchive_profile.sh odpi/egeria xyz | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name=lukaszgryglicki email=lgryglicki@cncf.io gender=male gender_acc=99 is_bot=0 country_code=pl ./sh/curl_put_edit_profile.sh odpi/egeria xyz ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='a' email=lgryglicki@cncf.io gender=male gender_acc=100 is_bot=0 country_code=BAD ./sh/curl_put_edit_profile.sh odpi/egeria xyz | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='Lukasz Gryglicki' email='lgryglicki@cncf.io' username='' uuid='xyz' ./sh/curl_post_add_identity.sh odpi/egeria git ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LukaszGryglicki' email='lgryglicki@cncf.io' username='Luki' uuid='' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LGryglicki' email='lukaszgryglicki@cncf.io' username='LukiG' uuid='784f77c8a68d149376094cbac8421539196206cf' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_identity.sh odpi/egeria 5d53a9a4774a912e19fc7afe4a21bcc0ea8a63bb ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria aaa8024197795de9b90676592772633c5cfcb35a | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` start='2015-05-05T15:15:05Z' end='2015-05-05T18:30:08Z' is_project_specific=true role=Maintainer merge=1 ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` start='2015-05-05T15:15:05' end='2015-05-05T19:19' role=Contributor ./sh/curl_post_add_enrollment.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true new_start='2011-01-01T00:00' new_end='2016-01-01T00:00' merge=1 new_is_project_specific=false ./sh/curl_put_edit_enrollment.sh odpi/egeria 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` start='2012-08-01T00:00' end='2013-10-15T00:00' is_project_specific=true role=Contributor new_start='2031-01-01T00:00' new_end='2036-01-01T00:00' new_is_project_specific=false new_role=Maintainer merge='' ./sh/curl_put_edit_enrollment.sh cs 16fe424acecf8d614d102fc0ece919a22200481d Cleverstep | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` new_start='2012-08-01T00:00' new_end='2013-10-15T00:00' new_is_project_specific=false merge=1 ./sh/curl_put_edit_enrollment_by_id.sh odpi/egeria 12632 ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` start='2000-01-01T00:00' end='2021-01-01T00:00' role=Maintainer ./sh/curl_delete_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.test.token` is_project_specific=true ./sh/curl_delete_enrollments.sh project1 f1dd198c9d0427f603789b5a8cc7e0bc3ca66649 'Intel Corporation' | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_delete_enrollment.sh project1 79523 | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` is_project_specific=true ./sh/curl_put_merge_enrollments.sh proj1 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` all_projects=true ./sh/curl_put_merge_enrollments.sh proj2 0000142135434a2b963c916185862168806fb1f5 'Intel Corporation' | jq ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_merge_all.sh 2 true ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_hide_emails.sh ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_cache_top_contributors.sh ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_map_org_names.sh ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_put_det_aff_range.sh ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_get_list_projects.sh ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_get_all_yaml.sh ``.
-  - `` JWT_TOKEN="`cat secret/lgryglicki.token`" ./sh/curl_post_bulk_update.sh ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_enrollment.sh project1 79523 | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` is_project_specific=true ./sh/curl_put_merge_enrollments.sh proj1 0000142135434a2b963c916185862168806fb1f5 CNCF | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` all_projects=true ./sh/curl_put_merge_enrollments.sh proj2 0000142135434a2b963c916185862168806fb1f5 'Intel Corporation' | jq ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_put_merge_all.sh 2 true ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_put_hide_emails.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_put_cache_top_contributors.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_put_map_org_names.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_put_det_aff_range.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_get_list_projects.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_get_all_yaml.sh ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_post_bulk_update.sh ``.
   - `` ./sh/curl_get_list_slug_mappings.sh ``.
   - `` da_name='lfn/onap' sf_name='ONAP' sf_id=1001 ./sh/curl_get_slug_mapping.sh ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` da_name='cncf/kubernetes' sf_name=Kubernetes sf_id=1004 ./sh/curl_post_add_slug_mapping.sh ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` sf_id=1004 sf_name=Kubernetes ./sh/curl_delete_slug_mapping.sh ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` da_name='cncf/kubernetes' sf_name=Kubernetes sf_id=1004 ./sh/curl_post_add_slug_mapping.sh ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` sf_id=1004 sf_name=Kubernetes ./sh/curl_delete_slug_mapping.sh ``.
 - Some special utils:
   - `` RAW=1 ES_URL=... ./sh/curl_es_unaffiliated.sh lfn/opnfv | jq .aggregations.unaffiliated.unaffiliated.buckets ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" SEARCH=john SIZE=1 ./sh/curl_get_top_contributors_query.sh lfn ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.token` da_name='cncf/kubernetes' sf_name='Kubernetes' sf_id=1004 new_da_name='new_cncf/kubernetes' new_sf_name='new_Kubernetes' new_sf_id=new_1004 ./sh/curl_put_edit_slug_mapping.sh ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` da_name='cncf/kubernetes' sf_name='Kubernetes' sf_id=1004 new_da_name='new_cncf/kubernetes' new_sf_name='new_Kubernetes' new_sf_id=new_1004 ./sh/curl_put_edit_slug_mapping.sh ``.
 
 # Docker
 
@@ -110,7 +110,7 @@ To deploy to docker:
 
 - Build docker image: `DOCKER_USER=... ./docker/build_image.sh [test|prod]`. If you specify `test` or `prod` - image name with that prefix will be created, can be used to build image only fr the `test` env, or only `prod`.
 - Run it: `DOCKER_USER=... [LOG_LEVEL=debug] [N_CPUS=16] ./docker/run.sh`. It will serve on 18080 instead of 8080 port. `N_CPUS` is optional, skipping will use auto-detecting, setting to 1 will enable singlethreaded mode.
-- Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
+- Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.
 
 
 # Kubernetes/Helm
