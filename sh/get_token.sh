@@ -6,44 +6,39 @@ then
 fi
 if [ -z "${2}" ]
 then
-  if [ "${1}" = "prod" ]
-  then
-    fn="secret/lgryglicki.token"
-  else
-    fn="secret/lgryglicki.${1}.token"
-  fi
+  fn="secret/lgryglicki.${1}.token"
 else
   fn="${2}"
 fi
-url="`cat secret/AUTH0_URL.${1}.secret`"
-if [ -z "$url" ]
+domain="`cat helm/da-affiliation/secrets/AUTH0_DOMAIN.${1}.secret`"
+if [ -z "$domain" ]
 then
-  echo "$0: cannot file secret/AUTH0_URL.${1}.secret file"
+  echo "$0: cannot file helm/da-affiliation/secrets/AUTH0_DOMAIN.${1}.secret"
   exit 2
 fi
-audience="`cat secret/AUTH0_AUDIENCE.${1}.secret`"
+audience="`cat helm/da-affiliation/secrets/AUTH0_AUDIENCE.${1}.secret`"
 if [ -z "$audience" ]
 then
-  echo "$0: cannot file secret/AUTH0_AUDIENCE.${1}.secret file"
+  echo "$0: cannot file helm/da-affiliation/secrets/AUTH0_AUDIENCE.${1}.secret"
   exit 3
 fi
-clientid="`cat secret/AUTH0_CLIENT_ID.${1}.secret`"
+clientid="`cat helm/da-affiliation/secrets/AUTH0_CLIENT_ID.${1}.secret`"
 if [ -z "$clientid" ]
 then
-  echo "$0: cannot file secret/AUTH0_CLIENT_ID.${1}.secret file"
+  echo "$0: cannot file helm/da-affiliation/secrets/AUTH0_CLIENT_ID.${1}.secret"
   exit 4
 fi
-clientsecret="`cat secret/AUTH0_CLIENT_SECRET.${1}.secret`"
+clientsecret="`cat helm/da-affiliation/secrets/AUTH0_CLIENT_SECRET.${1}.secret`"
 if [ -z "$clientsecret" ]
 then
-  echo "$0: cannot file secret/AUTH0_CLIENT_SECRET.${1}.secret file"
+  echo "$0: cannot file helm/da-affiliation/secrets/AUTH0_CLIENT_SECRET.${1}.secret"
   exit 5
 fi
 payload="{\"grant_type\":\"client_credentials\",\"client_id\":\"${clientid}\",\"client_secret\":\"${clientsecret}\",\"audience\":\"${audience}\",\"scope\":\"access:api\"}"
 if [ ! -z "$DEBUG" ]
 then
-  echo "curl -XPOST -H 'Content-Type: application/json' ${url}/oauth/token -d'${payload}'"
-  curl -s -XPOST -H 'Content-Type: application/json' "${url}/oauth/token" -d"${payload}"
+  echo "curl -XPOST -H 'Content-Type: application/json' ${domain}/oauth/token -d'${payload}'"
+  #curl -s -XPOST -H 'Content-Type: application/json' "${domain}/oauth/token" -d"${payload}"
 fi
-token=`curl -s -XPOST -H 'Content-Type: application/json' "${url}/oauth/token" -d"${payload}" | jq -r '.access_token'`
+token=`curl -s -XPOST -H 'Content-Type: application/json' "${domain}/oauth/token" -d"${payload}" | jq -r '.access_token'`
 echo "${token}" > "$fn"
