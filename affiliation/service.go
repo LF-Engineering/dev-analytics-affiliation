@@ -2734,8 +2734,8 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 		dss = *params.DataSource
 	} else {
 		// FIXME
-		// dss = "git"
-		dss = "all"
+		dss = "git"
+		// dss = "all"
 	}
 	dsa := strings.Split(dss, ",")
 	for _, ds := range dsa {
