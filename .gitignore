@@ -54,4 +54,5 @@ sh/*.sql
 *.username_claim
 *.secret
 data.json
+confluence.txt
 secret/

@@ -79,6 +79,12 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 	}()
 	// insert into access_control_entries(scope, subject, resource, action, effect) select '/projects/' || slug, 'internal-api-user', 'identity', 'manage', 0 from projects;
 	// insert into access_control_entries(scope, subject, resource, action, effect) select slug, 'internal-api-user', 'identity', 'manage', 0 from projects;
+	// prev one before foundation-f:
+	// select distinct ace.scope, p.name from access_control_entries ace, projects p
+	// where (ace.scope = p.slug or ace.scope in (select p2.slug from projects p2
+	// where p.parent_id = p2.id and p.project_type = 0 and p2.project_type = 1))
+	// and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3
+	// order by ace.scope
 	var rows *sql.Rows
 	if user == "internal-api-user" {
 		rows, err = s.Query(s.db, nil, "select distinct slug, name from projects where project_type = 0 order by slug")
@@ -86,15 +92,14 @@ func (s *service) GetListProjects(user string) (projects *models.ListProjectsOut
 		rows, err = s.Query(
 			s.db,
 			nil,
-			"select distinct ace.scope, p.name from access_control_entries ace, projects p "+
-				"where (ace.scope = p.slug or ace.scope in (select p2.slug from projects p2 "+
-				"where p.parent_id = p2.id and p.project_type = 0 and p2.project_type = 1)) "+
-				"and p.project_type = 0 and ace.subject = $1 and ace.resource = $2 and ace.action = $3 "+
-				"and ace.scope not like $4 order by ace.scope",
+			"select distinct p.slug, p.name from access_control_entries ace, projects p "+
+				"where (ace.scope = '/projects/' || p.slug or ace.scope in ("+
+				"select '/projects/' || p2.slug || '-f' from projects p2 where p.parent_id = p2.id "+
+				"and p.project_type = 0 and p2.project_type = 1)) and p.project_type = 0 "+
+				"and ace.subject = $1 and ace.resource = $2 and ace.action = $3 order by p.slug",
 			user,
 			"identity",
 			"manage",
-			"/projects/%",
 		)
 	}
 	if err != nil {
