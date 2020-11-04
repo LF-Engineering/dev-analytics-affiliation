@@ -2734,7 +2734,9 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 		dss = *params.DataSource
 	} else {
 		// FIXME
+		// prod
 		dss = "git"
+		// test
 		// dss = "all"
 	}
 	dsa := strings.Split(dss, ",")
@@ -2775,14 +2777,14 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		return
 	}
 	topContributors = &models.TopContributorsFlatOutput{}
-	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
+	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v", from, to, limit, offset, search, sortField, sortOrder, dataSourcesFilter))
 	// Check token and permission
 	public := false
 	apiName, projects, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
@@ -2790,6 +2792,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 				search,
 				sortField,
 				sortOrder,
+				dataSourcesFilter,
 				apiName,
 				projects,
 				username,
@@ -2806,10 +2809,10 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		}
 		public = true
 	}
-	var ok bool
 	if public {
 		key += ":pub"
 	}
+	var ok bool
 	topContributors, ok = s.getTopContributorsCache(key, projects)
 	if ok {
 		return
@@ -2884,14 +2887,14 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		return
 	}
 	topContributors := &models.TopContributorsFlatOutput{}
-	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s", from, to, limit, offset, search, sortField, sortOrder))
+	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v", from, to, limit, offset, search, sortField, sortOrder, dataSourcesFilter))
 	// Check token and permission
 	public := false
 	apiName, projects, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
+				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
@@ -2899,6 +2902,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 				search,
 				sortField,
 				sortOrder,
+				dataSourcesFilter,
 				apiName,
 				projects,
 				username,
@@ -3702,7 +3706,7 @@ func (s *service) PutCacheTopContributors(ctx context.Context, params *affiliati
 	status = &models.TextStatusOutput{}
 	log.Info("PutCacheTopContributors")
 	if 1 == 1 {
-		status.Text = "Disabled temporarily"
+		status.Text = "PutCacheTopContributors: disabled forever"
 		return
 	}
 	// Check token and permission

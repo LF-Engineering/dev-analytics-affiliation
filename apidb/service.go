@@ -133,22 +133,33 @@ func (s *service) GetDataSourceTypes(projectSlugs []string) (dataSourceTypes []s
 	defer func() {
 		log.Info(fmt.Sprintf("GetDataSourceTypes(exit): projectSlugs:%+v dataSourceTypes:%+v", projectSlugs, dataSourceTypes))
 	}()
+	// from before foundation-f support:
+	// select distinct coalesce(dsp.name || '/' || ds.name, ds.name)
+	// from projects p, data_source_instances dsi, data_sources ds
+	// left join data_sources dsp on dsp.id = ds.parent_id
+	// where p.id = dsi.project_id and dsi.data_source_id = ds.id and p.slug in (...)
 	sel := "select distinct coalesce(dsp.name || '/' || ds.name, ds.name) " +
 		"from projects p, data_source_instances dsi, data_sources ds " +
-		"left join data_sources dsp on dsp.id = ds.parent_id " +
-		"where p.id = dsi.project_id and dsi.data_source_id = ds.id and p.slug in ("
+		"left join data_sources dsp on dsp.id = ds.parent_id where " +
+		"(dsi.project_id = p.id or dsi.project_id in (select id from projects where parent_id = p.id)) " +
+		"and dsi.data_source_id = ds.id and p.slug in ("
 	args := []interface{}{}
 	i := 1
 	for _, projectSlug := range projectSlugs {
-		sel += fmt.Sprintf("$%d,$%d,", i, i+1)
-		args = append(args, projectSlug, "/projects/"+projectSlug)
-		i += 2
+		// from before foundation-f support:
+		// sel += fmt.Sprintf("$%d,$%d,", i, i+1)
+		// args = append(args, projectSlug, "/projects/"+projectSlug)
+		// i += 2
+		sel += fmt.Sprintf("regexp_replace($%d,'-f$',''),", i)
+		args = append(args, projectSlug)
+		i++
 	}
 	dss := make(map[string]struct{})
 	sel = sel[0:len(sel)-1] + ")"
+	// fmt.Printf("GetDataSourceTypes: query: %s\nargs: %+v\n", sel, args)
 	rows, err := s.Query(s.db, nil, sel, args...)
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes.1")
 		return
 	}
 	dataSourceType := ""
@@ -165,7 +176,7 @@ func (s *service) GetDataSourceTypes(projectSlugs []string) (dataSourceTypes []s
 	}
 	err = rows.Err()
 	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes")
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetDataSourceTypes.2")
 		return
 	}
 	err = rows.Close()
