@@ -202,6 +202,7 @@ func (s *service) CheckIdentityManagePermission(username, scope string, tx *sql.
 		if err != nil {
 			return
 		}
+		parent += "-f"
 		break
 	}
 	err = rows.Err()
