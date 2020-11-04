@@ -2919,10 +2919,10 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		}
 		public = true
 	}
-	var ok bool
 	if public {
 		key += ":pub"
 	}
+	var ok bool
 	topContributors, ok = s.getTopContributorsCache(key, projects)
 	if !ok {
 		var (
@@ -2955,43 +2955,62 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		topContributors.ConfiguredDataSources, topContributors.Warning = s.MakeDSInfo(topContributors.DataSourceTypes, configuredDataSourceTypes, dataSourceTypes)
 		s.setTopContributorsCache(key, projects, topContributors)
 	}
+	m := make(map[string]string)
+	for _, item := range topContributors.ConfiguredDataSources {
+		if item.NoData == nil || (item.NoData != nil && *item.NoData) {
+			continue
+		}
+		for _, dt := range item.DataTypes {
+			// m[dt.Key] = dt.Name
+			m[dt.Key] = item.Name + ": " + dt.Name
+		}
+	}
+	fmt.Printf("m: %+v\n", m)
 	hdr := []string{
-		"uuid",
-		"name",
-		"organization",
+		//"uuid",
+		"Name",
+		"Organization",
+	}
+	if !public {
+		hdr = append(hdr, "Email")
+	}
+	possibleHeader := []string{
 		"git_commits",
-		"git_lines_of_code_added",
-		"git_lines_of_code_changed",
-		"git_lines_of_code_removed",
+		"git_lines_added",
+		"git_lines_changed",
+		"git_lines_removed",
+		"github_pull_request_prs_created",
+		"github_pull_request_prs_open",
+		"github_pull_request_prs_closed",
+		"github_pull_request_prs_merged",
+		"gerrit_approvals",
 		"gerrit_changesets",
 		"gerrit_merged_changesets",
-		"gerrit_reviews_approved",
 		"jira_comments",
-		"jira_issues_created",
 		"jira_issues_assigned",
+		"jira_issues_created",
 		"jira_issues_closed",
 		"jira_average_issue_open_days",
-		"confluence_pages_created",
-		"confluence_pages_edited",
-		"confluence_blog_posts",
-		"confluence_comments",
-		"confluence_last_documentation",
-		"confluence_days_since_last_documentation",
+		"github_issue_average_time_open_days",
 		"github_issue_issues_created",
 		"github_issue_issues_assigned",
 		"github_issue_issues_closed",
-		"github_issue_average_time_open_days",
-		"github_pull_request_prs_created",
-		"github_pull_request_prs_merged",
-		"github_pull_request_prs_open",
-		"github_pull_request_prs_closed",
+		"bugzilla_issues_assigned",
 		"bugzilla_issues_created",
 		"bugzilla_issues_closed",
-		"bugzilla_issues_assigned",
 		"bugzilla_average_issue_open_days",
+		"confluence_comments",
+		"confluence_blog_posts",
+		"confluence_pages_created",
+		"confluence_pages_edited",
+		"confluence_last_action_date",
+		"confluence_days_since_last_documentation",
 	}
-	if !public {
-		hdr = append(hdr, "email")
+	for _, h := range possibleHeader {
+		name, ok := m[h]
+		if ok {
+			hdr = append(hdr, name)
+		}
 	}
 	buffer := &bytes.Buffer{}
 	writer := csv.NewWriter(buffer)
@@ -3002,42 +3021,132 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	}
 	for index, contributor := range topContributors.Contributors {
 		row := []string{
-			contributor.UUID,
+			//contributor.UUID,
 			contributor.Name,
 			contributor.Organization,
-			strconv.FormatInt(contributor.GitCommits, 10),
-			strconv.FormatInt(contributor.GitLinesAdded, 10),
-			strconv.FormatInt(contributor.GitLinesChanged, 10),
-			strconv.FormatInt(contributor.GitLinesRemoved, 10),
-			strconv.FormatInt(contributor.GerritChangesets, 10),
-			strconv.FormatInt(contributor.GerritMergedChangesets, 10),
-			strconv.FormatInt(contributor.GerritApprovals, 10),
-			strconv.FormatInt(contributor.JiraComments, 10),
-			strconv.FormatInt(contributor.JiraIssuesCreated, 10),
-			strconv.FormatInt(contributor.JiraIssuesAssigned, 10),
-			strconv.FormatInt(contributor.JiraIssuesClosed, 10),
-			strconv.FormatFloat(contributor.JiraAverageIssueOpenDays, 'f', -1, 64),
-			strconv.FormatInt(contributor.ConfluencePagesCreated, 10),
-			strconv.FormatInt(contributor.ConfluencePagesEdited, 10),
-			strconv.FormatInt(contributor.ConfluenceBlogPosts, 10),
-			strconv.FormatInt(contributor.ConfluenceComments, 10),
-			contributor.ConfluenceLastActionDate,
-			strconv.FormatFloat(contributor.ConfluenceDaysSinceLastDocumentation, 'f', -1, 64),
-			strconv.FormatInt(contributor.GithubIssueIssuesCreated, 10),
-			strconv.FormatInt(contributor.GithubIssueIssuesAssigned, 10),
-			strconv.FormatInt(contributor.GithubIssueIssuesClosed, 10),
-			strconv.FormatFloat(contributor.GithubIssueAverageTimeOpenDays, 'f', -1, 64),
-			strconv.FormatInt(contributor.GithubPullRequestPrsCreated, 10),
-			strconv.FormatInt(contributor.GithubPullRequestPrsMerged, 10),
-			strconv.FormatInt(contributor.GithubPullRequestPrsOpen, 10),
-			strconv.FormatInt(contributor.GithubPullRequestPrsClosed, 10),
-			strconv.FormatInt(contributor.BugzillaIssuesCreated, 10),
-			strconv.FormatInt(contributor.BugzillaIssuesClosed, 10),
-			strconv.FormatInt(contributor.BugzillaIssuesAssigned, 10),
-			strconv.FormatFloat(contributor.BugzillaAverageIssueOpenDays, 'f', -1, 64),
 		}
 		if !public {
 			row = append(row, contributor.Email)
+		}
+		_, ok := m["git_commits"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GitCommits, 10))
+		}
+		_, ok = m["git_lines_added"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GitLinesAdded, 10))
+		}
+		_, ok = m["git_lines_changed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GitLinesChanged, 10))
+		}
+		_, ok = m["git_lines_removed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GitLinesRemoved, 10))
+		}
+		_, ok = m["github_pull_request_prs_created"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsCreated, 10))
+		}
+		_, ok = m["github_pull_request_prs_open"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsOpen, 10))
+		}
+		_, ok = m["github_pull_request_prs_closed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsClosed, 10))
+		}
+		_, ok = m["github_pull_request_prs_merged"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsMerged, 10))
+		}
+		_, ok = m["gerrit_approvals"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GerritApprovals, 10))
+		}
+		_, ok = m["gerrit_changesets"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GerritChangesets, 10))
+		}
+		_, ok = m["gerrit_merged_changesets"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GerritMergedChangesets, 10))
+		}
+		_, ok = m["jira_comments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.JiraComments, 10))
+		}
+		_, ok = m["jira_issues_assigned"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.JiraIssuesAssigned, 10))
+		}
+		_, ok = m["jira_issues_created"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.JiraIssuesCreated, 10))
+		}
+		_, ok = m["jira_issues_closed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.JiraIssuesClosed, 10))
+		}
+		_, ok = m["jira_average_issue_open_days"]
+		if ok {
+			row = append(row, strconv.FormatFloat(contributor.JiraAverageIssueOpenDays, 'f', -1, 64))
+		}
+		_, ok = m["github_issue_average_time_open_days"]
+		if ok {
+			row = append(row, strconv.FormatFloat(contributor.GithubIssueAverageTimeOpenDays, 'f', -1, 64))
+		}
+		_, ok = m["github_issue_issues_created"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubIssueIssuesCreated, 10))
+		}
+		_, ok = m["github_issue_issues_assigned"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubIssueIssuesAssigned, 10))
+		}
+		_, ok = m["github_issue_issues_closed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubIssueIssuesClosed, 10))
+		}
+		_, ok = m["bugzilla_issues_assigned"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.BugzillaIssuesAssigned, 10))
+		}
+		_, ok = m["bugzilla_issues_created"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.BugzillaIssuesCreated, 10))
+		}
+		_, ok = m["bugzilla_issues_closed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.BugzillaIssuesClosed, 10))
+		}
+		_, ok = m["bugzilla_average_issue_open_days"]
+		if ok {
+			row = append(row, strconv.FormatFloat(contributor.BugzillaAverageIssueOpenDays, 'f', -1, 64))
+		}
+		_, ok = m["confluence_comments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.ConfluenceComments, 10))
+		}
+		_, ok = m["confluence_blog_posts"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.ConfluenceBlogPosts, 10))
+		}
+		_, ok = m["confluence_pages_created"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.ConfluencePagesCreated, 10))
+		}
+		_, ok = m["confluence_pages_edited"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.ConfluencePagesEdited, 10))
+		}
+		_, ok = m["confluence_last_action_date"]
+		if ok {
+			row = append(row, contributor.ConfluenceLastActionDate)
+		}
+		_, ok = m["confluence_days_since_last_documentation"]
+		if ok {
+			row = append(row, strconv.FormatFloat(contributor.ConfluenceDaysSinceLastDocumentation, 'f', -1, 64))
 		}
 		err = writer.Write(row)
 		if err != nil {
