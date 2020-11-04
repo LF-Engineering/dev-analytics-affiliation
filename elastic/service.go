@@ -1747,6 +1747,13 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
 	patternAll := s.projectSlugsToIndexPattern(projectSlugs)
+	// FIXME: hack to deal with broken slack mapping: starts
+	patternAll += ",-*-slack"
+	for i := range patterns {
+		patterns[i] += ",-*-slack"
+	}
+	// FIXME: hack to deal with broken slack mapping: ends
+	fmt.Printf("%s %+v\n", patternAll, patterns)
 	log.Debug(
 		fmt.Sprintf(
 			"GetTopContributors: projectSlugs:%+v dataSourceTypes:%+v patterns:%+v patternAll:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
@@ -1839,6 +1846,8 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			return
 		}
 		mainPattern = s.projectSlugsToIndexPattern(projectSlugs)
+		// FIXME: hack to deal with broken slack mapping
+		mainPattern += ",-*-slack"
 	}
 	top.DataSourceTypes = []*models.DataSourceTypeFields{}
 

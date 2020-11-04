@@ -1,9 +1,12 @@
 package swagger
 
 import (
+	"strings"
+
 	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations/health"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 )
@@ -14,9 +17,15 @@ func ErrorResponse(err error) *models.ErrorResponse {
 	if e, ok := err.(errs.CodedError); ok {
 		cd = e.Code()
 	}
+	errMsg := err.Error()
+	for redacted := range shared.GRedacted {
+		if len(redacted) > 3 {
+			errMsg = strings.Replace(errMsg, redacted, "[redacted]", -1)
+		}
+	}
 	return &models.ErrorResponse{
 		Code:    cd,
-		Message: err.Error(),
+		Message: errMsg,
 	}
 }
 

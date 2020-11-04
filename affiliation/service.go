@@ -197,6 +197,7 @@ func (s *service) checkToken(tokenStr string) (username string, agw bool, err er
 		return
 	}
 	auth0Audience := os.Getenv("AUTH0_AUDIENCE")
+	shared.GRedacted[auth0Audience] = struct{}{}
 	if !strings.HasPrefix(auth0Audience, "https://") {
 		auth0Audience = "https://" + auth0Audience
 	}

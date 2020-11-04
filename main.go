@@ -44,6 +44,7 @@ var err error
 
 func initAPIDB() *sqlx.DB {
 	dbURL := os.Getenv("API_DB_ENDPOINT")
+	shared.GRedacted[dbURL] = struct{}{}
 	d, err := sqlx.Connect("postgres", dbURL)
 	if err != nil {
 		log.Panicf("unable to connect to API database: %v", err)
@@ -58,6 +59,7 @@ func initAPIDB() *sqlx.DB {
 
 func initSHDB(origin string) *sqlx.DB {
 	dbURL := os.Getenv("SH_DB_ENDPOINT")
+	shared.GRedacted[dbURL] = struct{}{}
 	if !strings.Contains(dbURL, "parseTime=true") {
 		if strings.Contains(dbURL, "?") {
 			dbURL += "&parseTime=true"
@@ -85,10 +87,15 @@ func initSHDB(origin string) *sqlx.DB {
 
 func initES() (*elasticsearch.Client, string) {
 	esURL := os.Getenv("ELASTIC_URL")
+	esUsername := os.Getenv("ELASTIC_USERNAME")
+	esPassword := os.Getenv("ELASTIC_PASSWORD")
+	shared.GRedacted[esURL] = struct{}{}
+	shared.GRedacted[esUsername] = struct{}{}
+	shared.GRedacted[esPassword] = struct{}{}
 	config := elasticsearch.Config{
 		Addresses: []string{esURL},
-		Username:  os.Getenv("ELASTIC_USERNAME"),
-		Password:  os.Getenv("ELASTIC_PASSWORD"),
+		Username:  esUsername,
+		Password:  esPassword,
 	}
 	client, err := elasticsearch.NewClient(config)
 	if err != nil {
@@ -106,6 +113,7 @@ func initES() (*elasticsearch.Client, string) {
 func setupEnv() {
 	shared.GSQLOut = os.Getenv("DA_AFF_API_SQL_OUT") != ""
 	shared.GSyncURL = os.Getenv("SYNC_URL")
+	shared.GRedacted[shared.GSyncURL] = struct{}{}
 	if shared.GSyncURL == "" {
 		log.Fatal("setupEnv:", fmt.Errorf("SYNC_URL environment variable must be set"))
 	}
