@@ -45,6 +45,7 @@ const (
 )
 
 var (
+	// GRedacted - keep redacted string that shoudl not be returned to the client
 	GRedacted = map[string]struct{}{}
 	// GSQLOut - if set displays all SQLs that are executed (if not set, only failed ones)
 	GSQLOut bool
@@ -72,7 +73,7 @@ var (
 		"bugzilla":     {},
 		"bugzillarest": {},
 	}
-	// DataSourceTypesSortOrder
+	// DataSourceTypesSortOrder - order of data source types
 	DataSourceTypesSortOrder = map[string]int{
 		"git":                 1,
 		"github/pull_request": 2,

@@ -1731,6 +1731,9 @@ func (s *service) contributorStatsMainQuery(
 }
 
 func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []string, from, to, limit, offset int64, search, sortField, sortOrder string) (top *models.TopContributorsFlatOutput, err error) {
+	if sortOrder == "confluence_days_since_last_documentation" {
+		sortOrder = "confluence_last_action_date"
+	}
 	// Set this to true, to apply search filters to merge queries too
 	// This can discard some users, even if they're specified in uuids array
 	// Because search condition can be slightly different per data source type (esepecially in all=value)
