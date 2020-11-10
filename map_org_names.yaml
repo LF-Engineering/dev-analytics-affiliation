@@ -1680,7 +1680,6 @@ mappings:
   - ['^[[:space:]]*driver[[:space:]]*$', 'Driversiti']
   - ['^[[:space:]]*intelerad[[:space:]]medical[[:space:]]*$', 'Intelerad Medical Systems']
   - ['^[[:space:]]*wooq[[:space:]]*$', 'Wooqer']
-  - ['^[[:space:]]*copyright[[:space:]]clearance[[:space:]]center[[:space:]](ccc[[:space:]]*$', 'Copyright Clearance Center (CCC)']
   - ['^[[:space:]]*hands-?on[[:space:]]science[[:space:]]*$', 'Hands-On Science, University of Otago']
   - ['^[[:space:]]*interia[[:space:]]*$', 'Interia.pl']
   - ['^[[:space:]]*magine[[:space:]]*$', 'Magine Pro']
