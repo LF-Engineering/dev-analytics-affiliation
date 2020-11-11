@@ -2591,7 +2591,7 @@ mappings:
   - ['^[[:space:]]*td[[:space:]]bank[[:space:]]financial[[:space:]]group[[:space:]]*$', 'TD']
   - ['^[[:space:]]*csg[[:space:]]international,?[[:space:]]inc\\.?[[:space:]]*$', 'CSG']
   - ['^[[:space:]]*textron[[:space:]]inc\\.?[[:space:]]*$', 'Textron']
-  - ['^[[:space:]]*(uc[[:space:]]berkeley[[:space:]]electrical[[:space:]]engineering[[:space:]]&[[:space:]]computer[[:space:]]sciences[[:space:]](eecs|uc[[:space:]]berkeley[[:space:]]electrical[[:space:]]engineering[[:space:]]&[[:space:]]computer[[:space:]]sciences[[:space:]](eecs)|university[[:space:]]of[[:space:]]california,?[[:space:]]berkeley)[[:space:]]*$', 'UC Berkeley']
+  - ['^[[:space:]]*(uc[[:space:]]berkeley[[:space:]]electrical[[:space:]]engineering[[:space:]]&[[:space:]]computer[[:space:]]sciences[[:space:]]\\(?eecs|uc[[:space:]]berkeley[[:space:]]electrical[[:space:]]engineering[[:space:]]&[[:space:]]computer[[:space:]]sciences[[:space:]]\\(?eecs\\)?|university[[:space:]]of[[:space:]]california,?[[:space:]]berkeley)[[:space:]]*$', 'UC Berkeley']
   - ['^[[:space:]]*y[[:space:]]soft[[:space:]]corporation,?[[:space:]]a\\.?s\\.?[[:space:]]*$', 'Y Soft']
   - ['^[[:space:]]*otono[[:space:]]networks[[:space:]]*$', 'IDEMIA']
   - ['^[[:space:]]*blockdaemon,?[[:space:]]inc\\.?[[:space:]]*$', 'Blockdaemon']
