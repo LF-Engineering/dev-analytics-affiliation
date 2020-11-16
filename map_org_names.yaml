@@ -1,7 +1,7 @@
 ---
 # regexp format: mysql
 mappings:
-  - ['^[[:space:]]*(1&1|1&1[[:space:]]ionos[[:space:]]cloud)[[:space:]]*$','1&1 IONOS']
+- ['^[[:space:]]*(1&1|1&1[[:space:]]ionos[[:space:]]cloud)[[:space:]]*$','1&1 IONOS']
 - ['^[[:space:]]*1&?1[[:space:]]*mail[[:space:]]*&?[[:space:]]*media[[:space:]]*development[[:space:]]*&?[[:space:]]*technology[[:space:]]*$','1&1 Mail&Media Development & Technology GmbH']
 - ['^[[:space:]]*numberly[[:space:]]*$','1000mercis']
 - ['^[[:space:]]*10th[[:space:]]magnitude[[:space:]]*$','10th Magnitude, Inc.']
