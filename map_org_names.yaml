@@ -3019,5 +3019,3 @@ mappings:
   - ['^[[:space:]]*école[[:space:]]de[[:space:]]technologie[[:space:]]supérieure[[:space:]](éts)[[:space:]]*$','ÉTS - École de technologie supérieure']
   - ['^[[:space:]]*нгс[[:space:]]*$','НГС.ТЕХНОЛОГИИ (NGS.RU)']
   - ['^[[:space:]]*horizon[[:space:]]robotics[[:space:]]*$','地平线｜边缘人工智能芯片全球领导者']
-  
-   
