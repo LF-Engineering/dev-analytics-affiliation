@@ -3853,6 +3853,15 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		s.mappingsLoaded = true
 	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
 	inf := ""
 	added := 0
 	updated := 0
@@ -3865,7 +3874,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		to := mapping[1]
 		// fmt.Printf("Processing '%s' -> '%s'\n", re, to)
 		var rows *sql.Rows
-		rows, err = s.Query(s.db, nil, "select id, name from organizations where name = ?", to)
+		rows, err = s.Query(s.db, tx, "select id, name from organizations where name = ?", to)
 		if err != nil {
 			return
 		}
@@ -3893,7 +3902,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		if !fetched {
 			var res sql.Result
-			res, err = s.Exec(s.db, nil, "insert into organizations(name) values(?)", to)
+			res, err = s.Exec(s.db, tx, "insert into organizations(name) values(?)", to)
 			if err != nil {
 				return
 			}
@@ -3906,7 +3915,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			log.Info(inf)
 			added++
 		} else if actualName != to {
-			_, err = s.Exec(s.db, nil, "update organizations set name = ? where id = ?", to, id)
+			_, err = s.Exec(s.db, tx, "update organizations set name = ? where id = ?", to, id)
 			if err != nil {
 				return
 			}
@@ -3918,9 +3927,9 @@ func (s *service) MapOrgNames() (status string, err error) {
 		// Because sql.Query escapes \ --> \\ and mysql special characters regexp is '\\.'
 		re = strings.Replace(re, "\\\\", "\\", -1)
 		//fmt.Printf("RE: %s\n", re)
-		rows, err = s.Query(s.db, nil, "select id, name from organizations where name regexp ? and name != ?", re, to)
-		//rows, err = s.Query(s.db, nil, "select id, name from organizations where name = ?", re)
-		//rows, err = s.Query(s.db, nil, `select id, name from organizations where name regexp '` + re + `'`)
+		rows, err = s.Query(s.db, tx, "select id, name from organizations where name regexp ? and name != ?", re, to)
+		//rows, err = s.Query(s.db, tx, "select id, name from organizations where name = ?", re)
+		//rows, err = s.Query(s.db, tx, `select id, name from organizations where name regexp '` + re + `'`)
 		if err != nil {
 			return
 		}
@@ -3941,14 +3950,14 @@ func (s *service) MapOrgNames() (status string, err error) {
 			}
 			var res sql.Result
 			affected := int64(0)
-			res, err = s.Exec(s.db, nil, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
+			res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
 			if err != nil {
 				if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 					log.Warn(fmt.Sprintf("Error: cannot update enrollments organization '%s' (id=%d) to '%s' (id=%d): %v", name, nid, to, id, err))
 					return
 				}
 				var rows2 *sql.Rows
-				rows2, err = s.Query(s.db, nil, "select id from enrollments where organization_id = ?", nid)
+				rows2, err = s.Query(s.db, tx, "select id from enrollments where organization_id = ?", nid)
 				if err != nil {
 					return
 				}
@@ -3958,7 +3967,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, nil, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
+					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
 					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
 						return
@@ -3985,7 +3994,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 				status += inf + ", "
 				log.Info(inf)
 			}
-			res, err = s.Exec(s.db, nil, "delete from organizations where id = ?", nid)
+			res, err = s.Exec(s.db, tx, "delete from organizations where id = ?", nid)
 			if err != nil {
 				log.Warn(fmt.Sprintf("Error: cannot delete organization '%s' (id=%d)", name, nid))
 			}
@@ -4019,6 +4028,8 @@ func (s *service) MapOrgNames() (status string, err error) {
 			rolsUpdated,
 		)
 	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	return
 }
 
