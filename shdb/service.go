@@ -3877,6 +3877,7 @@ func (s *service) DedupEnrollments() (err error) {
 	if err != nil {
 		return
 	}
+	// set tx to nil to mark success so deferred rollback will not happen
 	tx = nil
 	return
 }
@@ -3914,6 +3915,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			tx.Rollback()
 		}
 	}()
+	nids := []int64{}
 	inf := ""
 	added := 0
 	updated := 0
@@ -4064,13 +4066,15 @@ func (s *service) MapOrgNames() (status string, err error) {
 			res, err = s.Exec(s.db, tx, "delete from organizations where id = ?", nid)
 			if err != nil {
 				log.Warn(fmt.Sprintf("Error: cannot delete organization '%s' (id=%d)", name, nid))
-			}
-			affected, err = res.RowsAffected()
-			if affected > 0 {
-				inf = fmt.Sprintf("Deleted organization '%s' (id=%d)", name, nid)
-				status += inf + ", "
-				log.Info(inf)
-				deleted++
+				nids = append(nids, nid)
+			} else {
+				affected, err = res.RowsAffected()
+				if affected > 0 {
+					inf = fmt.Sprintf("Deleted organization '%s' (id=%d)", name, nid)
+					status += inf + ", "
+					log.Info(inf)
+					deleted++
+				}
 			}
 		}
 	}
@@ -4087,8 +4091,31 @@ func (s *service) MapOrgNames() (status string, err error) {
 			rolsUpdated,
 		)
 	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
 	// Set tx to nil, so deferred rollback will not happen
 	tx = nil
+	if len(nids) > 0 {
+		log.Info(fmt.Sprintf("Deleting %d pending orgs", len(nids)))
+		for _, nid := range nids {
+			var res sql.Result
+			res, err = s.Exec(s.db, nil, "delete from organizations where id = ?", nid)
+			if err != nil {
+				log.Warn(fmt.Sprintf("Error: cannot delete organization id=%d", nid))
+				continue
+			}
+			var affected int64
+			affected, err = res.RowsAffected()
+			if affected > 0 {
+				inf = fmt.Sprintf("Deleted organization id=%d", nid)
+				status += inf + ", "
+				log.Info(inf)
+				deleted++
+			}
+		}
+	}
 	return
 }
 
