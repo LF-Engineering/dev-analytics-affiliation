@@ -3839,7 +3839,7 @@ func (s *service) DedupEnrollments() (err error) {
 			return
 		}
 	}
-	ridsAry := []int{}
+	ridsAry := []interface{}{}
 	for rid := range rids {
 		ridsAry = append(ridsAry, rid)
 	}
@@ -3861,16 +3861,15 @@ func (s *service) DedupEnrollments() (err error) {
 			query += "?,"
 		}
 		query = query[:len(query)-1] + ")"
-		_, err = s.Exec(s.db, tx, query, pack)
+		_, err = s.Exec(s.db, tx, query, pack...)
 		if err != nil {
-			/*
-				      for _, rid := range pack {
-						    _, err = s.Exec(s.db, tx, "delete from enrollments where id = ?", rid)
-				        if err != nil {
-				          log.Info(fmt.Sprintf("failed to delete enrollment id=%d: %+v", rid, err))
-				        }
-				      }
-			*/
+			for _, rid := range pack {
+				_, err = s.Exec(s.db, tx, "delete from enrollments where id = ?", rid)
+				if err != nil {
+					log.Info(fmt.Sprintf("failed to delete enrollment id=%d: %+v", rid, err))
+					return
+				}
+			}
 			return
 		}
 	}
