@@ -2155,7 +2155,7 @@ mappings:
   - ['^[[:space:]]*redfin[[:space:]]*$','Redfin Corporation']
   - ['^[[:space:]]*redflex[[:space:]]*$','Redflex Traffic Systems']
   - ['^[[:space:]]*(redgate[[:space:]]software)[[:space:]]*$','Redgate']
-  - ['^[[:space:]]*(redis[[:space:]]labs\)[[:space:]]*$','Redis Labs']
+  - ['^[[:space:]]*(redis[[:space:]]labs)[[:space:]]*$','Redis Labs']
   - ['^[[:space:]]*redknee[[:space:]]*$','Redknee Inc.']
   - ['^[[:space:]]*reinery29[[:space:]]*$','Refinery29']
   - ['^[[:space:]]*jio[[:space:]]*$','Reliance Jio Infocomm Limited']
