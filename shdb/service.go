@@ -3766,20 +3766,48 @@ func (s *service) DedupEnrollments() (err error) {
 		return
 	}
 	var (
-		uuid        string
-		orgID       int64
-		start       strfmt.DateTime
-		end         strfmt.DateTime
-		projectSlug *string
-		cnt         int
+		uuid           string
+		orgID          int64
+		start          strfmt.DateTime
+		end            strfmt.DateTime
+		projectSlug    *string
+		cnt            int
+		uuidAry        []string
+		orgIDAry       []int64
+		startAry       []strfmt.DateTime
+		endAry         []strfmt.DateTime
+		projectSlugAry []*string
+		cntAry         []int
 	)
 	for rows.Next() {
 		err = rows.Scan(&uuid, &orgID, &start, &end, &projectSlug, &cnt)
 		if err != nil {
 			return
 		}
-		var rows2 *sql.Rows
-		rows2, err = s.Query(
+		uuidAry = append(uuidAry, uuid)
+		orgIDAry = append(orgIDAry, orgID)
+		startAry = append(startAry, start)
+		endAry = append(endAry, end)
+		projectSlugAry = append(projectSlugAry, projectSlug)
+		cntAry = append(cntAry, cnt)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	for idx := range uuidAry {
+		uuid = uuidAry[idx]
+		orgID = orgIDAry[idx]
+		start = startAry[idx]
+		end = endAry[idx]
+		projectSlug = projectSlugAry[idx]
+		cnt = cntAry[idx]
+		var rows *sql.Rows
+		rows, err = s.Query(
 			s.db,
 			tx,
 			"select id from enrollments where uuid = ? and organization_id = ? "+
@@ -3794,8 +3822,8 @@ func (s *service) DedupEnrollments() (err error) {
 			return
 		}
 		rid := 0
-		for rows2.Next() {
-			err = rows2.Scan(&rid)
+		for rows.Next() {
+			err = rows.Scan(&rid)
 			if err != nil {
 				return
 			}
@@ -3804,22 +3832,14 @@ func (s *service) DedupEnrollments() (err error) {
 				return
 			}
 		}
-		err = rows2.Err()
+		err = rows.Err()
 		if err != nil {
 			return
 		}
-		err = rows2.Close()
+		err = rows.Close()
 		if err != nil {
 			return
 		}
-	}
-	err = rows.Err()
-	if err != nil {
-		return
-	}
-	err = rows.Close()
-	if err != nil {
-		return
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -3935,11 +3955,26 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		nid := int64(0)
 		name := ""
+		nidAry := []int64{}
+		nameAry := []string{}
 		for rows.Next() {
 			err = rows.Scan(&nid, &name)
 			if err != nil {
 				return
 			}
+			nidAry = append(nidAry, nid)
+			nameAry = append(nameAry, name)
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		for idx, nid := range nidAry {
+			name = nameAry[idx]
 			//fmt.Printf("'%s'(%d)\n", name, nid)
 			if nid == id {
 				inf = fmt.Sprintf("'%s' (id=%d) matching '%s' already maps into '%s' (id=%d), skipping", name, nid, re, to, id)
@@ -3956,14 +3991,14 @@ func (s *service) MapOrgNames() (status string, err error) {
 					log.Warn(fmt.Sprintf("Error: cannot update enrollments organization '%s' (id=%d) to '%s' (id=%d): %v", name, nid, to, id, err))
 					return
 				}
-				var rows2 *sql.Rows
-				rows2, err = s.Query(s.db, tx, "select id from enrollments where organization_id = ?", nid)
+				var rows *sql.Rows
+				rows, err = s.Query(s.db, tx, "select id from enrollments where organization_id = ?", nid)
 				if err != nil {
 					return
 				}
 				rid := 0
-				for rows2.Next() {
-					err = rows2.Scan(&rid)
+				for rows.Next() {
+					err = rows.Scan(&rid)
 					if err != nil {
 						return
 					}
@@ -3976,11 +4011,11 @@ func (s *service) MapOrgNames() (status string, err error) {
 						conflicts++
 					}
 				}
-				err = rows2.Err()
+				err = rows.Err()
 				if err != nil {
 					return
 				}
-				err = rows2.Close()
+				err = rows.Close()
 				if err != nil {
 					return
 				}
@@ -4005,14 +4040,6 @@ func (s *service) MapOrgNames() (status string, err error) {
 				log.Info(inf)
 				deleted++
 			}
-		}
-		err = rows.Err()
-		if err != nil {
-			return
-		}
-		err = rows.Close()
-		if err != nil {
-			return
 		}
 	}
 	if status == "" {
