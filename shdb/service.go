@@ -3799,6 +3799,7 @@ func (s *service) DedupEnrollments() (err error) {
 	if err != nil {
 		return
 	}
+	rids := make(map[int]struct{})
 	for idx := range uuidAry {
 		uuid = uuidAry[idx]
 		orgID = orgIDAry[idx]
@@ -3827,10 +3828,7 @@ func (s *service) DedupEnrollments() (err error) {
 			if err != nil {
 				return
 			}
-			_, err = s.Exec(s.db, tx, "delete from enrollments where id = ?", rid)
-			if err != nil {
-				return
-			}
+			rids[rid] = struct{}{}
 		}
 		err = rows.Err()
 		if err != nil {
@@ -3838,6 +3836,41 @@ func (s *service) DedupEnrollments() (err error) {
 		}
 		err = rows.Close()
 		if err != nil {
+			return
+		}
+	}
+	ridsAry := []int{}
+	for rid := range rids {
+		ridsAry = append(ridsAry, rid)
+	}
+	packSize := 1000
+	nRids := len(ridsAry)
+	nPacks := nRids / packSize
+	if nRids%packSize != 0 {
+		nPacks++
+	}
+	for i := 0; i < nPacks; i++ {
+		from := packSize * i
+		to := from + packSize
+		if to > nRids {
+			to = nRids
+		}
+		pack := ridsAry[from:to]
+		query := "delete from enrollments where id in ("
+		for range pack {
+			query += "?,"
+		}
+		query = query[:len(query)-1] + ")"
+		_, err = s.Exec(s.db, tx, query, pack)
+		if err != nil {
+			/*
+				      for _, rid := range pack {
+						    _, err = s.Exec(s.db, tx, "delete from enrollments where id = ?", rid)
+				        if err != nil {
+				          log.Info(fmt.Sprintf("failed to delete enrollment id=%d: %+v", rid, err))
+				        }
+				      }
+			*/
 			return
 		}
 	}
