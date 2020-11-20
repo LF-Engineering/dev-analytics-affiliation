@@ -950,6 +950,7 @@ func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err e
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
+	// fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1072,6 +1073,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 	method := "POST"
 	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
 	// url := fmt.Sprintf("%s/_sql/translate", s.url)
+	// fmt.Printf(">>> dataSourceQuery: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
 		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s\n", err, method, url, query)
@@ -1452,7 +1454,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "git_commits", "git_lines_added", "git_lines_removed", "git_lines_changed":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
 	case "gerrit":
@@ -1461,7 +1463,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
 	case "jira":
@@ -1470,7 +1472,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "jira_issues_created", "jira_issues_assigned", "jira_average_issue_open_days", "jira_comments", "jira_issues_closed":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
 	case "confluence":
@@ -1479,10 +1481,10 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		case "confluence_last_action_date":
-			cond = `having \"confluence_last_action_date\" > '1900-01-01'::timestamp`
+			cond = `having \"confluence_last_action_date\" >= '1900-01-01'::timestamp`
 			return
 		}
 	case "github/issue":
@@ -1491,7 +1493,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
 	case "github/pull_request":
@@ -1500,7 +1502,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -1509,7 +1511,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 		}
 		switch sortField {
 		case "bugzilla_issues_created", "bugzilla_issues_closed", "bugzilla_issues_assigned", "bugzilla_average_issue_open_days":
-			cond = fmt.Sprintf(`having \"%s\" > 0`, s.JSONEscape(sortField))
+			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
 	}
@@ -1952,6 +1954,8 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	if useCaptureAllPatternToCountContributors {
 		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll)
 	} else {
+		// fmt.Printf(">>> mainPattern = %s\n", mainPattern)
+		// fmt.Printf(">>> searchCondAll = %s\n", searchCondAll)
 		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll)
 	}
 	if err != nil {
