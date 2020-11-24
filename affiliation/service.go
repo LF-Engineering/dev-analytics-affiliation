@@ -2968,7 +2968,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	}
 	fmt.Printf("m: %+v\n", m)
 	hdr := []string{
-		"UUID",
+		// "UUID",
 		"Name",
 		"Organization",
 	}
@@ -3022,7 +3022,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	}
 	for index, contributor := range topContributors.Contributors {
 		row := []string{
-			contributor.UUID,
+			// contributor.UUID,
 			contributor.Name,
 			contributor.Organization,
 		}
