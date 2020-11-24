@@ -539,9 +539,10 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		// and stores 'date of creation or last update of an item in its data source (git, gerrit, etc.)'
 		// See: https://chaoss.github.io/grimoirelab-sigils/panels/data-status/
 		data := fmt.Sprintf(
-			`{"query":"select author_uuid, min(metadata__updated_on), max(metadata__updated_on), min(grimoire_creation_date), max(grimoire_creation_date) from \"%s\" where %s group by author_uuid"}`,
+			`{"query":"select author_uuid, min(metadata__updated_on), max(metadata__updated_on), min(grimoire_creation_date), max(grimoire_creation_date) from \"%s\" where %s group by author_uuid","fetch_size":%d}`,
 			s.JSONEscape(pattern),
 			uuidsCond,
+			shared.FetchSize,
 		)
 		retErr := func(e error) {
 			er := errs.Wrap(errs.New(e, errs.ErrBadRequest), inf)
@@ -1651,7 +1652,7 @@ func (s *service) contributorStatsMergeQuery(
 	re1 := regexp.MustCompile(`\r?\n`)
 	re2 := regexp.MustCompile(`\s+`)
 	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
-	jsonStr = `{"query":"` + data + `"}`
+	jsonStr = fmt.Sprintf(`{"query":"`+data+`", "fetch_size":%d}`, shared.FetchSize)
 	return
 }
 
@@ -1728,7 +1729,7 @@ func (s *service) contributorStatsMainQuery(
 	re1 := regexp.MustCompile(`\r?\n`)
 	re2 := regexp.MustCompile(`\s+`)
 	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
-	jsonStr = `{"query":"` + data + `"}`
+	jsonStr = fmt.Sprintf(`{"query":"`+data+`", "fetch_size":%d}`, shared.FetchSize)
 	return
 }
 
