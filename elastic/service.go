@@ -1851,7 +1851,8 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
 			return
 		}
-		mainPattern = s.projectSlugsToIndexPattern(projectSlugs)
+		mainPattern = strings.Replace(strings.Join(s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes), ","), ",-*-raw,-*-for-merge", "", -1)
+		mainPattern = mainPattern + ",-*-raw,-*-for-merge"
 		// FIXME: hack to deal with broken slack mapping
 		mainPattern += ",-*-slack"
 	}
@@ -2293,54 +2294,56 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		return floatValue
 	}
 	for _, uuid := range uuids {
-		var ok bool
-		confluenceLastActionDate := ""
-		daysAgo := 0.0
-		confluenceLastActionDate, ok = results[uuid]["confluence_last_action_date"]
-		if ok {
-			dt, err := s.TimeParseAny(confluenceLastActionDate)
-			if err == nil {
-				dtMillis := float64(dt.Unix() * 1000.0)
-				nowMillis := float64(time.Now().Unix()) * 1000.0
-				daysAgo = (nowMillis - dtMillis) / 86400000.0
-			} else {
-				confluenceLastActionDate = ""
+		if len(results[uuid]) > 0 { // check for Zero contributions.
+			var ok bool
+			confluenceLastActionDate := ""
+			daysAgo := 0.0
+			confluenceLastActionDate, ok = results[uuid]["confluence_last_action_date"]
+			if ok {
+				dt, err := s.TimeParseAny(confluenceLastActionDate)
+				if err == nil {
+					dtMillis := float64(dt.Unix() * 1000.0)
+					nowMillis := float64(time.Now().Unix()) * 1000.0
+					daysAgo = (nowMillis - dtMillis) / 86400000.0
+				} else {
+					confluenceLastActionDate = ""
+				}
 			}
+			contributor := &models.ContributorFlatStats{
+				UUID:                                 uuid,
+				GitLinesAdded:                        getInt(uuid, "git_lines_added"),
+				GitLinesChanged:                      getInt(uuid, "git_lines_changed"),
+				GitLinesRemoved:                      getInt(uuid, "git_lines_removed"),
+				GitCommits:                           getInt(uuid, "git_commits"),
+				GerritApprovals:                      getInt(uuid, "gerrit_approvals"),
+				GerritMergedChangesets:               getInt(uuid, "gerrit_merged_changesets"),
+				GerritChangesets:                     getInt(uuid, "gerrit_changesets"),
+				JiraComments:                         getInt(uuid, "jira_comments"),
+				JiraIssuesCreated:                    getInt(uuid, "jira_issues_created"),
+				JiraIssuesAssigned:                   getInt(uuid, "jira_issues_assigned"),
+				JiraIssuesClosed:                     getInt(uuid, "jira_issues_closed"),
+				JiraAverageIssueOpenDays:             getFloat(uuid, "jira_average_issue_open_days"),
+				ConfluencePagesCreated:               getInt(uuid, "confluence_pages_created"),
+				ConfluencePagesEdited:                getInt(uuid, "confluence_pages_edited"),
+				ConfluenceBlogPosts:                  getInt(uuid, "confluence_blog_posts"),
+				ConfluenceComments:                   getInt(uuid, "confluence_comments"),
+				ConfluenceLastActionDate:             confluenceLastActionDate,
+				ConfluenceDaysSinceLastDocumentation: daysAgo,
+				GithubIssueIssuesCreated:             getInt(uuid, "github_issue_issues_created"),
+				GithubIssueIssuesClosed:              getInt(uuid, "github_issue_issues_closed"),
+				GithubIssueIssuesAssigned:            getInt(uuid, "github_issue_issues_assigned"),
+				GithubIssueAverageTimeOpenDays:       getFloat(uuid, "github_issue_average_time_open_days"),
+				GithubPullRequestPrsCreated:          getInt(uuid, "github_pull_request_prs_created"),
+				GithubPullRequestPrsMerged:           getInt(uuid, "github_pull_request_prs_merged"),
+				GithubPullRequestPrsOpen:             getInt(uuid, "github_pull_request_prs_open"),
+				GithubPullRequestPrsClosed:           getInt(uuid, "github_pull_request_prs_closed"),
+				BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
+				BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
+				BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
+				BugzillaAverageIssueOpenDays:         getFloat(uuid, "bugzilla_average_issue_open_days"),
+			}
+			top.Contributors = append(top.Contributors, contributor)
 		}
-		contributor := &models.ContributorFlatStats{
-			UUID:                                 uuid,
-			GitLinesAdded:                        getInt(uuid, "git_lines_added"),
-			GitLinesChanged:                      getInt(uuid, "git_lines_changed"),
-			GitLinesRemoved:                      getInt(uuid, "git_lines_removed"),
-			GitCommits:                           getInt(uuid, "git_commits"),
-			GerritApprovals:                      getInt(uuid, "gerrit_approvals"),
-			GerritMergedChangesets:               getInt(uuid, "gerrit_merged_changesets"),
-			GerritChangesets:                     getInt(uuid, "gerrit_changesets"),
-			JiraComments:                         getInt(uuid, "jira_comments"),
-			JiraIssuesCreated:                    getInt(uuid, "jira_issues_created"),
-			JiraIssuesAssigned:                   getInt(uuid, "jira_issues_assigned"),
-			JiraIssuesClosed:                     getInt(uuid, "jira_issues_closed"),
-			JiraAverageIssueOpenDays:             getFloat(uuid, "jira_average_issue_open_days"),
-			ConfluencePagesCreated:               getInt(uuid, "confluence_pages_created"),
-			ConfluencePagesEdited:                getInt(uuid, "confluence_pages_edited"),
-			ConfluenceBlogPosts:                  getInt(uuid, "confluence_blog_posts"),
-			ConfluenceComments:                   getInt(uuid, "confluence_comments"),
-			ConfluenceLastActionDate:             confluenceLastActionDate,
-			ConfluenceDaysSinceLastDocumentation: daysAgo,
-			GithubIssueIssuesCreated:             getInt(uuid, "github_issue_issues_created"),
-			GithubIssueIssuesClosed:              getInt(uuid, "github_issue_issues_closed"),
-			GithubIssueIssuesAssigned:            getInt(uuid, "github_issue_issues_assigned"),
-			GithubIssueAverageTimeOpenDays:       getFloat(uuid, "github_issue_average_time_open_days"),
-			GithubPullRequestPrsCreated:          getInt(uuid, "github_pull_request_prs_created"),
-			GithubPullRequestPrsMerged:           getInt(uuid, "github_pull_request_prs_merged"),
-			GithubPullRequestPrsOpen:             getInt(uuid, "github_pull_request_prs_open"),
-			GithubPullRequestPrsClosed:           getInt(uuid, "github_pull_request_prs_closed"),
-			BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
-			BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
-			BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
-			BugzillaAverageIssueOpenDays:         getFloat(uuid, "bugzilla_average_issue_open_days"),
-		}
-		top.Contributors = append(top.Contributors, contributor)
 	}
 	return
 }
