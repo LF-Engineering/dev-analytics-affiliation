@@ -2643,6 +2643,9 @@ func (s *service) MakeDSInfo(actualArray []*models.DataSourceTypeFields, configu
 		_, sel := selected[configured]
 		item.FilterSelected = sel
 		if sel {
+			if configured == "bugzillarest" {
+				configured = "bugzilla"
+			}
 			_, present := actual[configured]
 			noData := !present
 			item.NoData = &noData
