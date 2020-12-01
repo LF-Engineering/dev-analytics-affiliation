@@ -2431,6 +2431,10 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
+      gerrit_reviews:
+        type: integer
+        example: 123
+        x-omitempty: false
       jira_comments:
         type: integer
         example: 123
