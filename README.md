@@ -164,3 +164,7 @@ set mouse=
 syntax on
 ```
 # Code for affiliations related API
+
+# Investigating bugs
+
+Check `check_logins.secret`, example call: `MYSQL='mysql -h... -u... -p... ..' ES='https://uname:pwd@host:port' ./sh/check_affs_data.sh 'Name Surname'`
