@@ -2990,6 +2990,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"gerrit_approvals",
 		"gerrit_changesets",
 		"gerrit_merged_changesets",
+		"gerrit_reviews",
 		"jira_comments",
 		"jira_issues_assigned",
 		"jira_issues_created",
@@ -3075,6 +3076,10 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		_, ok = m["gerrit_merged_changesets"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GerritMergedChangesets, 10))
+		}
+		_, ok = m["gerrit_reviews"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GerritReviews, 10))
 		}
 		_, ok = m["jira_comments"]
 		if ok {
