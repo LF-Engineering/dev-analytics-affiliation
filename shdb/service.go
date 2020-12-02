@@ -5258,7 +5258,9 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 		}
 		_, err = s.AddProfile(
 			&models.ProfileDataOutput{
-				UUID: toUUID,
+				UUID:  toUUID,
+				Name:  from.Name,
+				Email: from.Email,
 			},
 			false,
 			tx,
