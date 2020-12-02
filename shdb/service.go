@@ -117,6 +117,7 @@ type Service interface {
 	FindUniqueIdentityOrganizations(string, bool, *sql.Tx) ([]*models.OrganizationDataOutput, error)
 	ArchiveUUID(string, *time.Time, *sql.Tx) (*time.Time, error)
 	UnarchiveUUID(string, time.Time, *sql.Tx) error
+	SetProfileEmptyDataFromIdentities(string, []*models.IdentityDataOutput, *sql.Tx) error
 	Unarchive(string, string) (bool, error)
 	CheckUnaffiliated([]*models.UnaffiliatedDataOutput, []string, *sql.Tx) ([]*models.UnaffiliatedDataOutput, error)
 	EnrichContributors([]*models.ContributorFlatStats, []string, int64, *sql.Tx) error
@@ -3694,6 +3695,14 @@ func (s *service) UnarchiveUUID(uuid string, tm time.Time, tx *sql.Tx) (err erro
 			return
 		}
 	}
+	// Check if profile's name or email is empty
+	// if there is only one email across identities, update profile's email to this email
+	// if there is only one name across identities, update profile's name to this name
+	err = s.SetProfileEmptyDataFromIdentities(uuid, identities, tx)
+	if err != nil {
+		log.Warn(fmt.Sprintf("UnarchiveUUID: SetProfileEmptyDataFromIdentities: uuid:%s err:%v", uuid, err))
+		return
+	}
 	return
 }
 
@@ -3716,11 +3725,19 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 	if err != nil {
 		return
 	}
-	err = s.ArchiveProfile(uuid, tm, tx)
+	identities, err := s.GetUniqueIdentityIdentities(uuid, false, tx)
 	if err != nil {
 		return
 	}
-	identities, err := s.GetUniqueIdentityIdentities(uuid, false, tx)
+	// Check if profile's name or email is empty
+	// if there is only one email across identities, update profile's email to this email
+	// if there is only one name across identities, update profile's name to this name
+	err = s.SetProfileEmptyDataFromIdentities(uuid, identities, tx)
+	if err != nil {
+		log.Warn(fmt.Sprintf("UnarchiveUUID: SetProfileEmptyDataFromIdentities: uuid:%s err:%v", uuid, err))
+		return
+	}
+	err = s.ArchiveProfile(uuid, tm, tx)
 	if err != nil {
 		return
 	}
@@ -3739,6 +3756,96 @@ func (s *service) ArchiveUUID(uuid string, itm *time.Time, tx *sql.Tx) (tm *time
 		if err != nil {
 			return
 		}
+	}
+	return
+}
+
+func (s *service) SetProfileEmptyDataFromIdentities(uuid string, identities []*models.IdentityDataOutput, tx *sql.Tx) (err error) {
+	nIdents := len(identities)
+	name, email := "", ""
+	log.Info(fmt.Sprintf("SetProfileEmptyDataFromIdentities: uuid:%s identities:%d tx:%v", uuid, nIdents, tx != nil))
+	defer func() {
+		log.Info(fmt.Sprintf("SetProfileEmptyDataFromIdentities(exit): uuid:%s identities:%d tx:%v name:%s email:%s err:%v", uuid, nIdents, tx != nil, name, email, err))
+	}()
+	if nIdents == 0 {
+		return
+	}
+	nameSet := make(map[string]struct{})
+	emailSet := make(map[string]struct{})
+	for _, identity := range identities {
+		if identity.Name != nil {
+			name = *identity.Name
+			nameSet[name] = struct{}{}
+		}
+		if identity.Email != nil {
+			email = *identity.Email
+			emailSet[email] = struct{}{}
+		}
+	}
+	// fmt.Printf("nameSet: %+v\nemailSet: %+v\n", nameSet, emailSet)
+	if len(nameSet) > 1 {
+		name = ""
+	}
+	if len(emailSet) > 1 {
+		email = ""
+	}
+	if name == "" && email == "" {
+		return
+	}
+	var (
+		pName  *string
+		pEmail *string
+		rows   *sql.Rows
+	)
+	rows, err = s.Query(s.db, tx, "select name, email from profiles where uuid = ?", uuid)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		err = rows.Scan(&pName, &pEmail)
+		if err != nil {
+			return
+		}
+		break
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if pName != nil && *pName != "" {
+		// fmt.Printf("profile already has a name %s\n", *pName)
+		name = ""
+	}
+	if pEmail != nil && *pEmail != "" {
+		// fmt.Printf("profile already has an email %s\n", *pEmail)
+		email = ""
+	}
+	if name == "" && email == "" {
+		return
+	}
+	args := []interface{}{}
+	q := "update profiles set "
+	if name != "" {
+		q += "name = ?"
+		args = append(args, name)
+		if email != "" {
+			q += ", email = ?"
+			args = append(args, email)
+		}
+	} else {
+		q += "email = ?"
+		args = append(args, email)
+	}
+	q += " where uuid = ?"
+	args = append(args, uuid)
+	// fmt.Printf("%s %+v\n", q, args)
+	_, err = s.Exec(s.db, tx, q, args...)
+	if err != nil {
+		return
 	}
 	return
 }
