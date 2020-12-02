@@ -1855,8 +1855,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
 			return
 		}
-		mainPattern = strings.Replace(strings.Join(s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes), ","), ",-*-raw,-*-for-merge", "", -1)
-		mainPattern = mainPattern + ",-*-raw,-*-for-merge"
+		if len(dataSourceTypes) > 0 {
+			mainPattern = strings.Join(s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes), ",")
+		} else {
+			mainPattern = s.projectSlugsToIndexPattern(projectSlugs)
+		}
 		// FIXME: hack to deal with broken slack mapping
 		mainPattern += ",-*-slack"
 	}
