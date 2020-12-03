@@ -530,12 +530,12 @@ func (s *service) setPrecacheRunning() {
 		s.es.TopContributorsCacheSet(k, &elastic.TopContributorsCacheEntry{Top: top, Tm: t})
 		precacheStop = true
 		topContributorsCacheMtx.Unlock()
-		log.Info(fmt.Sprintf("setPrecacheRunning: replaced", k))
+		log.Info(fmt.Sprintf("setPrecacheRunning: replaced"))
 	} else {
 		topContributorsCacheMtx.Lock()
 		s.es.TopContributorsCacheSet(k, &elastic.TopContributorsCacheEntry{Top: top, Tm: t})
 		topContributorsCacheMtx.Unlock()
-		log.Info(fmt.Sprintf("setPrecacheRunning: added", k))
+		log.Info(fmt.Sprintf("setPrecacheRunning: added"))
 	}
 }
 

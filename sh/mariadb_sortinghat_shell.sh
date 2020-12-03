@@ -6,4 +6,5 @@ then
   echo "$0: please specify MariaDB sortinghat database via SH_DB=..."
   exit 1
 fi
+echo mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}"
 mysql -h127.0.0.1 -P13306 -p"${SH_PASS}" -u"${SH_USR}" "${SH_DB}"

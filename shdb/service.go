@@ -3692,7 +3692,11 @@ func (s *service) UnarchiveUUID(uuid string, tm time.Time, tx *sql.Tx) (err erro
 	for _, enrollment := range enrollments {
 		err = s.UnarchiveEnrollment(enrollment.ID, true, &tm, tx)
 		if err != nil {
-			return
+			if strings.Contains(err.Error(), "Error 1452: Cannot add or update a child row") {
+				log.Warn(fmt.Sprintf("UnarchiveEnrollment: id:%d tm:%v err:%v", enrollment.ID, tm, err))
+			} else {
+				return
+			}
 		}
 	}
 	// Check if profile's name or email is empty
@@ -4029,6 +4033,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 	deleted := 0
 	skipped := 0
 	conflicts := 0
+	archivedConflicts := 0
 	rolsUpdated := int64(0)
 	for _, mapping := range s.orgNamesMappings.Mappings {
 		re := mapping[0]
@@ -4125,6 +4130,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 				continue
 			}
 			var res sql.Result
+			// Update current enrollments
 			affected := int64(0)
 			res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
 			if err != nil {
@@ -4170,6 +4176,53 @@ func (s *service) MapOrgNames() (status string, err error) {
 				status += inf + ", "
 				log.Info(inf)
 			}
+			// Update archived enrollments
+			affected = int64(0)
+			res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where organization_id = ?", id, nid)
+			if err != nil {
+				if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+					log.Warn(fmt.Sprintf("Error: cannot update archived enrollments organization '%s' (id=%d) to '%s' (id=%d): %v", name, nid, to, id, err))
+					return
+				}
+				var rows *sql.Rows
+				rows, err = s.Query(s.db, tx, "select id, archived_at from enrollments_archive where organization_id = ?", nid)
+				if err != nil {
+					return
+				}
+				rid := 0
+				var archivedAt time.Time
+				for rows.Next() {
+					err = rows.Scan(&rid, &archivedAt)
+					if err != nil {
+						return
+					}
+					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						archivedConflicts++
+					}
+				}
+				err = rows.Err()
+				if err != nil {
+					return
+				}
+				err = rows.Close()
+				if err != nil {
+					return
+				}
+				affected++
+			} else {
+				affected, err = res.RowsAffected()
+			}
+			if affected > 0 {
+				rolsUpdated += affected
+				inf = fmt.Sprintf("Updated organization '%s' -> '%s' on %d archived enrollments", name, to, affected)
+				status += inf + ", "
+				log.Info(inf)
+			}
 			res, err = s.Exec(s.db, tx, "delete from organizations where id = ?", nid)
 			if err != nil {
 				log.Warn(fmt.Sprintf("Error: cannot delete organization '%s' (id=%d)", name, nid))
@@ -4189,12 +4242,13 @@ func (s *service) MapOrgNames() (status string, err error) {
 		status = "Nothing to update"
 	} else {
 		status += fmt.Sprintf(
-			"Organizations: added:%d renamed:%d deleted:%d skipped:%d, Enrollments: conflicts:%d updated:%d",
+			"Organizations: added:%d renamed:%d deleted:%d skipped:%d, Enrollments: conflicts:%d archive conflicts:%d updated:%d",
 			added,
 			updated,
 			deleted,
 			skipped,
 			conflicts,
+			archivedConflicts,
 			rolsUpdated,
 		)
 	}
