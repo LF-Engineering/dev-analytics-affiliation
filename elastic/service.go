@@ -1240,6 +1240,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"confluence_pages_edited":     "sum(is_page) as confluence_pages_edited",
 			"confluence_comments":         "sum(is_comment) as confluence_comments",
 			"confluence_blog_posts":       "sum(is_blogpost) as confluence_blog_posts",
+			"confluence_attachments":      "sum(is_attachment) as confluence_attachments",
 			"confluence_last_action_date": "max(grimoire_creation_date) as confluence_last_action_date",
 		}
 	case "github/issue":
@@ -1359,6 +1360,9 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		case "confluence_blog_posts":
 			cond = `and \"is_blogpost\" is not null`
+			return
+		case "confluence_attachments":
+			cond = `and \"is_attachment\" is not null`
 			return
 		case "confluence_last_action_date":
 			cond = `and \"grimoire_creation_date\" is not null`
@@ -1485,7 +1489,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts":
+		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts", "confluence_attachments":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		case "confluence_last_action_date":
@@ -1565,7 +1569,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "confluence":
 		switch sortField {
-		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts", "confluence_last_action_date":
+		case "confluence_pages_created", "confluence_pages_edited", "confluence_comments", "confluence_blog_posts", "confluence_attachments", "confluence_last_action_date":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
@@ -2335,6 +2339,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				ConfluencePagesEdited:                getInt(uuid, "confluence_pages_edited"),
 				ConfluenceBlogPosts:                  getInt(uuid, "confluence_blog_posts"),
 				ConfluenceComments:                   getInt(uuid, "confluence_comments"),
+				ConfluenceAttachments:                getInt(uuid, "confluence_attachments"),
 				ConfluenceLastActionDate:             confluenceLastActionDate,
 				ConfluenceDaysSinceLastDocumentation: daysAgo,
 				GithubIssueIssuesCreated:             getInt(uuid, "github_issue_issues_created"),

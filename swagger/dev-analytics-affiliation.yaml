@@ -2471,6 +2471,10 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
+      confluence_attachments:
+        type: integer
+        example: 123
+        x-omitempty: false
       confluence_days_since_last_documentation:
         type: number
         example: 123.5
