@@ -3008,6 +3008,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"confluence_blog_posts",
 		"confluence_pages_created",
 		"confluence_pages_edited",
+		"confluence_attachments",
 		"confluence_last_action_date",
 		"confluence_days_since_last_documentation",
 	}
@@ -3148,6 +3149,10 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		_, ok = m["confluence_pages_edited"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.ConfluencePagesEdited, 10))
+		}
+		_, ok = m["confluence_attachments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.ConfluenceAttachments, 10))
 		}
 		_, ok = m["confluence_last_action_date"]
 		if ok {

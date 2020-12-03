@@ -165,6 +165,7 @@ var (
 				{Key: "confluence_blog_posts", Name: "Posts"},
 				{Key: "confluence_pages_created", Name: "Pages Created"},
 				{Key: "confluence_pages_edited", Name: "Pages Edited"},
+				{Key: "confluence_attachments", Name: "Attachments"},
 				{Key: "confluence_last_action_date", Name: "Last Update"},
 				{Key: "confluence_days_since_last_documentation", Name: "Days Since Last Documentation"},
 			},
