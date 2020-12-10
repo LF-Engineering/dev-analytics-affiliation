@@ -1,6 +1,6 @@
 #!/bin/bash
 # Example:
-# MYSQL='mysql -hhost -uuser -ppass db' ./sh/check_login.sh ES='https://elastic:user@url.us-west-1.aws.found.io:port' 'lukasz Gryglicki'
+# PATTERN='sds-lfn-opnfv-*,-*-raw,-*-for-merge' MYSQL='mysql -hhost -uuser -ppass db' ./sh/check_login.sh ES='https://elastic:user@url.us-west-1.aws.found.io:port' 'lukasz Gryglicki'
 if [ -z "$MYSQL" ]
 then
   echo "Please specify full mysql connect command, something like MYSQL='mysql -hdburl -uuser -ppassword dbname'"
@@ -35,7 +35,7 @@ do
   do
     echo "#${i} uuid: ${uuid}"
     echo "Profiles:"
-    cmd="$MYSQL \"select email, regexp_replace(email, '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2'), regexp_replace(name, '\\\\\\\\s', '---') from profiles where uuid = '${uuid}' order by email\""
+    cmd="$MYSQL \"select if(email='','NULL',email), regexp_replace(if(email='','NULL',email), '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2'), regexp_replace(if(name='','NULL',name), '\\\\\\\\s', '---') from profiles where uuid = '${uuid}' order by email\""
     data=$(eval "${cmd}")
     if [ -z "${data}" ]
     then
@@ -62,7 +62,7 @@ do
       done
     fi
     echo "Identities:"
-    cmd="$MYSQL \"select source, username, email, regexp_replace(email, '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2'), regexp_replace(name, '\\\\\\\\s', '---') from identities where uuid = '${uuid}' order by source\""
+    cmd="$MYSQL \"select if(source='','NULL',source), if(username='','NULL',username), if(email='','NULL',email), regexp_replace(if(email='','NULL',email), '([^\\s@]+)@([^\\s@]+)', '\\\\\\\\1\\!\\\\\\\\2'), regexp_replace(if(name='','NULL',name), '\\\\\\\\s', '---') from identities where uuid = '${uuid}' order by source\""
     data=$(eval "${cmd}")
     if [ -z "${data}" ]
     then
