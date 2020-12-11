@@ -572,8 +572,18 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	if len(contributors) == 0 {
 		return
 	}
+	pSlugs := []string{}
+	fLikes := []string{}
+	for _, projectSlug := range projectSlugs {
+		if strings.HasSuffix(projectSlug, "-f") {
+			fLikes = append(fLikes, projectSlug[:len(projectSlug)-2]+"/%")
+		} else {
+			pSlugs = append(pSlugs, projectSlug)
+		}
+	}
+	//fmt.Printf("pSlugs: %v\nfLikes: %v\n", pSlugs, fLikes)
 	secsSinceEpoch := float64(millisSinceEpoch) / 1000.0
-	sel := "select p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles p left join enrollments e"
+	sel := "select distinct p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles p left join enrollments e"
 	sel += fmt.Sprintf(
 		" on p.uuid = e.uuid and e.start <= coalesce(from_unixtime(%f), now()) and e.end >= coalesce(from_unixtime(%f), now())",
 		secsSinceEpoch,
@@ -587,13 +597,24 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		uuids = append(uuids, uuid)
 		sel += "?,"
 	}
-	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug in ("
-	for _, projectSlug := range projectSlugs {
-		sel += "?,"
-		uuids = append(uuids, projectSlug)
+	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null"
+	if len(pSlugs) > 0 {
+		sel += " or e.project_slug in ("
+		for _, pSlug := range pSlugs {
+			sel += "?,"
+			uuids = append(uuids, pSlug)
+		}
+		sel = sel[0:len(sel)-1] + ")"
 	}
-	sel = sel[0:len(sel)-1] + ")) order by e.project_slug is null"
+	if len(fLikes) > 0 {
+		for _, fLike := range fLikes {
+			sel += " or e.project_slug like ?"
+			uuids = append(uuids, fLike)
+		}
+	}
+	sel += ") order by e.project_slug is null"
 	var rows *sql.Rows
+	// fmt.Printf("\n%+v\n%s\n\n", uuids, sel)
 	rows, err = s.Query(s.db, tx, sel, uuids...)
 	if err != nil {
 		return
@@ -637,7 +658,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		}
 	}
 	if len(missUUIDs) > 0 {
-		sel := "select p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles_archive p left join enrollments_archive e"
+		sel := "select distinct p.uuid, coalesce(p.name, ''), coalesce(p.email, ''), coalesce(o.name, '') from profiles_archive p left join enrollments_archive e"
 		sel += fmt.Sprintf(
 			" on p.archived_at = e.archived_at and p.uuid = e.uuid and e.start <= coalesce(from_unixtime(%f), now()) and e.end >= coalesce(from_unixtime(%f), now())",
 			secsSinceEpoch,
@@ -650,12 +671,22 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			uuids = append(uuids, uuid)
 			sel += "?,"
 		}
-		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null or e.project_slug in ("
-		for _, projectSlug := range projectSlugs {
-			sel += "?,"
-			uuids = append(uuids, projectSlug)
+		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null"
+		if len(pSlugs) > 0 {
+			sel += " or e.project_slug in ("
+			for _, pSlug := range pSlugs {
+				sel += "?,"
+				uuids = append(uuids, pSlug)
+			}
+			sel = sel[0:len(sel)-1] + ")"
 		}
-		sel = sel[0:len(sel)-1] + ")) order by e.project_slug is null, p.uuid asc, p.archived_at desc"
+		if len(fLikes) > 0 {
+			for _, fLike := range fLikes {
+				sel += " or e.project_slug like ?"
+				uuids = append(uuids, fLike)
+			}
+		}
+		sel += ") order by e.project_slug is null, p.uuid asc, p.archived_at desc"
 		var rows *sql.Rows
 		rows, err = s.Query(s.db, tx, sel, uuids...)
 		if err != nil {

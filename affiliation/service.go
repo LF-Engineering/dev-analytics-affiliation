@@ -2891,14 +2891,14 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		return
 	}
 	topContributors := &models.TopContributorsFlatOutput{}
-	log.Info(fmt.Sprintf("GetTopContributors: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v", from, to, limit, offset, search, sortField, sortOrder, dataSourcesFilter))
+	log.Info(fmt.Sprintf("GetTopContributorsCSV: from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v", from, to, limit, offset, search, sortField, sortOrder, dataSourcesFilter))
 	// Check token and permission
 	public := false
 	apiName, projects, username, e := s.checkTokenAndPermission(params)
 	defer func() {
 		log.Info(
 			fmt.Sprintf(
-				"GetTopContributors(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
+				"GetTopContributorsCSV(exit): from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s dataSourcesFilter:%v apiName:%s projects:%+v username:%s topContributors:%d public:%v err:%v",
 				from,
 				to,
 				limit,
