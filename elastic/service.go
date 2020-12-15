@@ -804,7 +804,7 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
-		patterns = append(patterns, patternRoot+dataSourceType+"*,-*-raw,-*-for-merge")
+		patterns = append(patterns, patternRoot+dataSourceType+",-*-raw,-*-for-merge")
 	}
 	return
 }
@@ -828,7 +828,7 @@ func (s *service) projectSlugsToIndexPatterns(projectSlugs []string, dataSourceT
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
 		pattern := ""
 		for _, root := range patternRoot {
-			pat := root + dataSourceType + "*"
+			pat := root + dataSourceType
 			if pattern == "" {
 				pattern = pat
 			} else {
