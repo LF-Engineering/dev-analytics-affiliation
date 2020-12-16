@@ -2431,7 +2431,7 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
-      gerrit_reviews:
+      gerrit_comments:
         type: integer
         example: 123
         x-omitempty: false
