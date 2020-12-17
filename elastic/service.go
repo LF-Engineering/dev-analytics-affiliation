@@ -804,7 +804,12 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
-		patterns = append(patterns, patternRoot+dataSourceType+",-*-raw,-*-for-merge")
+		pat := patternRoot + dataSourceType
+		// in case of plain "github" add a wildcard to hit all GitHub indices
+		if dataSourceType == "github" {
+			pat = pat + "*"
+		}
+		patterns = append(patterns, pat+",-*-raw,-*-for-merge")
 	}
 	return
 }
@@ -826,9 +831,14 @@ func (s *service) projectSlugsToIndexPatterns(projectSlugs []string, dataSourceT
 	}
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
+
 		pattern := ""
 		for _, root := range patternRoot {
 			pat := root + dataSourceType
+			// in case of plain "github" add a wildcard to hit all GitHub indices
+			if dataSourceType == "github" {
+				pat = pat + "*"
+			}
 			if pattern == "" {
 				pattern = pat
 			} else {
@@ -1283,9 +1293,6 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 	defer func() {
 		log.Info(fmt.Sprintf("additionalWhere(exit): dataSourceType:%s sortField:%s cond:%s err:%v", dataSourceType, sortField, cond, err))
 	}()
-	if sortField == "cnt" {
-		return
-	}
 	switch dataSourceType {
 	case "all":
 		switch sortField {
@@ -1297,7 +1304,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		}
 		switch sortField {
-		case "git_commits":
+		case "git_commits", "cnt":
 			cond = `and \"hash\" is not null and (\"lines_changed\" > 0 or \"lines_added\" > 0 or \"lines_removed\" > 0)`
 			return
 		case "git_lines_added", "git_lines_removed", "git_lines_changed":
@@ -1322,13 +1329,15 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "gerrit_merged_changesets":
 			cond = `and \"status\" = 'MERGED'`
 			return
+		case "cnt":
+			return
 		}
 	case "jira":
 		if len(sortField) > 5 && sortField[:5] != "jira_" {
 			return
 		}
 		switch sortField {
-		case "jira_issues_created":
+		case "jira_issues_created", "cnt":
 			cond = `and \"issue_key\" is not null`
 			return
 		case "jira_issues_assigned":
@@ -1367,13 +1376,15 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "confluence_last_action_date":
 			cond = `and \"grimoire_creation_date\" is not null`
 			return
+		case "cnt":
+			return
 		}
 	case "github/issue":
 		if len(sortField) > 13 && sortField[:13] != "github_issue_" {
 			return
 		}
 		switch sortField {
-		case "github_issue_issues_created", "github_issue_average_time_open_days":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "cnt":
 			cond = `and \"id\" is not null and \"pull_request\" = false`
 			return
 		case "github_issue_issues_closed":
@@ -1388,7 +1399,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		}
 		switch sortField {
-		case "github_pull_request_prs_created":
+		case "github_pull_request_prs_created", "cnt":
 			cond = `and \"id\" is not null and \"pull_request\" = true`
 			return
 		case "github_pull_request_prs_merged":
@@ -1406,7 +1417,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		}
 		switch sortField {
-		case "bugzilla_issues_created":
+		case "bugzilla_issues_created", "cnt":
 			cond = `and \"url\" is not null`
 			return
 		case "bugzilla_issues_closed":
@@ -1424,7 +1435,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		}
 		switch sortField {
-		case "bugzilla_issues_created":
+		case "bugzilla_issues_created", "cnt":
 			cond = `and \"url\" is not null`
 			return
 		case "bugzilla_issues_closed":
@@ -1818,6 +1829,9 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	fields := make(map[string]map[string]string)
 	mainPattern := ""
 	mainDataSourceType := "all"
+	if len(dataSourceTypes) == 1 {
+		mainDataSourceType = dataSourceTypes[0]
+	}
 	mainColumn := "count(*) as cnt"
 	mainSortField := "cnt"
 	mainSortOrder := "desc"
