@@ -21,6 +21,7 @@ provider:
     ELASTIC_PASSWORD: ${ssm:/da_elastic_password~true}
     API_DB_ENDPOINT: host=${ssm:/da_api_db_endpoint~true} user=${ssm:/da_api_db_username~true} password=${ssm:/da_api_db_password~true} dbname=${self:custom.apiDB.${self:provider.stage}} sslmode=require
     SH_DB_ENDPOINT: ${ssm:/da_sh_db_username~true}:${ssm:/da_sh_db_password~true}@tcp(${ssm:/da_sh_db_endpoint~true}:${ssm:/da_sh_db_port~true})/${self:custom.shDB.${self:provider.stage}}?charset=utf8
+    SH_DB_RO_ENDPOINT: ${ssm:/da_sh_db_ro_username~true}:${ssm:/da_sh_db_ro_password~true}@tcp(${ssm:/da_sh_db_ro_endpoint~true}:${ssm:/da_sh_db_port~true})/${self:custom.shRODB.${self:provider.stage}}?charset=utf8
     AUTH0_DOMAIN: ${ssm:/da_auth0_domain~true}
     AUTH0_CLIENT_ID: ${ssm:/da_auth0_client_id~true}
     AUTH0_USERNAME_CLAIM: ${ssm:/da_auth0_username_claim~true}

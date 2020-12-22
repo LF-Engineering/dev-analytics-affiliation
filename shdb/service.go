@@ -161,6 +161,7 @@ type allMappings struct {
 type service struct {
 	shared.ServiceStruct
 	db               *sqlx.DB
+	rodb             *sqlx.DB
 	origin           string
 	mtx              *sync.RWMutex
 	orgNamesMappings allMappings
@@ -168,9 +169,10 @@ type service struct {
 }
 
 // New creates new db service instance with given db
-func New(db *sqlx.DB, origin string) Service {
+func New(db, rodb *sqlx.DB, origin string) Service {
 	return &service{
 		db:     db,
+		rodb:   rodb,
 		origin: origin,
 		mtx:    &sync.RWMutex{},
 	}

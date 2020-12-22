@@ -98,6 +98,11 @@ spec:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
               key: SH_DB_ENDPOINT.secret
+        - name: SH_DB_RO_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: SH_DB_RO_ENDPOINT.secret
         - name: ELASTIC_URL
           valueFrom:
             secretKeyRef:

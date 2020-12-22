@@ -14,6 +14,10 @@ if [ -z "$SH_DB_ENDPOINT" ]
 then
   export SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'
 fi
+if [ -z "$SH_DB_RO_ENDPOINT" ]
+then
+  export SH_DB_RO_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'
+fi
 if [ -z "$SYNC_URL" ]
 then
   export SYNC_URL="`cat helm/da-affiliation/secrets/SYNC_URL.prod.secret`"

@@ -85,6 +85,32 @@ func initSHDB(origin string) *sqlx.DB {
 	return d
 }
 
+func initSHDBRO() *sqlx.DB {
+	dbURL := os.Getenv("SH_DB_RO_ENDPOINT")
+	if dbURL == "" {
+		dbURL = os.Getenv("SH_DB_ENDPOINT")
+	}
+	shared.GRedacted[dbURL] = struct{}{}
+	if !strings.Contains(dbURL, "parseTime=true") {
+		if strings.Contains(dbURL, "?") {
+			dbURL += "&parseTime=true"
+		} else {
+			dbURL += "?parseTime=true"
+		}
+	}
+	d, err := sqlx.Connect("mysql", dbURL)
+	if err != nil {
+		log.Panicf("unable to connect to affiliation database: %v", err)
+	}
+	//d.SetMaxOpenConns(20)
+	//d.SetMaxIdleConns(5)
+	//d.SetConnMaxLifetime(15 * time.Minute)
+	d.SetConnMaxLifetime(30 * time.Second)
+	log.Println(fmt.Sprintf("%+v", d))
+	log.Println("Initialized", "Affiliation RO DB", host)
+	return d
+}
+
 func initES() (*elasticsearch.Client, string) {
 	esURL := os.Getenv("ELASTIC_URL")
 	esUsername := os.Getenv("ELASTIC_USERNAME")
@@ -149,8 +175,9 @@ func main() {
 	apiDBService := apidb.New(initAPIDB())
 	daOrigin := "da-affiliation-api"
 	gitdmOrigin := "gitdm"
-	shDBServiceAPI := shdb.New(initSHDB(daOrigin), daOrigin)
-	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), gitdmOrigin)
+	shDBRO := initSHDBRO()
+	shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
+	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
 	esService := elastic.New(initES())
 	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService)
 
