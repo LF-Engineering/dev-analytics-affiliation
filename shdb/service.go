@@ -557,6 +557,10 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	} else {
 		inf = fmt.Sprintf("%+v", s.ToLocalTopContributorsFlat(contributors))
 	}
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	found := 0
 	orgFound := 0
 	log.Debug(fmt.Sprintf("EnrichContributors: contributors:%s projectSlugs:%+v millisSinceEpoch:%d tx:%v", inf, projectSlugs, millisSinceEpoch, tx != nil))
@@ -621,7 +625,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 	sel += ") order by e.project_slug is null"
 	var rows *sql.Rows
 	// fmt.Printf("\n%+v\n%s\n\n", uuids, sel)
-	rows, err = s.Query(s.db, tx, sel, uuids...)
+	rows, err = s.Query(sdb, tx, sel, uuids...)
 	if err != nil {
 		return
 	}
@@ -694,7 +698,7 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		}
 		sel += ") order by e.project_slug is null, p.uuid asc, p.archived_at desc"
 		var rows *sql.Rows
-		rows, err = s.Query(s.db, tx, sel, uuids...)
+		rows, err = s.Query(sdb, tx, sel, uuids...)
 		if err != nil {
 			return
 		}
@@ -769,6 +773,10 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 		log.Info("No unaffiliated data to check")
 		return
 	}
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select p.uuid, p.name, e.uuid from profiles p left join enrollments e on p.uuid = e.uuid"
 	sel += " where (p.is_bot is null or p.is_bot = 0) and p.uuid in ("
 	uuids := []interface{}{}
@@ -786,7 +794,7 @@ func (s *service) CheckUnaffiliated(inUnaffiliated []*models.UnaffiliatedDataOut
 	}
 	sel = sel[0:len(sel)-1] + ")) order by e.project_slug is null"
 	var rows *sql.Rows
-	rows, err = s.Query(s.db, tx, sel, uuids...)
+	rows, err = s.Query(sdb, tx, sel, uuids...)
 	if err != nil {
 		return
 	}
@@ -915,8 +923,12 @@ func (s *service) FindUniqueIdentityOrganizations(uuid string, missingFatal bool
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select distinct o.id, o.name from organizations o, enrollments e where e.organization_id = o.id and e.uuid = ? order by o.name asc"
-	rows, err := s.Query(s.db, tx, sel, uuid)
+	rows, err := s.Query(sdb, tx, sel, uuid)
 	if err != nil {
 		return
 	}
@@ -962,6 +974,10 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles"
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -976,7 +992,7 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 		}
 	}
 	sel += " order by uuid asc"
-	rows, err := s.Query(s.db, tx, sel, values...)
+	rows, err := s.Query(sdb, tx, sel, values...)
 	if err != nil {
 		return
 	}
@@ -1027,6 +1043,10 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select id, name from organizations"
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -1041,7 +1061,7 @@ func (s *service) FindOrganizations(columns []string, values []interface{}, miss
 		}
 	}
 	sel += " order by name asc"
-	rows, err := s.Query(s.db, tx, sel, values...)
+	rows, err := s.Query(sdb, tx, sel, values...)
 	if err != nil {
 		return
 	}
@@ -1090,6 +1110,10 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select e.id, e.uuid, e.start, e.end, e.project_slug, e.role, o.id, o.name from enrollments e, organizations o where e.organization_id = o.id"
 	vals := []interface{}{}
 	nColumns := len(columns)
@@ -1133,7 +1157,7 @@ func (s *service) FindEnrollmentsNested(columns []string, values []interface{}, 
 		sel = sel[0:len(sel)-1] + "))"
 	}
 	sel += " order by e.uuid asc, e.start asc, e.end asc"
-	rows, err := s.Query(s.db, tx, sel, vals...)
+	rows, err := s.Query(sdb, tx, sel, vals...)
 	if err != nil {
 		return
 	}
@@ -1188,6 +1212,10 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select id, uuid, organization_id, start, end, project_slug, role from enrollments"
 	vals := []interface{}{}
 	nColumns := len(columns)
@@ -1223,7 +1251,7 @@ func (s *service) FindEnrollments(columns []string, values []interface{}, isDate
 		}
 	}
 	sel += " order by uuid asc, start asc, end asc"
-	rows, err := s.Query(s.db, tx, sel, vals...)
+	rows, err := s.Query(sdb, tx, sel, vals...)
 	if err != nil {
 		return
 	}
@@ -1274,8 +1302,12 @@ func (s *service) GetArchiveUniqueIdentityIdentities(uuid string, tm time.Time, 
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, uuid, source, name, email, username from identities_archive where uuid = ? and archived_at = ? order by id asc",
 		uuid,
@@ -1332,8 +1364,12 @@ func (s *service) GetArchiveUniqueIdentityEnrollments(uuid string, tm time.Time,
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive where uuid = ? and archived_at = ? order by start asc, end asc",
 		uuid,
@@ -1388,8 +1424,12 @@ func (s *service) GetUniqueIdentityIdentities(uuid string, missingFatal bool, tx
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, uuid, source, name, email, username, last_modified from identities where uuid = ? order by id asc",
 		uuid,
@@ -1443,8 +1483,12 @@ func (s *service) GetUniqueIdentityEnrollments(uuid string, missingFatal bool, t
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, uuid, organization_id, start, end, project_slug, role from enrollments where uuid = ? order by start asc, end asc",
 		uuid,
@@ -1498,9 +1542,13 @@ func (s *service) GetEnrollment(id int64, missingFatal bool, tx *sql.Tx) (enroll
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	enrollmentData = &models.EnrollmentDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, uuid, organization_id, start, end, project_slug, role from enrollments where id = ? limit 1",
 		id,
@@ -1558,8 +1606,12 @@ func (s *service) FetchMatchingBlacklist(email string, missingFatal bool, tx *sq
 		)
 	}()
 	matchingBlacklistData = &models.MatchingBlacklistOutput{}
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select excluded from matching_blacklist where excluded = ? limit 1",
 		email,
@@ -1610,9 +1662,13 @@ func (s *service) GetOrganization(id int64, missingFatal bool, tx *sql.Tx) (orga
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	organizationData = &models.OrganizationDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, name from organizations where id = ? limit 1",
 		id,
@@ -1664,9 +1720,13 @@ func (s *service) GetOrganizationByName(orgName string, missingFatal bool, tx *s
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	organizationData = &models.OrganizationDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, name from organizations where name = ? limit 1",
 		orgName,
@@ -1718,9 +1778,13 @@ func (s *service) GetUniqueIdentity(uuid string, missingFatal bool, tx *sql.Tx) 
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	uniqueIdentityData = &models.UniqueIdentityDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select uuid, last_modified from uidentities where uuid = ? limit 1",
 		uuid,
@@ -1772,9 +1836,13 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identit
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	identityData = &models.IdentityDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select id, uuid, source, name, username, email, last_modified from identities where id = ? limit 1",
 		id,
@@ -1831,9 +1899,13 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	profileData = &models.ProfileDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		sdb,
 		tx,
 		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
 		uuid,
@@ -3047,6 +3119,10 @@ func (s *service) FindIdentities(columns []string, values []interface{}, isDate 
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select id, name, email, username, source, uuid, last_modified from identities"
 	vals := []interface{}{}
 	nColumns := len(columns)
@@ -3080,7 +3156,7 @@ func (s *service) FindIdentities(columns []string, values []interface{}, isDate 
 		}
 	}
 	sel += " order by id"
-	rows, err := s.Query(s.db, tx, sel, vals...)
+	rows, err := s.Query(sdb, tx, sel, vals...)
 	if err != nil {
 		return
 	}
@@ -3838,6 +3914,7 @@ func (s *service) SetProfileEmptyDataFromIdentities(uuid string, identities []*m
 		pEmail *string
 		rows   *sql.Rows
 	)
+	// This uses RW connection, because this value will be updated soon
 	rows, err = s.Query(s.db, tx, "select name, email from profiles where uuid = ?", uuid)
 	if err != nil {
 		return
@@ -3902,6 +3979,7 @@ func (s *service) DedupEnrollments() (err error) {
 		}
 	}()
 	var rows *sql.Rows
+	// This uses RW connection, even for selects - because it will eventually update data
 	rows, err = s.Query(
 		s.db,
 		tx,
@@ -4054,6 +4132,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		s.mappingsLoaded = true
 	}
+	// Entire map org names API uses RW connection only
 	tx, err := s.db.Begin()
 	if err != nil {
 		return
@@ -4468,6 +4547,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			log.Info(fmt.Sprintf("main query[%s, %s]: %s\n", reVal, emailRE, query))
 			fmt.Printf("main query[%s, %s]: %s\n", reVal, emailRE, query)
 		}
+		// Only RW connection is used - this API mass updates data
 		rows, err = s.Query(s.db, nil, query, reVal, emailRE)
 		if err != nil {
 			return
@@ -5189,6 +5269,7 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	defer func() {
 		log.Info(fmt.Sprintf("Unarchive(exit): ID:%s UUID:%s unarchived:%v err:%v", id, uuid, unarchived, err))
 	}()
+	// Unarchive uses RW connection, also for selects
 	rows, err := s.Query(s.db, nil, "select max(archived_at) from identities_archive where id = ?", id)
 	if err != nil {
 		return
@@ -5397,6 +5478,10 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	args := []interface{}{}
 	selRoot := "select o.id, o.name, do.id, do.domain, do.is_top_domain"
 	sel := " from domains_organizations do, organizations o where do.organization_id = o.id"
@@ -5412,7 +5497,7 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	sel += " order by o.name, do.domain"
 	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
-	qrows, err = s.Query(s.db, tx, selRoot+sel, args...)
+	qrows, err = s.Query(sdb, tx, selRoot+sel, args...)
 	if err != nil {
 		return
 	}
@@ -5436,7 +5521,7 @@ func (s *service) QueryOrganizationsDomains(orgID int64, q string, rows, page in
 	if err != nil {
 		return
 	}
-	qrows, err = s.Query(s.db, tx, "select count(*)"+sel, args...)
+	qrows, err = s.Query(sdb, tx, "select count(*)"+sel, args...)
 	if err != nil {
 		return
 	}
@@ -5472,7 +5557,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
 	var rows *sql.Rows
-	rows, err = s.Query(s.db, nil, sel)
+	rows, err = s.Query(s.rodb, nil, sel)
 	if err != nil {
 		return
 	}
@@ -5637,6 +5722,10 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	args := []interface{}{}
 	sel := ""
 	where := ""
@@ -5663,7 +5752,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	paging := fmt.Sprintf("limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	query := sel + " " + where + " " + paging
-	qrows, err = s.Query(s.db, tx, query, args...)
+	qrows, err = s.Query(sdb, tx, query, args...)
 	if err != nil {
 		return
 	}
@@ -5707,7 +5796,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	if err != nil {
 		return
 	}
-	qrows, err = s.Query(s.db, tx, sel, uuids...)
+	qrows, err = s.Query(sdb, tx, sel, uuids...)
 	if err != nil {
 		return
 	}
@@ -5823,7 +5912,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	}
 	sel = "select count(distinct u.uuid) from uidentities u, identities i, profiles p"
 	query = sel + " " + where
-	qrows, err = s.Query(s.db, tx, query, args...)
+	qrows, err = s.Query(sdb, tx, query, args...)
 	if err != nil {
 		return
 	}
@@ -5871,6 +5960,10 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
 		sel  string
 		args []interface{}
 	)
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	if q != "" {
 		q = strings.TrimSpace(q)
 		args = []interface{}{
@@ -5897,9 +5990,9 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
 	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	if q == "" {
-		qrows, err = s.Query(s.db, tx, sel)
+		qrows, err = s.Query(sdb, tx, sel)
 	} else {
-		qrows, err = s.Query(s.db, tx, sel, args...)
+		qrows, err = s.Query(sdb, tx, sel, args...)
 	}
 	if err != nil {
 		return
@@ -5935,7 +6028,7 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
 		isTopDomain *bool
 		oName       string
 	)
-	qrows, err = s.Query(s.db, tx, sel, oids...)
+	qrows, err = s.Query(sdb, tx, sel, oids...)
 	if err != nil {
 		return
 	}
@@ -5975,10 +6068,10 @@ func (s *service) QueryOrganizationsNested(q string, rows, page int64, tx *sql.T
     union all select 5 as rank, id, name from organizations where name like ?
     union all select 6 as rank, id, name from organizations where name like ?) sub
     `
-		qrows, err = s.Query(s.db, tx, sel, args...)
+		qrows, err = s.Query(sdb, tx, sel, args...)
 	} else {
 		sel = "select count(*) from organizations"
-		qrows, err = s.Query(s.db, tx, sel)
+		qrows, err = s.Query(sdb, tx, sel)
 	}
 	if err != nil {
 		return
@@ -6023,6 +6116,10 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	qLike := ""
 	sel := "select excluded from matching_blacklist"
 	if q != "" {
@@ -6034,9 +6131,9 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 	sel += fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
 	var qrows *sql.Rows
 	if q == "" {
-		qrows, err = s.Query(s.db, tx, sel)
+		qrows, err = s.Query(sdb, tx, sel)
 	} else {
-		qrows, err = s.Query(s.db, tx, sel, qLike)
+		qrows, err = s.Query(sdb, tx, sel, qLike)
 	}
 	if err != nil {
 		return
@@ -6063,9 +6160,9 @@ func (s *service) QueryMatchingBlacklist(tx *sql.Tx, q string, rows, page int64)
 		sel += " where excluded like ?"
 	}
 	if q == "" {
-		qrows, err = s.Query(s.db, tx, sel)
+		qrows, err = s.Query(sdb, tx, sel)
 	} else {
-		qrows, err = s.Query(s.db, tx, sel, qLike)
+		qrows, err = s.Query(sdb, tx, sel, qLike)
 	}
 	if err != nil {
 		return
@@ -6163,6 +6260,7 @@ func (s *service) UnarchiveProfileNested(uuid string, projects []string) (uid *m
 		)
 	}()
 	var rows *sql.Rows
+	// Unarchive uses RW connection
 	rows, err = s.Query(s.db, nil, "select max(archived_at) from uidentities_archive where uuid = ?", uuid)
 	if err != nil {
 		return
@@ -6492,6 +6590,7 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	defer func() {
 		log.Info(fmt.Sprintf("PutOrgDomain(exit): org:%s dom:%s overwrite:%v isTopDomain:%v skipEnrollments:%v putOrgDomain:%+v err:%v", org, dom, overwrite, isTopDomain, skipEnrollments, putOrgDomain, err))
 	}()
+	// Uses RW connection only
 	rows, err := s.Query(s.db, nil, "select id from organizations where name = ? limit 1", org)
 	if err != nil {
 		return
@@ -6668,7 +6767,7 @@ func (s *service) GetDetAffRangeSubjects() (subjects []*models.EnrollmentProject
 		log.Info(fmt.Sprintf("GetDetAffRangeSubjects(exit): subjects:%d err:%+v", len(subjects), err))
 	}()
 	rows, err := s.Query(
-		s.db,
+		s.rodb,
 		nil,
 		"select distinct sub.uuid, sub.project_slug, e.start, e.end from ("+
 			"select uuid, project_slug, count(distinct organization_id) as cnt from enrollments "+ // was count(distinct id)
@@ -6738,6 +6837,7 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 		added   int
 		deleted int
 	}
+	// Updateprojects slugs uses RW connection only
 	updateProjectSlug := func(ch chan updateResult, uuid string, projects []string) (res updateResult) {
 		var err error
 		defer func() {
@@ -7969,7 +8069,7 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 }
 
 func (s *service) GetSlugMappings() error {
-	rows, err := s.Query(s.db, nil, "select da_name, sf_name from slug_mapping")
+	rows, err := s.Query(s.rodb, nil, "select da_name, sf_name from slug_mapping")
 	if err != nil {
 		return err
 	}
@@ -8013,6 +8113,10 @@ func (s *service) FindSlugMappings(columns []string, values []interface{}, missi
 			),
 		)
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	sel := "select da_name, sf_name, sf_id from slug_mapping"
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
@@ -8027,7 +8131,7 @@ func (s *service) FindSlugMappings(columns []string, values []interface{}, missi
 		}
 	}
 	sel += " order by da_name asc"
-	rows, err := s.Query(s.db, tx, sel, values...)
+	rows, err := s.Query(sdb, tx, sel, values...)
 	if err != nil {
 		return
 	}
