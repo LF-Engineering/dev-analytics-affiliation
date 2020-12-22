@@ -1234,7 +1234,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"gerrit_approvals":         "sum(is_gerrit_approval) as gerrit_approvals",
 			"gerrit_changesets":        "sum(is_gerrit_changeset) as gerrit_changesets",
 			"gerrit_merged_changesets": "count(status) as gerrit_merged_changesets",
-			"gerrit_reviews":           "count(is_gerrit_review) as gerrit_reviews",
+			"gerrit_comments":          "count(is_gerrit_comment) as gerrit_comments",
 		}
 	case "jira":
 		fields = map[string]string{
@@ -1323,8 +1323,8 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "gerrit_changesets":
 			cond = `and \"is_gerrit_changeset\" is not null`
 			return
-		case "gerrit_reviews":
-			cond = `and \"is_gerrit_review\" is not null`
+		case "gerrit_comments":
+			cond = `and \"is_gerrit_comment\" is not null`
 			return
 		case "gerrit_merged_changesets":
 			cond = `and \"status\" = 'MERGED'`
@@ -1482,7 +1482,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets", "gerrit_reviews":
+		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets", "gerrit_comments":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -1568,7 +1568,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "gerrit":
 		switch sortField {
-		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets", "gerrit_reviews":
+		case "gerrit_approvals", "gerrit_changesets", "gerrit_merged_changesets", "gerrit_comments":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
@@ -2343,7 +2343,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				GerritApprovals:                      getInt(uuid, "gerrit_approvals"),
 				GerritMergedChangesets:               getInt(uuid, "gerrit_merged_changesets"),
 				GerritChangesets:                     getInt(uuid, "gerrit_changesets"),
-				GerritReviews:                        getInt(uuid, "gerrit_reviews"),
+				GerritComments:                       getInt(uuid, "gerrit_comments"),
 				JiraComments:                         getInt(uuid, "jira_comments"),
 				JiraIssuesCreated:                    getInt(uuid, "jira_issues_created"),
 				JiraIssuesAssigned:                   getInt(uuid, "jira_issues_assigned"),

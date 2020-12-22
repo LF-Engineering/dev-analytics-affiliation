@@ -123,7 +123,7 @@ var (
 				{Key: "gerrit_approvals", Name: "Approvals"},
 				{Key: "gerrit_changesets", Name: "Active Changesets"},
 				{Key: "gerrit_merged_changesets", Name: "Merged Changesets"},
-				{Key: "gerrit_reviews", Name: "Reviews"},
+				{Key: "gerrit_comments", Name: "Review Comments"},
 			},
 		},
 		"bugzilla": {
