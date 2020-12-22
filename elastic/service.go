@@ -1238,7 +1238,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "jira":
 		fields = map[string]string{
-			"jira_issues_created":          "count(distinct issue_key) as jira_issues_created",
+			"jira_issues_created":          "count(distinct key) as jira_issues_created",
 			"jira_issues_assigned":         "count(distinct assignee_uuid) as jira_issues_assigned",
 			"jira_issues_closed":           "count(distinct assignee_uuid) as jira_issues_closed",
 			"jira_comments":                "count(distinct comment_id) as jira_comments",
@@ -1338,7 +1338,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		}
 		switch sortField {
 		case "jira_issues_created", "cnt":
-			cond = `and \"issue_key\" is not null`
+			cond = `and \"key\" is not null`
 			return
 		case "jira_issues_assigned":
 			cond = `and \"assignee_uuid\" is not null`

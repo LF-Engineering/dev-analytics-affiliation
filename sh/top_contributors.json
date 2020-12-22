@@ -106,7 +106,7 @@
           "aggs": {
             "jira_issues_created": {
               "cardinality": {
-                "field": "issue_key"
+                "field": "key"
               }
             },
             "jira_issues_assigned": {
