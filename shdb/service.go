@@ -189,9 +189,13 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 	defer func() {
 		log.Info(fmt.Sprintf("GetCountry(exit): countryCode:%s tx:%v countryData:%+v err:%v", countryCode, tx != nil, countryData, err))
 	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
 	countryData = &models.CountryDataOutput{}
 	rows, err := s.Query(
-		s.db,
+		db,
 		tx,
 		"select code, name, alpha3 from countries where code = ? limit 1",
 		countryCode,

@@ -16,7 +16,7 @@ then
 fi
 if [ -z "$SH_DB_RO_ENDPOINT" ]
 then
-  export SH_DB_RO_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'
+  export SH_DB_RO_ENDPOINT='ro_user:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'
 fi
 if [ -z "$SYNC_URL" ]
 then
