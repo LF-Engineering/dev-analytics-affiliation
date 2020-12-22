@@ -15,7 +15,7 @@ Start local SortingHat DB instance:
 - Once docker instance is accepting connections: `[FULL=1] ./sh/mariadb.sh` to pupulate default data.
 - You can shell into dockerized DB instance: `SH_USR=sortinghat SH_PASS=pwd SH_DB=sortinghat ./sh/mariadb_sortinghat_shell.sh`.
 - You can shell into dockerized DB instance (read only): `SH_RO_USR=ro_user SH_PASS=pwd SH_DB=sortinghat ./sh/mariadb_readonly_shell.sh`.
-- You can also use root account: `SH_USR=root SH_PASS=rootpwd SH_DB=sortinghat ./sh/mariadb_root_shell.sh`.
+- You can also use root account: `USR=root PASS=rootpwd SH_DB=sortinghat ./sh/mariadb_root_shell.sh`.
 - After doing this you have MariaDB DSN that can be passed to API: `SH_DB_ENDPOINT='sortinghat:pwd@tcp(localhost:13306)/sortinghat?charset=utf8'`.
 - To restore backup use: `ELB=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.us-ewew-n.elb.amazonaws.com ./sh/restore_backup.sh 09`.
 

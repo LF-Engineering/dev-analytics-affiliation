@@ -1,5 +1,5 @@
 #!/bin/bash
-if ( [ -z "$SH_PASS" ] || [ -z "$SH_RO_USR" ] || [ -z "$SH_DB" ] )
+if ( [ -z "$SH_PASS" ] || [ -z "$SH_USR" ] || [ -z "$SH_DB" ] )
 then
   echo "$0: please specify MariaDB read only user via SH_RO_USR=..."
   echo "$0: please specify MariaDB read only password via SH_PASS=..."
