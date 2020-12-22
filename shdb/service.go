@@ -4080,7 +4080,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		actualName := ""
 		for rows.Next() {
 			if fetched {
-				err = fmt.Errorf("multiple companies found for name: %s, including %s\n", to, actualName)
+				err = fmt.Errorf("multiple companies found for name: %s, including %s", to, actualName)
 				return
 			}
 			err = rows.Scan(&id, &actualName)

@@ -845,7 +845,7 @@ func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 			return t, nil
 		}
 	}
-	err := fmt.Errorf("cannot parse datetime: '%s'\n", dtStr)
+	err := fmt.Errorf("cannot parse datetime: '%s'", dtStr)
 	err = errs.Wrap(errs.New(err, errs.ErrServerError), "TimeParseAny")
 	return time.Now(), err
 }

@@ -179,7 +179,7 @@ func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, erro
 		}
 	}
 	if cert == "" {
-		err := errs.Wrap(errs.New(fmt.Errorf("Unable to find appropriate key."), errs.ErrServerError), "getPemCert")
+		err := errs.Wrap(errs.New(fmt.Errorf("unable to find appropriate key"), errs.ErrServerError), "getPemCert")
 		return cert, err
 	}
 	return cert, nil

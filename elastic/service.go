@@ -276,24 +276,24 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		url := fmt.Sprintf("%s/_sql?format=json", s.url)
 		req, err := http.NewRequest(method, url, payloadBody)
 		if err != nil {
-			res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			return
 		}
 		var body []byte
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			res.err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			res.err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			return
 		}
 		_ = resp.Body.Close()
 		if resp.StatusCode != 200 {
-			res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+			res.err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 			return
 		}
 		type uuidsResult struct {
@@ -303,7 +303,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		var result uuidsResult
 		err = json.Unmarshal(body, &result)
 		if err != nil {
-			res.err = fmt.Errorf("Unmarshal error: %+v", err)
+			res.err = fmt.Errorf("unmarshal error: %+v", err)
 			return
 		}
 		for _, row := range result.Rows {
@@ -318,28 +318,28 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			payloadBody = bytes.NewReader(payloadBytes)
 			req, err = http.NewRequest(method, url, payloadBody)
 			if err != nil {
-				res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
 				return
 			}
 			req.Header.Set("Content-Type", "application/json")
 			resp, err = http.DefaultClient.Do(req)
 			if err != nil {
-				res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
 				return
 			}
 			body, err = ioutil.ReadAll(resp.Body)
 			if err != nil {
-				res.err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				res.err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
 				return
 			}
 			_ = resp.Body.Close()
 			if resp.StatusCode != 200 {
-				res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+				res.err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 				return
 			}
 			err = json.Unmarshal(body, &result)
 			if err != nil {
-				res.err = fmt.Errorf("Unmarshal error: %+v", err)
+				res.err = fmt.Errorf("unmarshal error: %+v", err)
 				return
 			}
 			if len(result.Rows) == 0 {
@@ -355,23 +355,23 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 		payloadBody = bytes.NewReader(payloadBytes)
 		req, err = http.NewRequest(method, url, payloadBody)
 		if err != nil {
-			res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			res.err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
-			res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			res.err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			return
 		}
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			res.err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			res.err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			return
 		}
 		_ = resp.Body.Close()
 		if resp.StatusCode != 200 {
-			res.err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+			res.err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 			return
 		}
 		// fmt.Printf("%s: %d rows\n", project, len(res.uuids))
@@ -556,7 +556,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		url := fmt.Sprintf("%s/_sql?format=csv", s.url)
 		req, err := http.NewRequest(method, url, payloadBody)
 		if err != nil {
-			err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			retErr(err)
 			return
 		}
@@ -564,7 +564,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 		//fmt.Printf("%s: %s\n", inf, data)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			retErr(err)
 			return
 		}
@@ -575,11 +575,11 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 			var body []byte
 			body, err = ioutil.ReadAll(resp.Body)
 			if err != nil {
-				err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+				err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
 				retErr(err)
 				return
 			}
-			err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+			err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 			retErr(err)
 			return
 		}
@@ -592,7 +592,7 @@ func (s *service) DetAffRange(inSubjects []*models.EnrollmentProjectRange) (outS
 				err = nil
 				break
 			} else if err != nil {
-				err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+				err = fmt.Errorf("read CSV row #%d, error: %v/%T", n, err, err)
 				retErr(err)
 				return
 			}
@@ -957,7 +957,7 @@ func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err e
 	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
@@ -965,7 +965,7 @@ func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err e
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
@@ -976,11 +976,11 @@ func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err e
 		var body []byte
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 			return
 		}
-		err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+		err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
@@ -993,7 +993,7 @@ func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err e
 			err = nil
 			break
 		} else if err != nil {
-			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+			err = fmt.Errorf("read CSV row #%d, error: %v/%T", n, err, err)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 			return
 		}
@@ -1021,14 +1021,14 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
@@ -1039,11 +1039,11 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 		var body []byte
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s, data: %s\n", err, method, url, data)
+			err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 			return
 		}
-		err = fmt.Errorf("Method:%s url:%s data: %s status:%d\n%s\n", method, url, data, resp.StatusCode, body)
+		err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
@@ -1056,7 +1056,7 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 			err = nil
 			break
 		} else if err != nil {
-			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+			err = fmt.Errorf("read CSV row #%d, error: %v/%T", n, err, err)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 			return
 		}
@@ -1087,14 +1087,14 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 	// fmt.Printf(">>> dataSourceQuery: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s\n", err, method, url, query)
+		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s", err, method, url, query)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s query: %s\n", err, method, url, query)
+		err = fmt.Errorf("do request error: %+v for %s url: %s query: %s", err, method, url, query)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 		return
 	}
@@ -1105,11 +1105,11 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 		var body []byte
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			err = fmt.Errorf("ReadAll non-ok request error: %+v for %s url: %s query: %s\n", err, method, url, query)
+			err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s query: %s", err, method, url, query)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 			return
 		}
-		err = fmt.Errorf("Method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s\n", method, url, resp.StatusCode, query, body)
+		err = fmt.Errorf("method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s", method, url, resp.StatusCode, query, body)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 		if strings.Contains(err.Error(), " Unknown index ") || strings.Contains(err.Error(), " Unknown column ") {
 			log.Warn(fmt.Sprintf("unknown index or column: %v for query: %s\n", err, query))
@@ -1129,7 +1129,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 			err = nil
 			break
 		} else if err != nil {
-			err = fmt.Errorf("Read CSV row #%d, error: %v/%T\n", n, err, err)
+			err = fmt.Errorf("read CSV row #%d, error: %v/%T", n, err, err)
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQuery")
 			return
 		}
