@@ -195,7 +195,7 @@ func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *model
 	}
 	countryData = &models.CountryDataOutput{}
 	rows, err := s.Query(
-		db,
+		sdb,
 		tx,
 		"select code, name, alpha3 from countries where code = ? limit 1",
 		countryCode,
