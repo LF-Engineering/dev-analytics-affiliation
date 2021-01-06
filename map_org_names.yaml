@@ -3567,3 +3567,4 @@ mappings:
   - ['^[[:space:]]*evoila[[:space:]]*$','evoila GmbH']
   - ['^[[:space:]]*general[[:space:]]electric[[:space:]]*$','General Electronic Co, Ltd.']
   - ['^[[:space:]]*resilient[[:space:]]*$','Resilient Scale']
+  - ['^[[:space:]]*canonical[[:space:]]ltd[[:space:]]*$','Canonical Ltd.']
