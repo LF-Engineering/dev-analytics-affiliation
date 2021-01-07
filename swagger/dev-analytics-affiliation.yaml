@@ -6,6 +6,17 @@ info:
   description: Dev Analytics Affiliations API
 basePath: /v1
 paths:
+  /api-docs:
+    get:
+      summary: Get API documentation
+      operationId: getDoc
+      produces:
+        - text/html
+      responses:
+        200:
+          description: Success
+      tags:
+        - docs
   /health:
     get:
       summary: Health
