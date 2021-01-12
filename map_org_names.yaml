@@ -1428,7 +1428,7 @@ mappings:
   - ['^[[:space:]]*iguaz\\.?io[[:space:]]*$','iguazio']
   - ['^[[:space:]]*iheart[[:space:]]media[[:space:]]*$','iHeartMedia Inc']
   - ['^[[:space:]]*iherb[[:space:]]*$','iHerb LLC']
-  - ['^[[:space:]]*ihs[[:space:]]markit[[:space:]]*$','IHS Markit Inc.']
+  - ['^[[:space:]]*ihs[[:space:]]markit[[:space:]]inc\\.?[[:space:]]*$','IHS Markit']
   - ['^[[:space:]]*(iiit-?delhi|iiit[[:space:]]delhi)[[:space:]]*$','IIIT Delhi, India']
   - ['^[[:space:]]*(iij[[:space:]]innovation|iij[[:space:]]innovation[[:space:]]institute)[[:space:]]*$','IIJ Innovation Institute Inc.']
   - ['^[[:space:]]*iinet[[:space:]]*$','iiNet Limited']
