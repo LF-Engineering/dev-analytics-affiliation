@@ -5735,6 +5735,9 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		if strings.HasPrefix(q, "uuid=") {
 			qWhere += "and u.uuid = ?"
 			args = []interface{}{q[5:]}
+		} else if strings.HasPrefix(q, "username=") {
+			qWhere += "and i.username = ?"
+			args = []interface{}{q[9:]}
 		} else {
 			qLike := "%" + q + "%"
 			qWhere += "and (i.name like ? or i.email like ? or i.username like ? or i.source like ? or p.name like ? or p.email like ?)"
@@ -5749,9 +5752,12 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		where = "where u.uuid = p.uuid"
 	}
 	where += " " + qWhere + " order by 1"
-	paging := fmt.Sprintf("limit %d offset %d", rows, (page-1)*rows)
+	paging := ""
+	if rows > 0 && page > 0 {
+		paging = fmt.Sprintf(" limit %d offset %d", rows, (page-1)*rows)
+	}
 	var qrows *sql.Rows
-	query := sel + " " + where + " " + paging
+	query := sel + " " + where + paging
 	qrows, err = s.Query(sdb, tx, query, args...)
 	if err != nil {
 		return

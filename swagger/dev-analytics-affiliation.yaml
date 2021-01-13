@@ -682,6 +682,39 @@ paths:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/uuid'
+  /affiliation/{projectSlugs}/get_profile_by_username/{username}:
+    get:
+      summary: Get profile(s) with given username
+      operationId: getProfileByUsername
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/unique-identities-nested-data-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - get_profile_by_username
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slugs'
+        - $ref: '#/parameters/username'
   /affiliation/{projectSlugs}/delete_profile/{uuid}:
     delete:
       summary: Delete profile with given UUID (it will cascade delete all objects referring to that uuid)
@@ -1755,6 +1788,12 @@ parameters:
     type: string
     required: true
     description: Project slugs URL encoded like 'academy-software-foundation/opencue,lfn/onap,hyperledger/burrow'
+  username:
+    name: username
+    in: path
+    type: string
+    required: true
+    description: Username
   id:
     name: id
     in: path
@@ -2702,6 +2741,15 @@ definitions:
         type: integer
         example: 55
       uids:
+        type: array
+        items:
+          $ref: "#/definitions/unique-identity-nested-data-output"
+  unique-identities-nested-data-output:
+    title: Array of unique identity nested data outputs
+    description: Array of unique identity nested data outputs
+    type: object
+    properties:
+      profiles:
         type: array
         items:
           $ref: "#/definitions/unique-identity-nested-data-output"

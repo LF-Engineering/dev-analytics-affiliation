@@ -449,6 +449,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetProfileOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetProfileByUsernameHandler = affiliation.GetProfileByUsernameHandlerFunc(
+		func(params affiliation.GetProfileByUsernameParams) middleware.Responder {
+			log.Info("GetProfileByUsernameHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetProfileByUsernameHandlerFunc: " + info)
+
+			result, err := service.GetProfileByUsername(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetProfileByUsernameHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetProfileByUsernameHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetProfileByUsernameOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPostAddOrganizationHandler = affiliation.PostAddOrganizationHandlerFunc(
 		func(params affiliation.PostAddOrganizationParams) middleware.Responder {
 			log.Info("PostAddOrganizationHandlerFunc")

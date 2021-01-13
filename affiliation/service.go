@@ -62,6 +62,7 @@ type Service interface {
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (*models.IdentityDataOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
+	GetProfileByUsername(ctx context.Context, in *affiliation.GetProfileByUsernameParams) (*models.UniqueIdentitiesNestedDataOutput, error)
 	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
 	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -313,6 +314,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
 		apiName = "GetProfile"
+	case *affiliation.GetProfileByUsernameParams:
+		auth = params.Authorization
+		projectsStr = params.ProjectSlugs
+		apiName = "GetProfileByUsername"
 	case *affiliation.GetProfileEnrollmentsParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -2140,6 +2145,50 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 	}
 	uid = ary[0]
 	s.UUDA2SF(uid)
+	return
+}
+
+// GetProfileByUsername: API params:
+// /v1/affiliation/{projectSlugs}/get_profile_by_username/{username}
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
+// {username} - required path parameter: username of the profile to get (actually username from identity/identities connected to that profile)
+func (s *service) GetProfileByUsername(ctx context.Context, params *affiliation.GetProfileByUsernameParams) (uids *models.UniqueIdentitiesNestedDataOutput, err error) {
+	uname := params.Username
+	uids = &models.UniqueIdentitiesNestedDataOutput{}
+	log.Info(fmt.Sprintf("GetProfileByUsername: username:%s", uname))
+	// Check token and permission
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetProfileByUsername(exit): uname:%s apiName:%s projects:%+v username:%s uids:%v err:%v",
+				uname,
+				apiName,
+				projects,
+				username,
+				s.ToLocalNestedUniqueIdentities(uids.Profiles),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("username="+uname, 0, 0, true, projects, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errs.Wrap(fmt.Errorf("Profile with username '%s' not found", uname), apiName)
+		return
+	}
+	uids.Profiles = ary
+	for _, uid := range uids.Profiles {
+		s.UUDA2SF(uid)
+	}
 	return
 }
 
