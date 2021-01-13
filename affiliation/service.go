@@ -61,6 +61,7 @@ type Service interface {
 	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
 	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
 	GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (*models.IdentityDataOutput, error)
+	GetIdentityByUser(ctx context.Context, params *affiliation.GetIdentityByUserParams) (*models.IdentityDataOutput, error)
 	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
@@ -309,6 +310,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	case *affiliation.GetIdentityParams:
 		auth = params.Authorization
 		apiName = "GetIdentity"
+	case *affiliation.GetIdentityByUserParams:
+		auth = params.Authorization
+		apiName = "GetIdentityByUser"
 	case *affiliation.GetProfileParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -2096,6 +2100,29 @@ func (s *service) GetIdentity(ctx context.Context, params *affiliation.GetIdenti
 	i, err = s.shDB.GetIdentity(id, true, nil)
 	if err != nil {
 		err = errs.Wrap(fmt.Errorf("Identity with ID '%s' not found", id), apiName)
+		return
+	}
+	return
+}
+
+// GetIdentityByUser: API params:
+// /v1/affiliation/identity/{key}/{value}
+// {key} - required get type: Could be username or email
+// {value} - required get value : string
+func (s *service) GetIdentityByUser(ctx context.Context, params *affiliation.GetIdentityByUserParams) (i *models.IdentityDataOutput, err error) {
+	key := params.Name
+	value := params.Value
+	log.Info(fmt.Sprintf("GetIdentityByUser: key:%s, value:%s", key, value))
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("GetIdentityByUser(exit): apiName:%s username:%s err:%v", apiName, username, err))
+	}()
+	if err != nil {
+		return
+	}
+	i, err = s.shDB.GetIdentityByUser(key, value, true, nil)
+	if err != nil {
+		err = errs.Wrap(fmt.Errorf("identity with '%s' : '%s' not found", key, value), apiName)
 		return
 	}
 	return

@@ -52,6 +52,7 @@ type Service interface {
 	// Identity
 	TouchIdentity(string, *sql.Tx) (int64, error)
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
+	GetIdentityByUser(key string, value string, missingFatal bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error)
 	EditIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 	DeleteIdentity(string, bool, bool, *time.Time, *sql.Tx) error
 	ArchiveIdentity(string, *time.Time, *sql.Tx) error
@@ -1877,6 +1878,71 @@ func (s *service) GetIdentity(id string, missingFatal bool, tx *sql.Tx) (identit
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find identity id '%s'", id)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetIdentity")
+		return
+	}
+	if !fetched {
+		identityData = nil
+	}
+	return
+}
+
+func (s *service) GetIdentityByUser(key string, value string, missingFatal bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error) {
+	log.Info(fmt.Sprintf("GetIdentityByUser: %s:%s missingFatal:%v tx:%v", key, value, missingFatal, tx != nil))
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetIdentityByUser(exit): %s:%s missingFatal:%v tx:%v identityData:%+v err:%v",
+				key,
+				value,
+				missingFatal,
+				tx != nil,
+				s.ToLocalIdentity(identityData),
+				err,
+			),
+		)
+	}()
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
+	identityData = &models.IdentityDataOutput{}
+	rows, err := s.Query(
+		sdb,
+		tx,
+		"select id, uuid, source, name, username, email, last_modified from identities where ? = ? limit 1",
+		key,
+		value,
+	)
+	if err != nil {
+		return
+	}
+	fetched := false
+	for rows.Next() {
+		err = rows.Scan(
+			&identityData.ID,
+			&identityData.UUID,
+			&identityData.Source,
+			&identityData.Name,
+			&identityData.Username,
+			&identityData.Email,
+			&identityData.LastModified,
+		)
+		if err != nil {
+			return
+		}
+		fetched = true
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if missingFatal && !fetched {
+		err = fmt.Errorf("cannot find identity '%s' : '%s'", key, value)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetIdentityByUser")
 		return
 	}
 	if !fetched {
