@@ -13,6 +13,7 @@ import (
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/affiliation"
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
+	"github.com/LF-Engineering/dev-analytics-affiliation/docs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
 	"github.com/LF-Engineering/dev-analytics-affiliation/health"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
@@ -183,6 +184,7 @@ func main() {
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)
+	docs.Configure(api)
 
 	// When redeploying this needs to be cleared
 	affiliationService.ClearPrecacheRunning()
