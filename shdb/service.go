@@ -216,8 +216,9 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 	if tx != nil {
 		sdb = s.db
 	}
-	fmt.Printf("(%s,%s,%v,%v)\n", pSlug, uuid, dt, single)
-	defer func() { fmt.Printf("(%s,%s,%v,%v) -> %v\n", pSlug, uuid, dt, single, orgs) }()
+	if pSlug == "(empty)" {
+		pSlug = ""
+	}
 	// Step 1: Try project slug first
 	// in single mode, if multiple companies are found, return the most recent
 	// in multiple mode this can return many different companies and this is ok
