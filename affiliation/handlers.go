@@ -1313,4 +1313,85 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutCacheTopContributorsOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetAffiliationSingleHandler = affiliation.GetAffiliationSingleHandlerFunc(
+		func(params affiliation.GetAffiliationSingleParams) middleware.Responder {
+			log.Info("GetAffiliationSingleHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetAffiliationSingleHandlerFunc: " + info)
+
+			result, err := service.GetAffiliationSingle(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetAffiliationSingleHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetAffiliationSingleHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetAffiliationSingleOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationGetAffiliationMultipleHandler = affiliation.GetAffiliationMultipleHandlerFunc(
+		func(params affiliation.GetAffiliationMultipleParams) middleware.Responder {
+			log.Info("GetAffiliationMultipleHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetAffiliationMultipleHandlerFunc: " + info)
+
+			result, err := service.GetAffiliationMultiple(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetAffiliationMultipleHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetAffiliationMultipleHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetAffiliationMultipleOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
+	api.AffiliationGetAffiliationBothHandler = affiliation.GetAffiliationBothHandlerFunc(
+		func(params affiliation.GetAffiliationBothParams) middleware.Responder {
+			log.Info("GetAffiliationBothHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetAffiliationBothHandlerFunc: " + info)
+
+			result, err := service.GetAffiliationBoth(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetAffiliationBothHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetAffiliationBothHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetAffiliationBothOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 }

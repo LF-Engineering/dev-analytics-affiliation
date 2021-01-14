@@ -1391,6 +1391,110 @@ paths:
           in: query
           type: boolean
           description: if set, all enrollments will be merged (global one and 0 or more project specific ones)
+  /affiliation/{projectSlug}/single/{uuid}/{dt}:
+    get:
+      summary: Get affiliation for a given UUID/date/project_slug 9single org)
+      operationId: getAffiliationSingle
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/org-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - single
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/dt'
+  /affiliation/{projectSlug}/multi/{uuid}/{dt}:
+    get:
+      summary: Get affiliation for a given UUID/date/project_slug (multiple orgs)
+      operationId: getAffiliationMultiple
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/orgs-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - multiple
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/dt'
+  /affiliation/{projectSlug}/both/{uuid}/{dt}:
+    get:
+      summary: Get affiliation for a given UUID/date/project_slug (single org and multiple orgs)
+      operationId: getAffiliationBoth
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/org-and-orgs-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - both
+        - single
+        - multiple
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slug'
+        - $ref: '#/parameters/uuid'
+        - $ref: '#/parameters/dt'
   /affiliation/all:
     get:
       summary: Return all affiliations data in human readable format
@@ -1793,6 +1897,12 @@ parameters:
     name: Authorization
     in: header
     type: string
+  project-slug:
+    name: projectSlug
+    in: path
+    type: string
+    required: true
+    description: Project slug URL encoded
   project-slugs:
     name: projectSlugs
     in: path
@@ -1817,6 +1927,13 @@ parameters:
     type: string
     required: true
     description: UUID
+  dt:
+    name: dt
+    in: path
+    type: string
+    format: date-time
+    required: true
+    description: Date (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z]
   enrollment-id:
     name: enrollment_id
     in: path
@@ -2964,6 +3081,31 @@ definitions:
       sf_id:
         type: string
         example: '1234-deadbeef'
+  org-output:
+    type: object
+    properties:
+      org:
+        type: string
+        example: 'CNCF'
+  orgs-output:
+    type: object
+    properties:
+      orgs:
+        type: array
+        items:
+          type: string
+          example: 'CNCF'
+  org-and-orgs-output:
+    type: object
+    properties:
+      org:
+        type: string
+        example: 'CNCF'
+      orgs:
+        type: array
+        items:
+          type: string
+          example: 'CNCF'
 schemes:
   - http
 consumes:

@@ -47,56 +47,59 @@ var (
 type Service interface {
 	shared.ServiceInterface
 	// External methods
-	GetMatchingBlacklist(ctx context.Context, in *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
-	PostMatchingBlacklist(ctx context.Context, in *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
-	DeleteMatchingBlacklist(ctx context.Context, in *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
-	GetListOrganizations(ctx context.Context, in *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsOutput, error)
-	GetListOrganizationsDomains(ctx context.Context, in *affiliation.GetListOrganizationsDomainsParams) (*models.GetListOrganizationsDomainsOutput, error)
-	GetFindOrganizationByID(ctx context.Context, in *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
-	GetFindOrganizationByName(ctx context.Context, in *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
-	PostAddOrganization(ctx context.Context, in *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
-	PutEditOrganization(ctx context.Context, in *affiliation.PutEditOrganizationParams) (*models.OrganizationDataOutput, error)
-	DeleteOrganization(ctx context.Context, in *affiliation.DeleteOrganizationParams) (*models.TextStatusOutput, error)
-	PutOrgDomain(ctx context.Context, in *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
-	DeleteOrgDomain(ctx context.Context, in *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
-	GetListProfiles(ctx context.Context, in *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
-	GetIdentity(ctx context.Context, params *affiliation.GetIdentityParams) (*models.IdentityDataOutput, error)
-	GetProfile(ctx context.Context, in *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
-	GetProfileByUsername(ctx context.Context, in *affiliation.GetProfileByUsernameParams) (*models.UniqueIdentitiesNestedDataOutput, error)
-	PutEditProfile(ctx context.Context, in *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
-	DeleteProfile(ctx context.Context, in *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
-	PostUnarchiveProfile(ctx context.Context, in *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PostAddUniqueIdentity(ctx context.Context, in *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PostAddIdentity(ctx context.Context, in *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
-	DeleteIdentity(ctx context.Context, in *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
-	GetProfileEnrollments(ctx context.Context, in *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
-	PostAddEnrollment(ctx context.Context, in *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutputNoDates, error)
-	PutEditEnrollment(ctx context.Context, in *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PutEditEnrollmentByID(ctx context.Context, in *affiliation.PutEditEnrollmentByIDParams) (*models.UniqueIdentityNestedDataOutput, error)
-	DeleteEnrollments(ctx context.Context, in *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
-	DeleteEnrollment(ctx context.Context, in *affiliation.DeleteEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PutMergeEnrollments(ctx context.Context, in *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PutMergeUniqueIdentities(ctx context.Context, in *affiliation.PutMergeUniqueIdentitiesParams) (*models.UniqueIdentityNestedDataOutput, error)
-	PutMoveIdentity(ctx context.Context, in *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
-	GetUnaffiliated(ctx context.Context, in *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
+	GetMatchingBlacklist(context.Context, *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
+	PostMatchingBlacklist(context.Context, *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
+	DeleteMatchingBlacklist(context.Context, *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
+	GetListOrganizations(context.Context, *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsOutput, error)
+	GetListOrganizationsDomains(context.Context, *affiliation.GetListOrganizationsDomainsParams) (*models.GetListOrganizationsDomainsOutput, error)
+	GetFindOrganizationByID(context.Context, *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
+	GetFindOrganizationByName(context.Context, *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
+	PostAddOrganization(context.Context, *affiliation.PostAddOrganizationParams) (*models.OrganizationDataOutput, error)
+	PutEditOrganization(context.Context, *affiliation.PutEditOrganizationParams) (*models.OrganizationDataOutput, error)
+	DeleteOrganization(context.Context, *affiliation.DeleteOrganizationParams) (*models.TextStatusOutput, error)
+	PutOrgDomain(context.Context, *affiliation.PutOrgDomainParams) (*models.PutOrgDomainOutput, error)
+	DeleteOrgDomain(context.Context, *affiliation.DeleteOrgDomainParams) (*models.TextStatusOutput, error)
+	GetListProfiles(context.Context, *affiliation.GetListProfilesParams) (*models.GetListProfilesOutput, error)
+	GetIdentity(context.Context, *affiliation.GetIdentityParams) (*models.IdentityDataOutput, error)
+	GetProfile(context.Context, *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
+	GetProfileByUsername(context.Context, *affiliation.GetProfileByUsernameParams) (*models.UniqueIdentitiesNestedDataOutput, error)
+	PutEditProfile(context.Context, *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteProfile(context.Context, *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
+	PostUnarchiveProfile(context.Context, *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PostAddUniqueIdentity(context.Context, *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PostAddIdentity(context.Context, *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteIdentity(context.Context, *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
+	GetProfileEnrollments(context.Context, *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
+	GetAffiliationSingle(context.Context, *affiliation.GetAffiliationSingleParams) (*models.OrgOutput, error)
+	GetAffiliationMultiple(context.Context, *affiliation.GetAffiliationMultipleParams) (*models.OrgsOutput, error)
+	GetAffiliationBoth(context.Context, *affiliation.GetAffiliationBothParams) (*models.OrgAndOrgsOutput, error)
+	PostAddEnrollment(context.Context, *affiliation.PostAddEnrollmentParams) (*models.UniqueIdentityNestedDataOutputNoDates, error)
+	PutEditEnrollment(context.Context, *affiliation.PutEditEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutEditEnrollmentByID(context.Context, *affiliation.PutEditEnrollmentByIDParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteEnrollments(context.Context, *affiliation.DeleteEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
+	DeleteEnrollment(context.Context, *affiliation.DeleteEnrollmentParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutMergeEnrollments(context.Context, *affiliation.PutMergeEnrollmentsParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutMergeUniqueIdentities(context.Context, *affiliation.PutMergeUniqueIdentitiesParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PutMoveIdentity(context.Context, *affiliation.PutMoveIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
+	GetUnaffiliated(context.Context, *affiliation.GetUnaffiliatedParams) (*models.GetUnaffiliatedOutput, error)
 	FilterDataSources([]string, []string) []string
 	MakeDSInfo([]*models.DataSourceTypeFields, []string, []string) ([]*models.ConfiguredDataSourcesFields, string)
 	TopContributorsParams(*affiliation.GetTopContributorsParams, *affiliation.GetTopContributorsCSVParams) (int64, int64, int64, int64, string, string, string, string, []string)
-	GetTopContributors(ctx context.Context, in *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
-	GetTopContributorsCSV(ctx context.Context, in *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
-	GetAllAffiliations(ctx context.Context, in *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
-	PostBulkUpdate(ctx context.Context, in *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
-	PutMergeAll(ctx context.Context, in *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
-	PutHideEmails(ctx context.Context, in *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
-	PutCacheTopContributors(ctx context.Context, in *affiliation.PutCacheTopContributorsParams) (*models.TextStatusOutput, error)
-	PutMapOrgNames(ctx context.Context, in *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
-	PutDetAffRange(ctx context.Context, in *affiliation.PutDetAffRangeParams) (*models.TextStatusOutput, error)
-	GetListProjects(ctx context.Context, in *affiliation.GetListProjectsParams) (*models.ListProjectsOutput, error)
-	GetListSlugMappings(ctx context.Context, in *affiliation.GetListSlugMappingsParams) (*models.ListSlugMappings, error)
-	GetSlugMapping(ctx context.Context, in *affiliation.GetSlugMappingParams) (*models.SlugMapping, error)
-	PostAddSlugMapping(ctx context.Context, in *affiliation.PostAddSlugMappingParams) (*models.SlugMapping, error)
-	DeleteSlugMapping(ctx context.Context, in *affiliation.DeleteSlugMappingParams) (*models.TextStatusOutput, error)
-	PutEditSlugMapping(ctx context.Context, in *affiliation.PutEditSlugMappingParams) (*models.SlugMapping, error)
+	GetTopContributors(context.Context, *affiliation.GetTopContributorsParams) (*models.TopContributorsFlatOutput, error)
+	GetTopContributorsCSV(context.Context, *affiliation.GetTopContributorsCSVParams) (io.ReadCloser, error)
+	GetAllAffiliations(context.Context, *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
+	PostBulkUpdate(context.Context, *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
+	PutMergeAll(context.Context, *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
+	PutHideEmails(context.Context, *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
+	PutCacheTopContributors(context.Context, *affiliation.PutCacheTopContributorsParams) (*models.TextStatusOutput, error)
+	PutMapOrgNames(context.Context, *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
+	PutDetAffRange(context.Context, *affiliation.PutDetAffRangeParams) (*models.TextStatusOutput, error)
+	GetListProjects(context.Context, *affiliation.GetListProjectsParams) (*models.ListProjectsOutput, error)
+	GetListSlugMappings(context.Context, *affiliation.GetListSlugMappingsParams) (*models.ListSlugMappings, error)
+	GetSlugMapping(context.Context, *affiliation.GetSlugMappingParams) (*models.SlugMapping, error)
+	PostAddSlugMapping(context.Context, *affiliation.PostAddSlugMappingParams) (*models.SlugMapping, error)
+	DeleteSlugMapping(context.Context, *affiliation.DeleteSlugMappingParams) (*models.TextStatusOutput, error)
+	PutEditSlugMapping(context.Context, *affiliation.PutEditSlugMappingParams) (*models.SlugMapping, error)
 	ClearPrecacheRunning()
 	SetServiceRequestID(requestID string)
 	GetServiceRequestID() string
@@ -322,6 +325,18 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
 		apiName = "GetProfileEnrollments"
+	case *affiliation.GetAffiliationSingleParams:
+		auth = params.Authorization
+		projectsStr = params.ProjectSlug
+		apiName = "GetAffiliationSingle"
+	case *affiliation.GetAffiliationMultipleParams:
+		auth = params.Authorization
+		projectsStr = params.ProjectSlug
+		apiName = "GetAffiliationMultiple"
+	case *affiliation.GetAffiliationBothParams:
+		auth = params.Authorization
+		projectsStr = params.ProjectSlug
+		apiName = "GetAffiliationBoth"
 	case *affiliation.DeleteProfileParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -3900,5 +3915,114 @@ func (s *service) PutCacheTopContributors(ctx context.Context, params *affiliati
 	precacheMtx.Unlock()
 	status.Text = "Spawned a new precaching process"
 	go s.precacheTopContributors()
+	return
+}
+
+// GetAffiliationSingle: API params:
+// /v1/affiliation/{projectSlug}/single/{uuid}/{dt}:
+// {projectSlug} - required path parameter: project_slug to search affiliation
+// {uuid} - required path parameter: UUID of the profile to get affiliation
+// {dt} - required path parameter: Date of affiliation (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z] (urlencoded)
+func (s *service) GetAffiliationSingle(ctx context.Context, params *affiliation.GetAffiliationSingleParams) (org *models.OrgOutput, err error) {
+	projectSlug := params.ProjectSlug
+	uuid := params.UUID
+	dt := time.Time(params.Dt)
+	org = &models.OrgOutput{}
+	log.Info(fmt.Sprintf("GetAffiliationSingle: projectSlug:%s uuid:%s dt:%v", projectSlug, uuid, dt))
+	// Check token and permission
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetAffiliationSingle(exit): projectSlug:%s uuid:%s dt:%v apiName:%s projects:%+v username:%s org:%v err:%v",
+				projectSlug,
+				uuid,
+				dt,
+				apiName,
+				projects,
+				username,
+				org,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	projectSlug = projects[0]
+	org.Org = s.shDB.GetAffiliationsSingle(projectSlug, uuid, dt, nil)
+	return
+}
+
+// GetAffiliationMultiple: API params:
+// /v1/affiliation/{projectSlug}/multiple/{uuid}/{dt}:
+// {projectSlug} - required path parameter: project_slug to search affiliation
+// {uuid} - required path parameter: UUID of the profile to get affiliation
+// {dt} - required path parameter: Date of affiliation (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z] (urlencoded)
+func (s *service) GetAffiliationMultiple(ctx context.Context, params *affiliation.GetAffiliationMultipleParams) (orgs *models.OrgsOutput, err error) {
+	projectSlug := params.ProjectSlug
+	uuid := params.UUID
+	dt := time.Time(params.Dt)
+	orgs = &models.OrgsOutput{}
+	log.Info(fmt.Sprintf("GetAffiliationMultiple: projectSlug:%s uuid:%s dt:%v", projectSlug, uuid, dt))
+	// Check token and permission
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetAffiliationMultiple(exit): projectSlug:%s uuid:%s dt:%v apiName:%s projects:%+v username:%s orgs:%v err:%v",
+				projectSlug,
+				uuid,
+				dt,
+				apiName,
+				projects,
+				username,
+				orgs,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	projectSlug = projects[0]
+	orgs.Orgs = s.shDB.GetAffiliationsMulti(projectSlug, uuid, dt, nil)
+	return
+}
+
+// GetAffiliationBoth: API params:
+// /v1/affiliation/{projectSlug}/both/{uuid}/{dt}:
+// {projectSlug} - required path parameter: project_slug to search affiliation
+// {uuid} - required path parameter: UUID of the profile to get affiliation
+// {dt} - required path parameter: Date of affiliation (default is 1900-01-01), must be in format 2015-05-05T15:15[:05Z] (urlencoded)
+func (s *service) GetAffiliationBoth(ctx context.Context, params *affiliation.GetAffiliationBothParams) (out *models.OrgAndOrgsOutput, err error) {
+	projectSlug := params.ProjectSlug
+	uuid := params.UUID
+	dt := time.Time(params.Dt)
+	out = &models.OrgAndOrgsOutput{}
+	log.Info(fmt.Sprintf("GetAffiliationBoth: projectSlug:%s uuid:%s dt:%v", projectSlug, uuid, dt))
+	// Check token and permission
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetAffiliationBoth(exit): projectSlug:%s uuid:%s dt:%v apiName:%s projects:%+v username:%s out:%v err:%v",
+				projectSlug,
+				uuid,
+				dt,
+				apiName,
+				projects,
+				username,
+				out,
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	projectSlug = projects[0]
+	out.Org = s.shDB.GetAffiliationsSingle(projectSlug, uuid, dt, nil)
+	out.Orgs = s.shDB.GetAffiliationsMulti(projectSlug, uuid, dt, nil)
 	return
 }

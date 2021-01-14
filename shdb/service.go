@@ -105,6 +105,10 @@ type Service interface {
 	DeleteSlugMapping(string) (*models.TextStatusOutput, error)
 	DropSlugMapping(string, bool, *sql.Tx) error
 	EditSlugMapping(*models.SlugMapping, *models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
+	// Affiliations
+	GetAffiliations(string, string, time.Time, bool, *sql.Tx) []string
+	GetAffiliationsSingle(string, string, time.Time, *sql.Tx) string
+	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
 	// Other
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
@@ -183,6 +187,181 @@ const (
 	DateTimeFormat  = "%Y-%m-%dT%H:%i:%s.%fZ"
 	MapOrgNamesFile = "map_org_names.yaml"
 )
+
+// GetAffiliationsSingle - returns org name (or Unknown) for given uuid and date
+func (s *service) GetAffiliationsSingle(pSlug, uuid string, dt time.Time, tx *sql.Tx) (org string) {
+	orgs := s.GetAffiliations(pSlug, uuid, dt, true, tx)
+	if len(orgs) == 0 {
+		org = "Unknown"
+		return
+	}
+	org = orgs[0]
+	return
+}
+
+// GetAffiliationsMulti - returns org name(s) for given uuid and name
+// Returns 1 or more organizations (all that matches the current date)
+// If none matches it returns array [Unknown]
+func (s *service) GetAffiliationsMulti(pSlug, uuid string, dt time.Time, tx *sql.Tx) (orgs []string) {
+	orgs = s.GetAffiliations(pSlug, uuid, dt, false, tx)
+	if len(orgs) == 0 {
+		orgs = append(orgs, "Unknown")
+	}
+	return
+}
+
+// GetAffiliations - returns enrollments for a given uuid in a given date, possibly multiple
+func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool, tx *sql.Tx) (orgs []string) {
+	sdb := s.rodb
+	if tx != nil {
+		sdb = s.db
+	}
+	fmt.Printf("(%s,%s,%v,%v)\n", pSlug, uuid, dt, single)
+	defer func() { fmt.Printf("(%s,%s,%v,%v) -> %v\n", pSlug, uuid, dt, single, orgs) }()
+	// Step 1: Try project slug first
+	// in single mode, if multiple companies are found, return the most recent
+	// in multiple mode this can return many different companies and this is ok
+	if pSlug != "" {
+		rows := s.QueryToStringArray(
+			sdb,
+			tx,
+			"select distinct o.name from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.project_slug = ? and e.start <= ? and e.end > ? order by e.id desc",
+			uuid,
+			pSlug,
+			dt,
+			dt,
+		)
+		if single {
+			if len(rows) > 0 {
+				orgs = []string{rows[0]}
+				return
+			}
+		} else {
+			orgs = append(orgs, rows...)
+		}
+	}
+	// Step 2: Try foundation-f (for example cncf/* --> cncf-f)
+	// in single mode, if multiple companies are found, return the most recent
+	// in multiple mode this can return many different companies and this is ok
+	if pSlug != "" && len(orgs) == 0 {
+		ary := strings.Split(pSlug, "/")
+		if len(ary) > 1 {
+			slugF := ary[0] + "-f"
+			rows, ids := s.QueryToStringIntArrays(
+				sdb,
+				tx,
+				"select o.name, max(e.id) from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.project_slug = ? and e.start <= ? and e.end > ? group by o.name order by e.id desc",
+				uuid,
+				slugF,
+				dt,
+				dt,
+			)
+			if single {
+				if len(rows) > 0 {
+					orgs = []string{rows[0]}
+					_, _ = s.Exec(
+						sdb,
+						tx,
+						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+						pSlug,
+						"Contributor",
+						ids[0],
+					)
+					return
+				}
+			} else {
+				orgs = append(orgs, rows...)
+			}
+		}
+	}
+	// Step 3: try global second, only if no project specific were found
+	// in single mode, if multiple companies are found, return the most recent
+	// in multiple mode this can return many different companies and this is ok
+	if len(orgs) == 0 {
+		rows := s.QueryToStringArray(
+			sdb,
+			tx,
+			"select distinct o.name from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.project_slug is null and e.start <= ? and e.end > ? order by e.id desc",
+			uuid,
+			dt,
+			dt,
+		)
+		if single {
+			if len(rows) > 0 {
+				orgs = []string{rows[0]}
+				return
+			}
+		} else {
+			orgs = append(orgs, rows...)
+		}
+	}
+	// Step 4: try anything from the same foundation, only if nothing is found so far
+	// in single mode, if multiple companies are found, return the most recent
+	// in multiple mode this can return many different companies and this is ok
+	if pSlug != "" && len(orgs) == 0 {
+		ary := strings.Split(pSlug, "/")
+		if len(ary) > 1 {
+			slugLike := ary[0] + "/%"
+			rows, ids := s.QueryToStringIntArrays(
+				sdb,
+				tx,
+				"select o.name, max(e.id) from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.project_slug like ? and e.start <= ? and e.end > ? group by o.name order by e.id desc",
+				uuid,
+				slugLike,
+				dt,
+				dt,
+			)
+			if single {
+				if len(rows) > 0 {
+					orgs = []string{rows[0]}
+					_, _ = s.Exec(
+						sdb,
+						tx,
+						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+						pSlug,
+						"Contributor",
+						ids[0],
+					)
+					return
+				}
+			} else {
+				orgs = append(orgs, rows...)
+			}
+		}
+	}
+	// Step 5: try anything else, only if nothing is found so far
+	// in single mode, if multiple companies are found, return the most recent
+	// in multiple mode this can return many different companies and this is ok
+	if len(orgs) == 0 {
+		rows, ids := s.QueryToStringIntArrays(
+			sdb,
+			tx,
+			"select o.name, max(e.id) from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.start <= ? and e.end > ? group by o.name order by e.id desc",
+			uuid,
+			dt,
+			dt,
+		)
+		if single {
+			if len(rows) > 0 {
+				orgs = []string{rows[0]}
+				if pSlug != "" {
+					_, _ = s.Exec(
+						sdb,
+						tx,
+						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+						pSlug,
+						"Contributor",
+						ids[0],
+					)
+				}
+				return
+			}
+		} else {
+			orgs = append(orgs, rows...)
+		}
+	}
+	return
+}
 
 func (s *service) GetCountry(countryCode string, tx *sql.Tx) (countryData *models.CountryDataOutput, err error) {
 	log.Info(fmt.Sprintf("GetCountry: countryCode:%s tx:%v", countryCode, tx != nil))

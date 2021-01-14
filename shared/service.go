@@ -1071,6 +1071,62 @@ func (s *ServiceStruct) Exec(db *sqlx.DB, tx *sql.Tx, query string, args ...inte
 	return s.ExecTX(tx, query, args...)
 }
 
+// QueryToStringArray - execute SQL query returning multiple rows each containitg a single string column
+func (s *ServiceStruct) QueryToStringArray(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (res []string) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	rows, err = s.Query(db, tx, query, args...)
+	if err != nil {
+		return
+	}
+	var item string
+	for rows.Next() {
+		err = rows.Scan(&item)
+		if err != nil {
+			return
+		}
+		res = append(res, item)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	_ = rows.Close()
+	return
+}
+
+// QueryToStringIntArrays - execute SQL query returning multiple rows each containitg (string,int64)
+func (s *ServiceStruct) QueryToStringIntArrays(db *sqlx.DB, tx *sql.Tx, query string, args ...interface{}) (sa []string, ia []int64) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	rows, err = s.Query(db, tx, query, args...)
+	if err != nil {
+		return
+	}
+	var (
+		st string
+		i  int64
+	)
+	for rows.Next() {
+		err = rows.Scan(&st, &i)
+		if err != nil {
+			return
+		}
+		sa = append(sa, st)
+		ia = append(ia, i)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	_ = rows.Close()
+	return
+}
+
 // DA2SF - map DA name to SF name (fallback to no change)
 func (s *ServiceStruct) DA2SF(da string) (sf string) {
 	var ok bool
