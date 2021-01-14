@@ -52,7 +52,7 @@ type Service interface {
 	// Identity
 	TouchIdentity(string, *sql.Tx) (int64, error)
 	GetIdentity(string, bool, *sql.Tx) (*models.IdentityDataOutput, error)
-	GetIdentityByUser(key string, value string, missingFatal bool, tx *sql.Tx) (identityData *models.IdentityDataOutput, err error)
+	GetIdentityByUser(string, string, bool, *sql.Tx) (identityData *models.IdentityDataOutput, err error)
 	EditIdentity(*models.IdentityDataOutput, bool, *sql.Tx) (*models.IdentityDataOutput, error)
 	DeleteIdentity(string, bool, bool, *time.Time, *sql.Tx) error
 	ArchiveIdentity(string, *time.Time, *sql.Tx) error
