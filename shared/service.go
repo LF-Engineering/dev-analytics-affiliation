@@ -46,6 +46,8 @@ const (
 )
 
 var (
+	// GRedactedMtx - mutex protecting GRedacted
+	GRedactedMtx = &sync.Mutex{}
 	// GRedacted - keep redacted string that shoudl not be returned to the client
 	GRedacted = map[string]struct{}{}
 	// GSQLOut - if set displays all SQLs that are executed (if not set, only failed ones)

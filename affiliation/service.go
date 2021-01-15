@@ -201,7 +201,9 @@ func (s *service) checkToken(tokenStr string) (username string, agw bool, err er
 		return
 	}
 	auth0Audience := os.Getenv("AUTH0_AUDIENCE")
+	shared.GRedactedMtx.Lock()
 	shared.GRedacted[auth0Audience] = struct{}{}
+	shared.GRedactedMtx.Unlock()
 	if !strings.HasPrefix(auth0Audience, "https://") {
 		auth0Audience = "https://" + auth0Audience
 	}
@@ -269,6 +271,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	// Extract params depending on API type
 	auth := ""
 	projectsStr := ""
+	noUpdate := false
 	switch params := iParams.(type) {
 	case *affiliation.GetMatchingBlacklistParams:
 		auth = params.Authorization
@@ -329,14 +332,17 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		auth = params.Authorization
 		projectsStr = params.ProjectSlug
 		apiName = "GetAffiliationSingle"
+		noUpdate = true
 	case *affiliation.GetAffiliationMultipleParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlug
 		apiName = "GetAffiliationMultiple"
+		noUpdate = true
 	case *affiliation.GetAffiliationBothParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlug
 		apiName = "GetAffiliationBoth"
+		noUpdate = true
 	case *affiliation.DeleteProfileParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -458,7 +464,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown params type"), errs.ErrServerError), "checkTokenAndPermission")
 		return
 	}
-	err = s.shDB.GetSlugMappings()
+	err = s.shDB.GetSlugMappings(noUpdate)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
 		return

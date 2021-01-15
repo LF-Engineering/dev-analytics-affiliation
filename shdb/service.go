@@ -98,7 +98,7 @@ type Service interface {
 	FetchMatchingBlacklist(string, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
 	DropMatchingBlacklist(string, bool, *sql.Tx) error
 	// Slug Mappings
-	GetSlugMappings() error
+	GetSlugMappings(bool) error
 	GetListSlugMappings() (*models.ListSlugMappings, error)
 	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
 	AddSlugMapping(*models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
@@ -8254,9 +8254,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	return
 }
 
-func (s *service) GetSlugMappings() error {
+func (s *service) GetSlugMappings(noUpdate bool) error {
 	shared.GSlugMappingMtx.Lock()
 	defer shared.GSlugMappingMtx.Unlock()
+	if noUpdate && shared.GDA2SF != nil && shared.GSF2DA != nil {
+		return nil
+	}
 	rows, err := s.Query(s.rodb, nil, "select da_name, sf_name from slug_mapping")
 	if err != nil {
 		return err
