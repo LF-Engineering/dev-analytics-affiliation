@@ -8255,6 +8255,8 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 }
 
 func (s *service) GetSlugMappings() error {
+	shared.GSlugMappingMtx.Lock()
+	defer shared.GSlugMappingMtx.Unlock()
 	rows, err := s.Query(s.rodb, nil, "select da_name, sf_name from slug_mapping")
 	if err != nil {
 		return err

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"database/sql"
@@ -51,6 +52,8 @@ var (
 	GSQLOut bool
 	// GSyncURL - used to trigger ssaw sync
 	GSyncURL string
+	// GSlugMappingMtx - mutex protecting GDA2SF and GSF2DA
+	GSlugMappingMtx = &sync.Mutex{}
 	// GDA2SF - map DA name to SF name
 	GDA2SF map[string]string
 	// GSF2DA - map SF name to DA name
@@ -1129,6 +1132,8 @@ func (s *ServiceStruct) QueryToStringIntArrays(db *sqlx.DB, tx *sql.Tx, query st
 
 // DA2SF - map DA name to SF name (fallback to no change)
 func (s *ServiceStruct) DA2SF(da string) (sf string) {
+	GSlugMappingMtx.Lock()
+	defer GSlugMappingMtx.Unlock()
 	var ok bool
 	sf, ok = GDA2SF[da]
 	if !ok {
@@ -1139,6 +1144,8 @@ func (s *ServiceStruct) DA2SF(da string) (sf string) {
 
 // SF2DA - map SF name to DA name (fallback to no change)
 func (s *ServiceStruct) SF2DA(sf string) (da string) {
+	GSlugMappingMtx.Lock()
+	defer GSlugMappingMtx.Unlock()
 	var ok bool
 	da, ok = GSF2DA[sf]
 	if !ok {
