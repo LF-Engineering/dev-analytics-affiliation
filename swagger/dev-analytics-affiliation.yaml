@@ -660,6 +660,39 @@ paths:
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/id'
+  /affiliation/identity/{name}/{value}:
+    get:
+      summary: Get identity with given type name and value
+      operationId: getIdentityByUser
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/identity-data-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - get_identity_by_user
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/name'
+        - $ref: '#/parameters/value'
   /affiliation/{projectSlugs}/get_profile/{uuid}:
     get:
       summary: Get profile with given UUID
@@ -1921,6 +1954,18 @@ parameters:
     type: string
     required: true
     description: ID of the user
+  name:
+    name: name
+    in: path
+    type: string
+    required: true
+    description: search key
+  value:
+    name: value
+    in: path
+    type: string
+    required: true
+    description: search value
   uuid:
     name: uuid
     in: path

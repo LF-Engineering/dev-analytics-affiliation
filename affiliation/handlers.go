@@ -422,6 +422,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetIdentityByUserHandler = affiliation.GetIdentityByUserHandlerFunc(
+		func(params affiliation.GetIdentityByUserParams) middleware.Responder {
+			log.Info("GetIdentityByUserHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetIdentityByUserHandlerFunc: " + info)
+
+			result, err := service.GetIdentityByUser(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetIdentityByUserHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetIdentityHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetIdentityByUserOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationGetProfileHandler = affiliation.GetProfileHandlerFunc(
 		func(params affiliation.GetProfileParams) middleware.Responder {
 			log.Info("GetProfileHandlerFunc")
