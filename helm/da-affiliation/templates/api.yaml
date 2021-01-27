@@ -158,26 +158,21 @@ spec:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
               key: STAGE.secret
-        - name: AUTH0_PROD_GRANT_TYPE
+        - name: AUTH0_GRANT_TYPE
           valueFrom:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
-              key: AUTH0_PROD_GRANT_TYPE.secret
-        - name: AUTH0_PROD_CLIENT_ID
+              key: AUTH0_GRANT_TYPE.secret
+        - name: AUTH0_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
-              key: AUTH0_PROD_CLIENT_ID.secret
-        - name: AUTH0_PROD_CLIENT_SECRET
+              key: AUTH0_CLIENT_SECRET.secret
+        - name: AUTH0_AUDIENCE
           valueFrom:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
-              key: AUTH0_PROD_CLIENT_SECRET.secret
-        - name: AUTH0_PROD_AUDIENCE
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.apiSecret }}
-              key: AUTH0_PROD_AUDIENCE.secret
+              key: AUTH0_AUDIENCE.secret
         - name: AUTH0_TOKEN_ENDPOINT
           valueFrom:
             secretKeyRef:

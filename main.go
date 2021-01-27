@@ -144,10 +144,10 @@ func initOrg() *orgservice.Org {
 		os.Getenv("ELASTIC_CACHE_USERNAME"),
 		os.Getenv("ELASTIC_CACHE_PASSWORD"),
 		os.Getenv("STAGE"),
-		os.Getenv("AUTH0_PROD_GRANT_TYPE"),
-		os.Getenv("AUTH0_PROD_CLIENT_ID"),
-		os.Getenv("AUTH0_PROD_CLIENT_SECRET"),
-		os.Getenv("AUTH0_PROD_AUDIENCE"),
+		os.Getenv("AUTH0_GRANT_TYPE"),
+		os.Getenv("AUTH0_CLIENT_ID"),
+		os.Getenv("AUTH0_CLIENT_SECRET"),
+		os.Getenv("AUTH0_AUDIENCE"),
 		os.Getenv("AUTH0_TOKEN_ENDPOINT"),
 	)
 
