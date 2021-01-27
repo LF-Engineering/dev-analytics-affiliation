@@ -130,6 +130,7 @@ type Service interface {
 	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
 	UpdateProjectSlugs(map[string][]string) (string, error)
 	DedupEnrollments() error
+	BeginTx() (*sql.Tx, error)
 	// SSAW related
 	// NotifySSAW()
 	// SetOrigin()
@@ -150,8 +151,8 @@ type Service interface {
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, []string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
-	MergeUniqueIdentities(string, string, bool) (string, bool, error)
-	MoveIdentity(string, string, bool) error
+	MergeUniqueIdentities(string, string, bool, *sql.Tx) (string, bool, error)
+	MoveIdentity(string, string, bool, *sql.Tx) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
 	MergeAll(int, bool) (string, error)
@@ -188,6 +189,11 @@ const (
 	DateTimeFormat  = "%Y-%m-%dT%H:%i:%s.%fZ"
 	MapOrgNamesFile = "map_org_names.yaml"
 )
+
+// BeginTx - begin transaction on R/W connection
+func (s *service) BeginTx() (*sql.Tx, error) {
+	return s.db.Begin()
+}
 
 // GetAffiliationsSingle - returns org name (or Unknown) for given uuid and date
 func (s *service) GetAffiliationsSingle(pSlug, uuid string, dt time.Time, tx *sql.Tx) (org string) {
@@ -5372,11 +5378,12 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 	return
 }
 
-func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (updateESUUID string, updateESIsBot bool, err error) {
-	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
+func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool, tx *sql.Tx) (updateESUUID string, updateESIsBot bool, err error) {
+	externalTx := tx != nil
+	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v tx:%v/%v", fromUUID, toUUID, archive, tx != nil, externalTx))
 	// s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, err))
+		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v tx:%v/%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, tx != nil, externalTx, err))
 	}()
 	if fromUUID == toUUID {
 		return
@@ -5397,16 +5404,18 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 	if err != nil {
 		return
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
+	if !externalTx {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
 		}
-	}()
+		// Rollback unless tx was set to nil after successful commit
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+	}
 	// Archive fromUUID and toUUID objects, all with the same archived_at date
 	if archive {
 		archivedDate := time.Now()
@@ -5501,12 +5510,14 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 			return
 		}
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if !externalTx {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
 	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
 	return
 }
 
@@ -5623,11 +5634,12 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	return
 }
 
-func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) {
-	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
+func (s *service) MoveIdentity(fromID, toUUID string, archive bool, tx *sql.Tx) (err error) {
+	externalTx := tx != nil
+	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v tx:%v/%v", fromID, toUUID, archive, tx != nil, externalTx))
 	// s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v err:%v", fromID, toUUID, archive, err))
+		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v tx:%v/%v err:%v", fromID, toUUID, archive, tx != nil, externalTx, err))
 	}()
 	if archive {
 		unarchived := false
@@ -5653,16 +5665,18 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveIdentity")
 		return
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
+	if !externalTx {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
 		}
-	}()
+		// Rollback unless tx was set to nil after successful commit
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+	}
 	if to == nil {
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
@@ -5691,12 +5705,14 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	if err != nil {
 		return
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if !externalTx {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
 	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
 	return
 }
 

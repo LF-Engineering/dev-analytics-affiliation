@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"io/ioutil"
@@ -2506,19 +2507,37 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 	}
 	// defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
+	var tx *sql.Tx
+	tx, err = s.shDB.BeginTx()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
 	esUUID := ""
 	esIsBot := false
-	esUUID, esIsBot, err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive)
+	esUUID, esIsBot, err = s.shDB.MergeUniqueIdentities(fromUUID, toUUID, archive, tx)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, projects, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, projects, tx)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	err = tx.Commit()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	if len(ary) == 0 {
 		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
@@ -2580,17 +2599,35 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 	}
 	// defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
-	err = s.shDB.MoveIdentity(fromID, toUUID, archive)
+	var tx *sql.Tx
+	tx, err = s.shDB.BeginTx()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	err = s.shDB.MoveIdentity(fromID, toUUID, archive, tx)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
 	var ary []*models.UniqueIdentityNestedDataOutput
-	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, projects, nil)
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+toUUID, 1, 1, false, projects, tx)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	err = tx.Commit()
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	// Set tx to nil, so deferred rollback will not happen
+	tx = nil
 	if len(ary) == 0 {
 		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", toUUID), apiName)
 		return
