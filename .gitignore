@@ -56,3 +56,4 @@ sh/*.sql
 data.json
 confluence.txt
 secret/
+dump.sql

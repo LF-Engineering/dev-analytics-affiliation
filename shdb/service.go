@@ -4512,19 +4512,14 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				rid := 0
+				// To avoid updates while feching rows - we need to fetch all rws and then update after rows are closed
+				rids := []int{}
 				for rows.Next() {
 					err = rows.Scan(&rid)
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
-					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
-						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
-						return
-					}
-					if err != nil {
-						conflicts++
-					}
+					rids = append(rids, rid)
 				}
 				err = rows.Err()
 				if err != nil {
@@ -4534,7 +4529,18 @@ func (s *service) MapOrgNames() (status string, err error) {
 				if err != nil {
 					return
 				}
-				affected++
+				for _, rid := range rids {
+					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						conflicts++
+						continue
+					}
+					affected++
+				}
 			} else {
 				affected, err = res.RowsAffected()
 			}
@@ -4558,20 +4564,16 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				rid := 0
+				rids := []int{}
 				var archivedAt time.Time
+				archivedAts := []time.Time{}
 				for rows.Next() {
 					err = rows.Scan(&rid, &archivedAt)
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
-					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
-						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
-						return
-					}
-					if err != nil {
-						archivedConflicts++
-					}
+					rids = append(rids, rid)
+					archivedAts = append(archivedAts, archivedAt)
 				}
 				err = rows.Err()
 				if err != nil {
@@ -4581,7 +4583,20 @@ func (s *service) MapOrgNames() (status string, err error) {
 				if err != nil {
 					return
 				}
-				affected++
+				for i := range rids {
+					rid := rids[i]
+					archivedAt := archivedAts[i]
+					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						archivedConflicts++
+						continue
+					}
+					affected++
+				}
 			} else {
 				affected, err = res.RowsAffected()
 			}
