@@ -281,7 +281,7 @@ paths:
               type: string
               description: Request ID
           schema:
-            $ref: "#/definitions/get-list-organizations-service-output"
+            $ref: "#/definitions/get-list-organizations-output"
         "400":
           $ref: "#/responses/bad-request"
         "401":
@@ -2499,51 +2499,6 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/domain-data-output"
-  organization-service-data-output:
-    title: Organization data with nested organization domains
-    description: Organization data with nested organization domains
-    type: object
-    properties:
-      id:
-        type: string
-        example: "00Ta3420000Te"
-      name:
-        type: string
-        example: CNCF
-      domains:
-        type: array
-        items:
-          $ref: "#/definitions/domain-data-output"
-  get-list-organizations-service-output:
-    title: List organizations data output
-    description: List organizations data
-    type: object
-    properties:
-      user:
-        type: string
-        example: testusername
-      scope:
-        type: string
-        example: academy-software-foundation/opencue
-      n_pages:
-        type: integer
-        example: 10
-      page:
-        type: integer
-        example: 1
-      search:
-        type: string
-        example: 'q=root'
-      n_records:
-        type: integer
-        example: 55
-      rows:
-        type: integer
-        example: 9
-      organizations:
-        type: array
-        items:
-          $ref: "#/definitions/organization-service-data-output"
   get-list-organizations-output:
     title: List organizations data output
     description: List organizations data
