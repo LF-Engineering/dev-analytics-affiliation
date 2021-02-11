@@ -99,7 +99,7 @@ type Service interface {
 	FetchMatchingBlacklist(string, bool, *sql.Tx) (*models.MatchingBlacklistOutput, error)
 	DropMatchingBlacklist(string, bool, *sql.Tx) error
 	// Slug Mappings
-	GetSlugMappings() error
+	GetSlugMappings(bool) error
 	GetListSlugMappings() (*models.ListSlugMappings, error)
 	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
 	AddSlugMapping(*models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
@@ -130,6 +130,7 @@ type Service interface {
 	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
 	UpdateProjectSlugs(map[string][]string) (string, error)
 	DedupEnrollments() error
+	BeginTx() (*sql.Tx, error)
 	// SSAW related
 	// NotifySSAW()
 	// SetOrigin()
@@ -150,8 +151,8 @@ type Service interface {
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, []string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
-	MergeUniqueIdentities(string, string, bool) (string, bool, error)
-	MoveIdentity(string, string, bool) error
+	MergeUniqueIdentities(string, string, bool, *sql.Tx) (string, bool, error)
+	MoveIdentity(string, string, bool, *sql.Tx) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
 	MergeAll(int, bool) (string, error)
@@ -188,6 +189,11 @@ const (
 	DateTimeFormat  = "%Y-%m-%dT%H:%i:%s.%fZ"
 	MapOrgNamesFile = "map_org_names.yaml"
 )
+
+// BeginTx - begin transaction on R/W connection
+func (s *service) BeginTx() (*sql.Tx, error) {
+	return s.db.Begin()
+}
 
 // GetAffiliationsSingle - returns org name (or Unknown) for given uuid and date
 func (s *service) GetAffiliationsSingle(pSlug, uuid string, dt time.Time, tx *sql.Tx) (org string) {
@@ -4506,19 +4512,14 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				rid := 0
+				// To avoid updates while feching rows - we need to fetch all rws and then update after rows are closed
+				rids := []int{}
 				for rows.Next() {
 					err = rows.Scan(&rid)
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
-					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
-						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
-						return
-					}
-					if err != nil {
-						conflicts++
-					}
+					rids = append(rids, rid)
 				}
 				err = rows.Err()
 				if err != nil {
@@ -4528,7 +4529,18 @@ func (s *service) MapOrgNames() (status string, err error) {
 				if err != nil {
 					return
 				}
-				affected++
+				for _, rid := range rids {
+					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						conflicts++
+						continue
+					}
+					affected++
+				}
 			} else {
 				affected, err = res.RowsAffected()
 			}
@@ -4552,20 +4564,16 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				rid := 0
+				rids := []int{}
 				var archivedAt time.Time
+				archivedAts := []time.Time{}
 				for rows.Next() {
 					err = rows.Scan(&rid, &archivedAt)
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
-					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
-						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
-						return
-					}
-					if err != nil {
-						archivedConflicts++
-					}
+					rids = append(rids, rid)
+					archivedAts = append(archivedAts, archivedAt)
 				}
 				err = rows.Err()
 				if err != nil {
@@ -4575,7 +4583,20 @@ func (s *service) MapOrgNames() (status string, err error) {
 				if err != nil {
 					return
 				}
-				affected++
+				for i := range rids {
+					rid := rids[i]
+					archivedAt := archivedAts[i]
+					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						archivedConflicts++
+						continue
+					}
+					affected++
+				}
 			} else {
 				affected, err = res.RowsAffected()
 			}
@@ -5372,11 +5393,12 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 	return
 }
 
-func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (updateESUUID string, updateESIsBot bool, err error) {
-	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
+func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool, tx *sql.Tx) (updateESUUID string, updateESIsBot bool, err error) {
+	externalTx := tx != nil
+	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v tx:%v/%v", fromUUID, toUUID, archive, tx != nil, externalTx))
 	// s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, err))
+		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v tx:%v/%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, tx != nil, externalTx, err))
 	}()
 	if fromUUID == toUUID {
 		return
@@ -5397,16 +5419,18 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 	if err != nil {
 		return
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
+	if !externalTx {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
 		}
-	}()
+		// Rollback unless tx was set to nil after successful commit
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+	}
 	// Archive fromUUID and toUUID objects, all with the same archived_at date
 	if archive {
 		archivedDate := time.Now()
@@ -5501,12 +5525,14 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 			return
 		}
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if !externalTx {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
 	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
 	return
 }
 
@@ -5623,11 +5649,12 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	return
 }
 
-func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) {
-	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
+func (s *service) MoveIdentity(fromID, toUUID string, archive bool, tx *sql.Tx) (err error) {
+	externalTx := tx != nil
+	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v tx:%v/%v", fromID, toUUID, archive, tx != nil, externalTx))
 	// s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v err:%v", fromID, toUUID, archive, err))
+		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v tx:%v/%v err:%v", fromID, toUUID, archive, tx != nil, externalTx, err))
 	}()
 	if archive {
 		unarchived := false
@@ -5653,16 +5680,18 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveIdentity")
 		return
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
+	if !externalTx {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
 		}
-	}()
+		// Rollback unless tx was set to nil after successful commit
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+	}
 	if to == nil {
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
@@ -5691,12 +5720,14 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	if err != nil {
 		return
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if !externalTx {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
 	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
 	return
 }
 
@@ -8320,7 +8351,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 	return
 }
 
-func (s *service) GetSlugMappings() error {
+func (s *service) GetSlugMappings(noUpdate bool) error {
+	shared.GSlugMappingMtx.Lock()
+	defer shared.GSlugMappingMtx.Unlock()
+	if noUpdate && shared.GDA2SF != nil && shared.GSF2DA != nil {
+		return nil
+	}
 	rows, err := s.Query(s.rodb, nil, "select da_name, sf_name from slug_mapping")
 	if err != nil {
 		return err

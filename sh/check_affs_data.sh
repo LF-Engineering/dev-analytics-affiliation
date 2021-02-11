@@ -103,8 +103,10 @@ do
     else
       echo "${data}"
     fi
-    echo "ElasticSearch ${PATTERN}:"
-    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select metadata__gelk_backend_name, origin, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') group by metadata__gelk_backend_name, origin, author_org_name order by cnt desc\"}" | tail -n +2`
+    echo "ElasticSearch ${PATTERN}: author_uuid/author_id: ${uuid}"
+    #es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') or author_id in ('${uuid}') group by metadata__gelk_backend_name, author_id, author_uuid, origin, author_org_name order by cnt desc\"}" | tail -n +2`
+    #echo curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') or author_id in ('${uuid}') group by metadata__gelk_backend_name, author_id, author_uuid, origin, author_org_name order by cnt desc\"}"
+    es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_uuid in ('${uuid}') or author_id in ('${uuid}') group by metadata__gelk_backend_name, author_id, author_uuid, origin, author_org_name order by cnt desc\"}"`
     echo "${es}"
     ((i=i+1))
   done
@@ -147,4 +149,8 @@ do
       conds="${conds} or ${cond}"
     fi
   done
+  echo "ElasticSearch ${PATTERN}: author_name: ${name}"
+  #echo curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_name in ('${name}') group by metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name order by cnt desc\"}"
+  es=`curl -s -XPOST -H 'Content-type: application/json' "${ES}/_sql?format=tsv" -d"{\"query\":\"select metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name, count(*) as cnt, min(grimoire_creation_date), max(grimoire_creation_date) from \\\\\"${PATTERN}\\\\\" where author_name in ('${name}') group by metadata__gelk_backend_name, origin, author_id, author_uuid, author_org_name order by cnt desc\"}"`
+  echo "${es}"
 done
