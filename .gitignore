@@ -56,3 +56,5 @@ sh/*.sql
 data.json
 confluence.txt
 secret/
+
+.idea
