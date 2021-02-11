@@ -2091,12 +2091,13 @@ func (s *service) GetIdentityByUser(key string, value string, missingFatal bool,
 	if tx != nil {
 		sdb = s.db
 	}
+
 	identityData = &models.IdentityDataOutput{}
+	q := fmt.Sprintf("select id, uuid, source, name, username, email, last_modified from identities where %s = ? limit 1", key)
 	rows, err := s.Query(
 		sdb,
 		tx,
-		"select id, uuid, source, name, username, email, last_modified from identities where ? = ? limit 1",
-		key,
+		q,
 		value,
 	)
 	if err != nil {

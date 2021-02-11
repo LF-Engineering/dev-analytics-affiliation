@@ -8,6 +8,7 @@ require (
 	github.com/awslabs/aws-lambda-go-api-proxy v0.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/elastic/go-elasticsearch/v7 v7.6.0
+	github.com/fnproject/fdk-go v0.0.3
 	github.com/go-openapi/errors v0.19.9
 	github.com/go-openapi/loads v0.20.1
 	github.com/go-openapi/runtime v0.19.26
@@ -28,6 +29,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
+	github.com/tencentyun/scf-go-lib v0.0.0-20200624065115-ba679e2ec9c9
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/sys v0.0.0-20201126233918-771906719818 // indirect
 	golang.org/x/text v0.3.5
