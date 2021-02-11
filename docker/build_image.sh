@@ -9,6 +9,7 @@ image="${DOCKER_USER}/dev-analytics-affiliation-api"
 if [ ! -z "${1}" ]
 then
   image="${image}-${1}"
+  git checkout "${1}" || exit 5
 fi
 
 make docker || exit 2
