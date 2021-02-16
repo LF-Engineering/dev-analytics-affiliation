@@ -1071,16 +1071,17 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 	}()
 	uniqueIdentity.UUID = strings.TrimSpace(uniqueIdentity.UUID)
 	if uniqueIdentity.LastModified == nil {
-		uniqueIdentity.LastModified = s.Now()
+		uniqueIdentity.LastModified, err = s.DBDateTime()
+		if err != nil{
+			return nil, err
+		}
 	}
 	// s.SetOrigin()
+	q := fmt.Sprintf("INSERT INTO uidentities (uuid, last_modified) select '%+v', str_to_date('%+v', '%+v');", uniqueIdentity.UUID, uniqueIdentity.LastModified, DateTimeFormat)
 	_, err = s.Exec(
 		s.db,
 		tx,
-		"insert into uidentities(uuid, last_modified) select ?, str_to_date(?, ?)",
-		uniqueIdentity.UUID,
-		uniqueIdentity.LastModified,
-		DateTimeFormat,
+		q,
 	)
 	if err != nil {
 		uniqueIdentity = nil
