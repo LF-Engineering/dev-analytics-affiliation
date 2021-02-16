@@ -34,7 +34,7 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (*models.GetL
 	getListOrganizations := &models.GetListOrganizationsServiceOutput{}
 	nRows := int64(0)
 	var orgs []*models.OrganizationServiceDataOutput
-	response, err := s.client.SearchOrganization(q, strconv.FormatInt(rows, 10), strconv.FormatInt(page, 10))
+	response, err := s.client.SearchOrganization(q, strconv.FormatInt(rows, 10), strconv.FormatInt(page-1, 10))
 	if err != nil {
 		return nil, err
 	}
