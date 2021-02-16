@@ -833,6 +833,19 @@ func (s *ServiceStruct) Now() *strfmt.DateTime {
 	return &n
 }
 
+// DBDateTime returns the time right now formatted in the way expected by the db `2006-01-02 15:04:05`
+func (s *ServiceStruct) DBDateTime() (*strfmt.DateTime, error) {
+	// this is the layout format we use in the db
+	layout := "2006-01-02 15:04:05"
+	now := time.Now().Format(layout)
+	t, err := time.Parse(layout, now)
+	if err != nil {
+		return nil, err
+	}
+	n := strfmt.DateTime(t)
+	return &n, nil
+}
+
 // TimeParseAny - parse time from string
 func (s *ServiceStruct) TimeParseAny(dtStr string) (time.Time, error) {
 	formats := []string{
