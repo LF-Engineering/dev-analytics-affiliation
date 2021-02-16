@@ -13,17 +13,17 @@ import (
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/affiliation"
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
+	"github.com/LF-Engineering/dev-analytics-affiliation/cmd"
 	"github.com/LF-Engineering/dev-analytics-affiliation/docs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
-	"github.com/LF-Engineering/dev-analytics-affiliation/health"
-	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
-	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
-
-	"github.com/LF-Engineering/dev-analytics-affiliation/cmd"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations"
-
+	"github.com/LF-Engineering/dev-analytics-affiliation/health"
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
+	"github.com/LF-Engineering/dev-analytics-affiliation/platform"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
+	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
+	orgservice "github.com/LF-Engineering/dev-analytics-libraries/orgs"
 	"github.com/go-openapi/loads"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -137,6 +137,27 @@ func initES() (*elasticsearch.Client, string) {
 	return client, esURL
 }
 
+func initOrg() *orgservice.Org {
+	orgClient, err := orgservice.NewClient(
+		os.Getenv("PLATFORM_ORG_SERVICE_ENDPOINT"),
+		os.Getenv("ELASTIC_CACHE_URL"),
+		os.Getenv("ELASTIC_CACHE_USERNAME"),
+		os.Getenv("ELASTIC_CACHE_PASSWORD"),
+		os.Getenv("STAGE"),
+		os.Getenv("AUTH0_GRANT_TYPE"),
+		os.Getenv("AUTH0_CLIENT_ID"),
+		os.Getenv("AUTH0_CLIENT_SECRET"),
+		os.Getenv("AUTH0_AUDIENCE"),
+		os.Getenv("AUTH0_TOKEN_ENDPOINT"),
+	)
+
+	if err != nil {
+		log.Panicf("unable to get org client info: %v", err)
+	}
+
+	log.Println("Initialized", "Org Service", host)
+	return orgClient
+}
 func setupEnv() {
 	shared.GSQLOut = os.Getenv("DA_AFF_API_SQL_OUT") != ""
 	shared.GSyncURL = os.Getenv("SYNC_URL")
@@ -180,7 +201,8 @@ func main() {
 	shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
 	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
 	esService := elastic.New(initES())
-	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService)
+	organizationServiceAPI := platform.New(initOrg())
+	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI)
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)

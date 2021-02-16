@@ -24,6 +24,7 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
 	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
 	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
+	"github.com/LF-Engineering/dev-analytics-affiliation/platform"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 
@@ -51,7 +52,7 @@ type Service interface {
 	GetMatchingBlacklist(context.Context, *affiliation.GetMatchingBlacklistParams) (*models.GetMatchingBlacklistOutput, error)
 	PostMatchingBlacklist(context.Context, *affiliation.PostMatchingBlacklistParams) (*models.MatchingBlacklistOutput, error)
 	DeleteMatchingBlacklist(context.Context, *affiliation.DeleteMatchingBlacklistParams) (*models.TextStatusOutput, error)
-	GetListOrganizations(context.Context, *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsOutput, error)
+	GetListOrganizations(context.Context, *affiliation.GetListOrganizationsParams) (*models.GetListOrganizationsServiceOutput, error)
 	GetListOrganizationsDomains(context.Context, *affiliation.GetListOrganizationsDomainsParams) (*models.GetListOrganizationsDomainsOutput, error)
 	GetFindOrganizationByID(context.Context, *affiliation.GetFindOrganizationByIDParams) (*models.OrganizationDataOutput, error)
 	GetFindOrganizationByName(context.Context, *affiliation.GetFindOrganizationByNameParams) (*models.OrganizationDataOutput, error)
@@ -136,15 +137,17 @@ type service struct {
 	shDB      shdb.Service
 	shDBGitdm shdb.Service
 	es        elastic.Service
+	platform  platform.Service
 }
 
 // New is a simple helper function to create a service instance
-func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service) Service {
+func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service, platformAPI platform.Service) Service {
 	return &service{
 		apiDB:     apiDB,
 		shDB:      shDBAPI,
 		shDBGitdm: shDBGitdm,
 		es:        es,
+		platform:  platformAPI,
 	}
 }
 
@@ -730,7 +733,7 @@ func (s *service) toNoDates(in *models.UniqueIdentityNestedDataOutput) (out *mod
 // q - optional query parameter: if you specify that parameter only organizations where name like '%q%' will be returned
 // rows - optional query parameter: rows per page, if 0 no paging is used and page parameter is ignored, default 10 (setting to zero still limits results to 65535)
 // page - optional query parameter: if set, it will return rows from a given page, default 1
-func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.GetListOrganizationsParams) (getListOrganizations *models.GetListOrganizationsOutput, err error) {
+func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.GetListOrganizationsParams) (getListOrganizations *models.GetListOrganizationsServiceOutput, err error) {
 	q := ""
 	if params.Q != nil {
 		q = *params.Q
@@ -749,7 +752,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 			page = 1
 		}
 	}
-	getListOrganizations = &models.GetListOrganizationsOutput{}
+	getListOrganizations = &models.GetListOrganizationsServiceOutput{}
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
 	// Check token and permission
 	apiName, projects, username, err := s.checkTokenAndPermission(params)
@@ -759,7 +762,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 		if nOrgs > shared.LogListMax {
 			list = fmt.Sprintf("%d", nOrgs)
 		} else {
-			list = fmt.Sprintf("%+v", s.ToLocalNestedOrganizations(getListOrganizations.Organizations))
+			//list = fmt.Sprintf("%+v", s.ToLocalNestedOrganizations(getListOrganizations.Organizations))
 		}
 		log.Info(
 			fmt.Sprintf(
@@ -779,11 +782,12 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 		return
 	}
 	// Do the actual API call
-	getListOrganizations, err = s.shDB.GetListOrganizations(q, rows, page)
+	getListOrganizations, err = s.platform.GetListOrganizations(q, rows, page)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
 	}
+
 	getListOrganizations.User = username
 	getListOrganizations.Scope = s.AryDA2SF(projects)
 	return
@@ -1037,10 +1041,47 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	if err != nil {
 		return
 	}
-	organization, err = s.shDB.GetOrganizationByName(params.OrgName, true, nil)
+	// setting missingFatal = false, as we can now look up org using org service
+	organization, err = s.shDB.GetOrganizationByName(params.OrgName, false, nil)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
-		return
+		return nil, err
+	}
+
+	// If the user selected org does not exist in org table, we create the same in the organizations table.
+	// we get the domain from the lookup org service and then add the domain & org_name to the domain_organizations table.
+	if organization == nil {
+		sfdcOrg, err := s.platform.LookupOrganization(params.OrgName)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return nil, err
+		}
+		if sfdcOrg.Name != "" { // check to see whether Organization is available in org service or not
+			// Add org to affiliation db
+			organization, err = s.shDB.AddOrganization(
+				&models.OrganizationDataOutput{
+					Name: params.OrgName,
+				},
+				true,
+				nil,
+			)
+
+			if len(sfdcOrg.Domains) > 0 {
+				orgDomain := sfdcOrg.Domains[0].Name
+				// Add org and domain to affiliation db
+				_, err = s.shDB.PutOrgDomain(params.OrgName, orgDomain, false, true, true)
+				if err != nil {
+					err = errs.Wrap(err, apiName)
+					return nil, err
+				}
+			}
+		} else {
+			// Currently, we will return an error as organization is not present in SFDC nor in db
+			err = fmt.Errorf("Organization: '%s' not found in db as well org service", params.OrgName)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "LookupOrganization")
+			return nil, err
+		}
+
 	}
 	enrollment.OrganizationID = organization.ID
 	uniqueIdentity := &models.UniqueIdentityDataOutput{}
