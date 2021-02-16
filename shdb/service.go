@@ -1072,7 +1072,7 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 	uniqueIdentity.UUID = strings.TrimSpace(uniqueIdentity.UUID)
 	if uniqueIdentity.LastModified == nil {
 		uniqueIdentity.LastModified, err = s.DBDateTime()
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 	}
