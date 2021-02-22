@@ -3571,4 +3571,4 @@ mappings:
   - ['^[[:space:]]*apigee[[:space:]]\\(?apic\\)?[[:space:]]*$','Apigee Corporation']
   - ['^[[:space:]]*ipreo[[:space:]]*$', 'IHS Markit']
   - ['^[[:space:]]*cantor[[:space:]]fitzgerald[[:space:]]*$', 'Cantor Fitzgerald, L.P.']
-  - ['^[[:space:]]*(t-mobile[[:space:]]polska|t-mobile[[:space:]]pcs[[:space:]]holdings[[:space:]]llc|deutsche[[:space:]]telekom|t-systems)[[:space:]]*$', 'Deutsche Telekom AG']
+  - ['^[[:space:]]*(t-mobile[[:space:]]+polska|t-mobile[[:space:]]+pcs([[:space:]]+holdings)?|deutsche[[:space:]]+telekom|t-systems)[[:space:]]*(,?)[[:space:]]*(llc|corp)?(\.?)[[:space:]]*$', 'Deutsche Telekom AG']
