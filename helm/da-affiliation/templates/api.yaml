@@ -183,6 +183,11 @@ spec:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
               key: PLATFORM_ORG_SERVICE_ENDPOINT.secret
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: SLACK_WEBHOOK_URL.secret
       restartPolicy: {{ .Values.apiRestartPolicy }}
       nodeSelector:
 {{- with .Values.nodeSelector -}}

@@ -3,7 +3,6 @@ module github.com/LF-Engineering/dev-analytics-affiliation
 go 1.13
 
 require (
-	github.com/LF-Engineering/dev-analytics-libraries v0.4.10
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -29,5 +28,6 @@ require (
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/sys v0.0.0-20201126233918-771906719818 // indirect
 	golang.org/x/text v0.3.5
+	gopkg.in/resty.v1 v1.12.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
