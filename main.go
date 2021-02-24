@@ -24,6 +24,8 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
 	orgservice "github.com/LF-Engineering/dev-analytics-libraries/orgs"
+
+	"github.com/LF-Engineering/dev-analytics-libraries/slack"
 	"github.com/go-openapi/loads"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -138,6 +140,8 @@ func initES() (*elasticsearch.Client, string) {
 }
 
 func initOrg() *orgservice.Org {
+	slackProvider := slack.New(os.Getenv("SLACK_WEBHOOK_URL"))
+
 	orgClient, err := orgservice.NewClient(
 		os.Getenv("PLATFORM_ORG_SERVICE_ENDPOINT"),
 		os.Getenv("ELASTIC_CACHE_URL"),
@@ -149,6 +153,8 @@ func initOrg() *orgservice.Org {
 		os.Getenv("AUTH0_CLIENT_SECRET"),
 		os.Getenv("AUTH0_AUDIENCE"),
 		os.Getenv("AUTH0_TOKEN_ENDPOINT"),
+		"",
+		&slackProvider,
 	)
 
 	if err != nil {
@@ -158,6 +164,7 @@ func initOrg() *orgservice.Org {
 	log.Println("Initialized", "Org Service", host)
 	return orgClient
 }
+
 func setupEnv() {
 	shared.GSQLOut = os.Getenv("DA_AFF_API_SQL_OUT") != ""
 	shared.GSyncURL = os.Getenv("SYNC_URL")
