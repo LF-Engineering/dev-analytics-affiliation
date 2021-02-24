@@ -153,7 +153,6 @@ func initOrg() *orgservice.Org {
 		os.Getenv("AUTH0_CLIENT_SECRET"),
 		os.Getenv("AUTH0_AUDIENCE"),
 		os.Getenv("AUTH0_TOKEN_ENDPOINT"),
-		"",
 		&slackProvider,
 	)
 
