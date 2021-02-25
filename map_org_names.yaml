@@ -274,7 +274,7 @@ mappings:
   - ['^[[:space:]]*astrafox[[:space:]]*$','ASTRAFOX']
   - ['^[[:space:]]*astrazeneca[[:space:]]*$','AstraZeneca Pharmaceuticals']
   - ['^[[:space:]]*cingular[[:space:]]*$','AT&T Inc']
-  - ['^[[:space:]]*at&?t[[:space:]]*$','AT&T Services, Inc.']
+  - ['^[[:space:]]*a[[:space:]]*t[[:space:]]*&[[:space:]]*t[[:space:]]*(telecommunication|labs|entertainment)?[[:space:]]*,?([[:space:]]*inc)?.?','AT&T Services, Inc.']
   - ['^[[:space:]]*athenahealth[[:space:]]*$','athenahealth, Inc.']
   - ['^[[:space:]]*(atherenergy|ather[[:space:]]energy)[[:space:]]*$','Ather Energy Pvt Ltd']
   - ['^[[:space:]]*atlas[[:space:]]copco[[:space:]]*$','Atlas Copco AB']
