@@ -1,14 +1,13 @@
 module github.com/LF-Engineering/dev-analytics-affiliation
 
-go 1.13
+go 1.15
 
 require (
-	github.com/LF-Engineering/dev-analytics-libraries v0.4.10
+	github.com/LF-Engineering/dev-analytics-libraries v1.0.7
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/elastic/go-elasticsearch/v7 v7.10.0
-	github.com/fnproject/fdk-go v0.0.3
 	github.com/go-openapi/errors v0.20.0
 	github.com/go-openapi/loads v0.20.2
 	github.com/go-openapi/runtime v0.19.26
@@ -27,7 +26,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.7.0
-	github.com/tencentyun/scf-go-lib v0.0.0-20200624065115-ba679e2ec9c9
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/sys v0.0.0-20201126233918-771906719818 // indirect
 	golang.org/x/text v0.3.5
