@@ -1776,23 +1776,24 @@ func (s *service) GetFindOrganizationByName(ctx context.Context, params *affilia
 }
 
 // PutEditProfile: API params:
-// /v1/affiliation/{projectSlugs}/edit_profile/{uuid}[?name=somename][&email=xyz@o2.pl][&gender=female][&gender-acc=95][&is_bot=0][&country_code=PL]
+//// /v1/affiliation/{projectSlugs}/edit_profile/{uuid}[?name=somename][&email=xyz@o2.pl][&gender=female][&gender-acc=95][&is_bot=0][&country_code=PL]
+// /v1/affiliation/{projectSlugs}/edit_profile/{uuid}[?name=somename][&email=xyz@o2.pl][&is_bot=0][&country_code=PL]
 // {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
 // {uuid} - required path parameter: profile uuid to be edited
 // name - optional query parameter: if set, it will update profile name to this value
 // email - optional query parameter: if set, it will update profile email to this value
-// gender - optional query parameter: if set, it will update profile gender to this value: allowed: male, female
-// gender_acc - optional query parameter: if set, it will update profile gender probablity to this value: integer 1-100
+//// gender - optional query parameter: if set, it will update profile gender to this value: allowed: male, female
+//// gender_acc - optional query parameter: if set, it will update profile gender probablity to this value: integer 1-100
 // is_bot - optional query parameter: if set, it will update profile bot flag to this value, integer, allowed: 0, 1
 // country_code - optional query parameter: if set, it will update profile country code to this value, 2 letter contry code, validated agains countries table (foreign key), for example: PL
 func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEditProfileParams) (uid *models.UniqueIdentityNestedDataOutput, err error) {
 	uuid := params.UUID
 	profile := &models.ProfileDataOutput{
-		UUID:        uuid,
-		Name:        params.Name,
-		Email:       params.Email,
-		Gender:      params.Gender,
-		GenderAcc:   params.GenderAcc,
+		UUID:  uuid,
+		Name:  params.Name,
+		Email: params.Email,
+		//Gender:      params.Gender,
+		//GenderAcc:   params.GenderAcc,
 		IsBot:       params.IsBot,
 		CountryCode: params.CountryCode,
 	}

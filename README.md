@@ -70,8 +70,8 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_identity.sh 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_unarchive_profile.sh odpi/egeria xyz | jq ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name=lukaszgryglicki email=lgryglicki@cncf.io gender=male gender_acc=99 is_bot=0 country_code=pl ./sh/curl_put_edit_profile.sh odpi/egeria xyz ``.
-  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='a' email=lgryglicki@cncf.io gender=male gender_acc=100 is_bot=0 country_code=BAD ./sh/curl_put_edit_profile.sh odpi/egeria xyz | jq ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name=lukaszgryglicki email=lgryglicki@cncf.io [gender=male gender_acc=99] is_bot=0 country_code=pl ./sh/curl_put_edit_profile.sh odpi/egeria xyz ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='a' email=lgryglicki@cncf.io [gender=male gender_acc=100] is_bot=0 country_code=BAD ./sh/curl_put_edit_profile.sh odpi/egeria xyz | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='Lukasz Gryglicki' email='lgryglicki@cncf.io' username='' uuid='xyz' ./sh/curl_post_add_identity.sh odpi/egeria git ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LukaszGryglicki' email='lgryglicki@cncf.io' username='Luki' uuid='' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LGryglicki' email='lukaszgryglicki@cncf.io' username='LukiG' uuid='784f77c8a68d149376094cbac8421539196206cf' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
