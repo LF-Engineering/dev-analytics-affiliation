@@ -8,7 +8,8 @@ fi
 uuid=$(rawurlencode "${2}")
 extra=''
 
-for prop in name email gender gender_acc is_bot country_code
+# for prop in name email gender gender_acc is_bot country_code
+for prop in name email is_bot country_code
 do
   if [ ! -z "${!prop}" ]
   then

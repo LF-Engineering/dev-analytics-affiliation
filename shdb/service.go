@@ -1072,7 +1072,7 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 	uniqueIdentity.UUID = strings.TrimSpace(uniqueIdentity.UUID)
 	if uniqueIdentity.LastModified == nil {
 		uniqueIdentity.LastModified, err = s.DBDateTime()
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -1166,7 +1166,8 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 	if tx != nil {
 		sdb = s.db
 	}
-	sel := "select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles"
+	// sel := "select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles"
+	sel := "select uuid, name, email, is_bot, country_code from profiles"
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
 	if nColumns > 0 {
@@ -1190,8 +1191,8 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 			&profileData.UUID,
 			&profileData.Name,
 			&profileData.Email,
-			&profileData.Gender,
-			&profileData.GenderAcc,
+			//&profileData.Gender,
+			//&profileData.GenderAcc,
 			&profileData.IsBot,
 			&profileData.CountryCode,
 		)
@@ -2161,7 +2162,8 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 	rows, err := s.Query(
 		sdb,
 		tx,
-		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
+		//"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
+		"select uuid, name, email, is_bot, country_code from profiles where uuid = ? limit 1",
 		uuid,
 	)
 	if err != nil {
@@ -2173,8 +2175,8 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 			&profileData.UUID,
 			&profileData.Name,
 			&profileData.Email,
-			&profileData.Gender,
-			&profileData.GenderAcc,
+			//&profileData.Gender,
+			//&profileData.GenderAcc,
 			&profileData.IsBot,
 			&profileData.CountryCode,
 		)
@@ -2802,13 +2804,19 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	var res sql.Result
 	// s.SetOrigin()
 	if tm != nil {
-		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+		//	"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//	"where uuid = ? and archived_at = ?"
+		insert := "insert into profiles(uuid, name, email, is_bot, country_code) " +
+			"select uuid, name, email, is_bot, country_code from profiles_archive " +
 			"where uuid = ? and archived_at = ?"
 		res, err = s.Exec(s.db, tx, insert, uuid, tm)
 	} else {
-		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+		//	"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//	"where uuid = ? order by archived_at desc limit 1"
+		insert := "insert into profiles(uuid, name, email, is_bot, country_code) " +
+			"select uuid, name, email, is_bot, country_code from profiles_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
 		res, err = s.Exec(s.db, tx, insert, uuid)
 	}
@@ -2841,8 +2849,10 @@ func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (err er
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
-		"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
+	//insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
+	//	"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
+	insert := "insert into profiles_archive(uuid, name, email, is_bot, country_code, archived_at) " +
+		"select uuid, name, email, is_bot, country_code, ? from profiles where uuid = ? limit 1"
 	res, err := s.Exec(s.db, tx, insert, tm, uuid)
 	if err != nil {
 		return
@@ -2910,23 +2920,25 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 			return
 		}
 	}
-	if profileData.Gender != nil {
-		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.ToLocalProfile(profileData))
+	/*
+		if profileData.Gender != nil {
+			if *profileData.Gender != "male" && *profileData.Gender != "female" {
+				err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.ToLocalProfile(profileData))
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
+				return
+			}
+			if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
+				err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.ToLocalProfile(profileData))
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
+				return
+			}
+		}
+		if profileData.Gender == nil && profileData.GenderAcc != nil {
+			err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.ToLocalProfile(profileData))
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
 			return
 		}
-		if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
-			err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.ToLocalProfile(profileData))
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
-			return
-		}
-	}
-	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.ToLocalProfile(profileData))
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
-		return
-	}
+	*/
 	return
 }
 
@@ -3057,14 +3069,16 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 	if profile.Email != nil {
 		email = *(profile.Email)
 	}
-	gender := ""
-	if profile.Gender != nil {
-		gender = *(profile.Gender)
-	}
-	genderAcc := ""
-	if profile.GenderAcc != nil {
-		genderAcc = fmt.Sprintf("%d", *(profile.GenderAcc))
-	}
+	/*
+		gender := ""
+		if profile.Gender != nil {
+			gender = *(profile.Gender)
+		}
+		genderAcc := ""
+		if profile.GenderAcc != nil {
+			genderAcc = fmt.Sprintf("%d", *(profile.GenderAcc))
+		}
+	*/
 	isBot := ""
 	if profile.IsBot != nil {
 		isBot = fmt.Sprintf("%d", *(profile.IsBot))
@@ -3073,7 +3087,8 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 	if profile.CountryCode != nil {
 		countryCode = *(profile.CountryCode)
 	}
-	arg := stripF(name) + ":" + stripF(email) + ":" + stripF(gender) + ":" + genderAcc + ":" + isBot + ":" + stripF(countryCode)
+	//arg := stripF(name) + ":" + stripF(email) + ":" + stripF(gender) + ":" + genderAcc + ":" + isBot + ":" + stripF(countryCode)
+	arg := stripF(name) + ":" + stripF(email) + ":" + isBot + ":" + stripF(countryCode)
 	hash := sha1.New()
 	_, err = hash.Write([]byte(arg))
 	if err != nil {
@@ -3522,7 +3537,8 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		profileData = nil
 		return
 	}
-	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
+	//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
+	insert := "insert into profiles(uuid, name, email, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -3532,8 +3548,8 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		profileData.UUID,
 		profileData.Name,
 		profileData.Email,
-		profileData.Gender,
-		profileData.GenderAcc,
+		//profileData.Gender,
+		//profileData.GenderAcc,
 		profileData.IsBot,
 		profileData.CountryCode,
 	)
@@ -3954,16 +3970,18 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		columns = append(columns, "country_code")
 		values = append(values, *profileData.CountryCode)
 	}
-	if profileData.Gender != nil {
-		columns = append(columns, "gender")
-		values = append(values, *profileData.Gender)
-		columns = append(columns, "gender_acc")
-		if profileData.GenderAcc == nil {
-			values = append(values, 100)
-		} else {
-			values = append(values, *profileData.GenderAcc)
+	/*
+		if profileData.Gender != nil {
+			columns = append(columns, "gender")
+			values = append(values, *profileData.Gender)
+			columns = append(columns, "gender_acc")
+			if profileData.GenderAcc == nil {
+				values = append(values, 100)
+			} else {
+				values = append(values, *profileData.GenderAcc)
+			}
 		}
-	}
+	*/
 	nColumns := len(columns)
 	if nColumns > 0 {
 		lastIndex := nColumns - 1
@@ -5212,10 +5230,12 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
 						to.CountryCode = from.CountryCode
 					}
-					if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
-						to.Gender = from.Gender
-						to.GenderAcc = from.GenderAcc
-					}
+					/*
+						if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+							to.Gender = from.Gender
+							to.GenderAcc = from.GenderAcc
+						}
+					*/
 					if from.IsBot != nil && *from.IsBot == 1 {
 						isBot := int64(1)
 						to.IsBot = &isBot
@@ -5455,10 +5475,12 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool, t
 		if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
 			to.CountryCode = from.CountryCode
 		}
-		if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
-			to.Gender = from.Gender
-			to.GenderAcc = from.GenderAcc
-		}
+		/*
+			if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+				to.Gender = from.Gender
+				to.GenderAcc = from.GenderAcc
+			}
+		*/
 		// Do we need to mass update is_bot on all ES indices
 		// on the fromUUID profile that will be merged into toUUID?
 		if from.IsBot != nil && to.IsBot != nil && *from.IsBot != *to.IsBot {
@@ -5829,9 +5851,11 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		s.mtx.RUnlock()
 		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
 	}()
-	sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
+	//sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
+	sel := "select distinct s.uuid, s.name, s.email, s.is_bot, s.country_code, "
 	sel += "i.id, i.name, i.email, i.username, i.source, s.id, s.start, s.end, s.project_slug, s.role, s.oname "
-	sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
+	//sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
+	sel += "from (select distinct u.uuid, p.name, p.email, p.is_bot, p.country_code, "
 	sel += "e.id, e.start, e.end, e.project_slug, e.role, o.name as oname from uidentities u, profiles p "
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
@@ -5862,7 +5886,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		id := &models.IdentityShortOutput{}
 		rol := &models.EnrollmentShortOutput{}
 		err = rows.Scan(
-			&uuid, &prof.Name, &prof.Email, &prof.Gender, &prof.IsBot, &prof.CountryCode,
+			&uuid, &prof.Name, &prof.Email /*, &prof.Gender*/, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource,
 			&rolID, &rolStart, &rolEnd, &rolProjectSlug, &rolRole, &rolOrganization,
 		)
@@ -6044,15 +6068,18 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	uuids := []interface{}{}
 	uuid := ""
 	if identityRequired {
-		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		//sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.is_bot, p.country_code, "
 		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, e.project_slug, e.role, o.name "
 		sel += "from uidentities u, identities i, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
 	} else {
-		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
+		//sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
+		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.is_bot, s.country_code, "
 		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.project_slug, s.role, s.oname "
-		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		//sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.is_bot, p.country_code, "
 		sel += "e.id, e.start, e.end, e.organization_id, e.project_slug, e.role, o.name as oname from uidentities u, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = p.uuid and u.uuid in ("
@@ -6114,7 +6141,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		rol := &models.EnrollmentNestedDataOutput{}
 		err = qrows.Scan(
 			&uid.UUID, &uid.LastModified,
-			&prof.Name, &prof.Email, &prof.Gender, &prof.GenderAcc, &prof.IsBot, &prof.CountryCode,
+			&prof.Name, &prof.Email /*, &prof.Gender, &prof.GenderAcc*/, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource, &iLastModified,
 			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolProjectSlug, &rolRole, &rolOrganization,
 		)
@@ -7645,10 +7672,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "BulkUpdate")
 			return
 		}
-		if prof.Gender != nil {
-			columns = append(columns, "gender")
-			values = append(values, *prof.Gender)
-		}
+		/*
+			if prof.Gender != nil {
+				columns = append(columns, "gender")
+				values = append(values, *prof.Gender)
+			}
+		*/
 		if prof.IsBot != nil {
 			columns = append(columns, "is_bot")
 			values = append(values, *prof.IsBot)
@@ -7810,10 +7839,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "BulkUpdate")
 			return
 		}
-		if prof.Gender != nil {
-			columns = append(columns, "gender")
-			values = append(values, *prof.Gender)
-		}
+		/*
+			if prof.Gender != nil {
+				columns = append(columns, "gender")
+				values = append(values, *prof.Gender)
+			}
+		*/
 		if prof.IsBot != nil {
 			columns = append(columns, "is_bot")
 			values = append(values, *prof.IsBot)
@@ -7862,9 +7893,9 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					s.ToLocalEnrollments(enrollments),
 				))
 				del := &models.AllOutput{
-					Name:        foundProf.Name,
-					Email:       foundProf.Email,
-					Gender:      foundProf.Gender,
+					Name:  foundProf.Name,
+					Email: foundProf.Email,
+					//Gender:      foundProf.Gender,
 					IsBot:       foundProf.IsBot,
 					CountryCode: foundProf.CountryCode,
 				}
@@ -7931,16 +7962,18 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			delete(mAddProf, k)
 			continue
 		}
-		var genderAcc *int64
-		if prof.Gender != nil {
-			i100 := int64(100)
-			genderAcc = &i100
-		}
+		/*
+			var genderAcc *int64
+			if prof.Gender != nil {
+				i100 := int64(100)
+				genderAcc = &i100
+			}
+		*/
 		profile := &models.ProfileDataOutput{
-			Name:        prof.Name,
-			Email:       prof.Email,
-			Gender:      prof.Gender,
-			GenderAcc:   genderAcc,
+			Name:  prof.Name,
+			Email: prof.Email,
+			//Gender:      prof.Gender,
+			//GenderAcc:   genderAcc,
 			IsBot:       prof.IsBot,
 			CountryCode: prof.CountryCode,
 		}
@@ -8045,10 +8078,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "BulkUpdate")
 				return
 			}
-			if prof.Gender != nil {
-				columns = append(columns, "gender")
-				values = append(values, *prof.Gender)
-			}
+			/*
+				if prof.Gender != nil {
+					columns = append(columns, "gender")
+					values = append(values, *prof.Gender)
+				}
+			*/
 			if prof.IsBot != nil {
 				columns = append(columns, "is_bot")
 				values = append(values, *prof.IsBot)
@@ -8182,17 +8217,19 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			}
 		}
 		for uuid := range uuids {
-			var genderAcc *int64
-			if prof.Gender != nil {
-				i100 := int64(100)
-				genderAcc = &i100
-			}
+			/*
+				var genderAcc *int64
+				if prof.Gender != nil {
+					i100 := int64(100)
+					genderAcc = &i100
+				}
+			*/
 			profile := &models.ProfileDataOutput{
-				UUID:        uuid,
-				Name:        prof.Name,
-				Email:       prof.Email,
-				Gender:      prof.Gender,
-				GenderAcc:   genderAcc,
+				UUID:  uuid,
+				Name:  prof.Name,
+				Email: prof.Email,
+				//Gender:      prof.Gender,
+				//GenderAcc:   genderAcc,
 				IsBot:       prof.IsBot,
 				CountryCode: prof.CountryCode,
 			}

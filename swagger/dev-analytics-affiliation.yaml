@@ -868,14 +868,14 @@ paths:
           in: query
           type: string
           description: Profile name (can be empty, if not set then no update of that parameter is made, applies to all remaining params)
-        - name: gender
-          in: query
-          type: string
-          description: Profile gender (male or female)
-        - name: gender_acc
-          in: query
-          type: integer
-          description: Profile gender probablity 1-100
+        #- name: gender
+        #  in: query
+        #  type: string
+        #  description: Profile gender (male or female)
+        #- name: gender_acc
+        #  in: query
+        #  type: integer
+        #  description: Profile gender probablity 1-100
         - name: is_bot
           in: query
           type: integer
@@ -2228,14 +2228,14 @@ definitions:
         type: string
         x-nullable: true
         example: lgryglicki@cncf.io
-      gender:
-        type: string
-        example: male
-        x-nullable: true
-      gender_acc:
-        type: integer
-        example: 100
-        x-nullable: true
+      #gender:
+      #  type: string
+      #  example: male
+      #  x-nullable: true
+      #gender_acc:
+      #  type: integer
+      #  example: 100
+      #  x-nullable: true
       is_bot:
         type: integer
         # database doesn't have null, but we can use to to call EditProfile and skip updating is_bot
@@ -3060,12 +3060,12 @@ definitions:
         x-omitempty: true
         x-go-custom-tag: 'yaml:"E,omitempty"'
         example: lgryglicki@cncf.io
-      gender:
-        type: string
-        example: male
-        x-nullable: true
-        x-omitempty: true
-        x-go-custom-tag: 'yaml:"S,omitempty"'
+      #gender:
+      #  type: string
+      #  example: male
+      #  x-nullable: true
+      #  x-omitempty: true
+      #  x-go-custom-tag: 'yaml:"S,omitempty"'
       is_bot:
         type: integer
         x-nullable: true
