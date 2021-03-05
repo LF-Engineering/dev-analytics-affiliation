@@ -138,6 +138,56 @@ spec:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
               key: CORS_ALLOWED_ORIGINS.secret
+        - name: ELASTIC_CACHE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_CACHE_URL.secret
+        - name: ELASTIC_CACHE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_CACHE_USERNAME.secret
+        - name: ELASTIC_CACHE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_CACHE_PASSWORD.secret
+        - name: STAGE
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: STAGE.secret
+        - name: AUTH0_GRANT_TYPE
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_GRANT_TYPE.secret
+        - name: AUTH0_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_CLIENT_SECRET.secret
+        - name: AUTH0_AUDIENCE
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_AUDIENCE.secret
+        - name: AUTH0_TOKEN_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: AUTH0_TOKEN_ENDPOINT.secret
+        - name: PLATFORM_ORG_SERVICE_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: PLATFORM_ORG_SERVICE_ENDPOINT.secret
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: SLACK_WEBHOOK_URL.secret
       restartPolicy: {{ .Values.apiRestartPolicy }}
       nodeSelector:
 {{- with .Values.nodeSelector -}}

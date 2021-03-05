@@ -320,11 +320,13 @@ func (a *LocalAllOutput) SortKey(recursive bool) (key string) {
 	} else {
 		key += ":"
 	}
-	if a.Gender != nil {
-		key += ":" + *(a.Gender)
-	} else {
-		key += ":"
-	}
+	/*
+		if a.Gender != nil {
+			key += ":" + *(a.Gender)
+		} else {
+			key += ":"
+		}
+	*/
 	if a.IsBot != nil {
 		if *(a.IsBot) == 0 {
 			key += ":0"
@@ -436,10 +438,12 @@ func (s *ServiceStruct) SanitizeProfile(prof *models.ProfileDataOutput) {
 		name := strings.TrimSpace(*(prof.Name))
 		prof.Name = &name
 	}
-	if prof.Gender != nil {
-		gender := strings.TrimSpace(*(prof.Gender))
-		prof.Gender = &gender
-	}
+	/*
+		if prof.Gender != nil {
+			gender := strings.TrimSpace(*(prof.Gender))
+			prof.Gender = &gender
+		}
+	*/
 	if prof.CountryCode != nil {
 		countryCode := strings.TrimSpace(*(prof.CountryCode))
 		prof.CountryCode = &countryCode
@@ -461,10 +465,12 @@ func (s *ServiceStruct) SanitizeShortProfile(prof *models.AllOutput, isGet bool)
 		name := strings.TrimSpace(*(prof.Name))
 		prof.Name = &name
 	}
-	if prof.Gender != nil {
-		gender := strings.TrimSpace(*(prof.Gender))
-		prof.Gender = &gender
-	}
+	/*
+		if prof.Gender != nil {
+			gender := strings.TrimSpace(*(prof.Gender))
+			prof.Gender = &gender
+		}
+	*/
 	if prof.CountryCode != nil {
 		countryCode := strings.TrimSpace(*(prof.CountryCode))
 		prof.CountryCode = &countryCode
@@ -489,16 +495,18 @@ func (p *LocalProfile) String() (s string) {
 	} else {
 		s += "Email:" + *p.Email + ","
 	}
-	if p.Gender == nil {
-		s += "Gender:nil,"
-	} else {
-		s += "Gender:" + *p.Gender + ","
-	}
-	if p.GenderAcc == nil {
-		s += "GenderAcc:nil,"
-	} else {
-		s += "GenderAcc:" + strconv.FormatInt(*p.GenderAcc, 10) + ","
-	}
+	/*
+		if p.Gender == nil {
+			s += "Gender:nil,"
+		} else {
+			s += "Gender:" + *p.Gender + ","
+		}
+		if p.GenderAcc == nil {
+			s += "GenderAcc:nil,"
+		} else {
+			s += "GenderAcc:" + strconv.FormatInt(*p.GenderAcc, 10) + ","
+		}
+	*/
 	if p.IsBot == nil {
 		s += "IsBot:nil,"
 	} else {
@@ -831,6 +839,19 @@ func (s *ServiceStruct) GetThreadsNum() int {
 func (s *ServiceStruct) Now() *strfmt.DateTime {
 	n := strfmt.DateTime(time.Now())
 	return &n
+}
+
+// DBDateTime returns the time right now formatted in the way expected by the db `2006-01-02 15:04:05`
+func (s *ServiceStruct) DBDateTime() (*strfmt.DateTime, error) {
+	// this is the layout format we use in the db
+	layout := "2006-01-02 15:04:05"
+	now := time.Now().Format(layout)
+	t, err := time.Parse(layout, now)
+	if err != nil {
+		return nil, err
+	}
+	n := strfmt.DateTime(t)
+	return &n, nil
 }
 
 // TimeParseAny - parse time from string

@@ -130,6 +130,7 @@ type Service interface {
 	UpdateAffRange([]*models.EnrollmentProjectRange) (string, error)
 	UpdateProjectSlugs(map[string][]string) (string, error)
 	DedupEnrollments() error
+	BeginTx() (*sql.Tx, error)
 	// SSAW related
 	// NotifySSAW()
 	// SetOrigin()
@@ -150,8 +151,8 @@ type Service interface {
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, []string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
-	MergeUniqueIdentities(string, string, bool) (string, bool, error)
-	MoveIdentity(string, string, bool) error
+	MergeUniqueIdentities(string, string, bool, *sql.Tx) (string, bool, error)
+	MoveIdentity(string, string, bool, *sql.Tx) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
 	MergeAll(int, bool) (string, error)
@@ -188,6 +189,11 @@ const (
 	DateTimeFormat  = "%Y-%m-%dT%H:%i:%s.%fZ"
 	MapOrgNamesFile = "map_org_names.yaml"
 )
+
+// BeginTx - begin transaction on R/W connection
+func (s *service) BeginTx() (*sql.Tx, error) {
+	return s.db.Begin()
+}
 
 // GetAffiliationsSingle - returns org name (or Unknown) for given uuid and date
 func (s *service) GetAffiliationsSingle(pSlug, uuid string, dt time.Time, tx *sql.Tx) (org string) {
@@ -1065,16 +1071,17 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 	}()
 	uniqueIdentity.UUID = strings.TrimSpace(uniqueIdentity.UUID)
 	if uniqueIdentity.LastModified == nil {
-		uniqueIdentity.LastModified = s.Now()
+		uniqueIdentity.LastModified, err = s.DBDateTime()
+		if err != nil {
+			return nil, err
+		}
 	}
 	// s.SetOrigin()
+	q := fmt.Sprintf("INSERT INTO uidentities (uuid, last_modified) select '%+v', str_to_date('%+v', '%+v');", uniqueIdentity.UUID, uniqueIdentity.LastModified, DateTimeFormat)
 	_, err = s.Exec(
 		s.db,
 		tx,
-		"insert into uidentities(uuid, last_modified) select ?, str_to_date(?, ?)",
-		uniqueIdentity.UUID,
-		uniqueIdentity.LastModified,
-		DateTimeFormat,
+		q,
 	)
 	if err != nil {
 		uniqueIdentity = nil
@@ -1159,7 +1166,8 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 	if tx != nil {
 		sdb = s.db
 	}
-	sel := "select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles"
+	// sel := "select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles"
+	sel := "select uuid, name, email, is_bot, country_code from profiles"
 	nColumns := len(columns)
 	lastIndex := nColumns - 1
 	if nColumns > 0 {
@@ -1183,8 +1191,8 @@ func (s *service) FindProfiles(columns []string, values []interface{}, missingFa
 			&profileData.UUID,
 			&profileData.Name,
 			&profileData.Email,
-			&profileData.Gender,
-			&profileData.GenderAcc,
+			//&profileData.Gender,
+			//&profileData.GenderAcc,
 			&profileData.IsBot,
 			&profileData.CountryCode,
 		)
@@ -2085,12 +2093,13 @@ func (s *service) GetIdentityByUser(key string, value string, missingFatal bool,
 	if tx != nil {
 		sdb = s.db
 	}
+
 	identityData = &models.IdentityDataOutput{}
+	q := fmt.Sprintf("select id, uuid, source, name, username, email, last_modified from identities where %s = ? limit 1", key)
 	rows, err := s.Query(
 		sdb,
 		tx,
-		"select id, uuid, source, name, username, email, last_modified from identities where ? = ? limit 1",
-		key,
+		q,
 		value,
 	)
 	if err != nil {
@@ -2153,7 +2162,8 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 	rows, err := s.Query(
 		sdb,
 		tx,
-		"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
+		//"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles where uuid = ? limit 1",
+		"select uuid, name, email, is_bot, country_code from profiles where uuid = ? limit 1",
 		uuid,
 	)
 	if err != nil {
@@ -2165,8 +2175,8 @@ func (s *service) GetProfile(uuid string, missingFatal bool, tx *sql.Tx) (profil
 			&profileData.UUID,
 			&profileData.Name,
 			&profileData.Email,
-			&profileData.Gender,
-			&profileData.GenderAcc,
+			//&profileData.Gender,
+			//&profileData.GenderAcc,
 			&profileData.IsBot,
 			&profileData.CountryCode,
 		)
@@ -2794,13 +2804,19 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	var res sql.Result
 	// s.SetOrigin()
 	if tm != nil {
-		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+		//	"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//	"where uuid = ? and archived_at = ?"
+		insert := "insert into profiles(uuid, name, email, is_bot, country_code) " +
+			"select uuid, name, email, is_bot, country_code from profiles_archive " +
 			"where uuid = ? and archived_at = ?"
 		res, err = s.Exec(s.db, tx, insert, uuid, tm)
 	} else {
-		insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-			"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
+		//	"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
+		//	"where uuid = ? order by archived_at desc limit 1"
+		insert := "insert into profiles(uuid, name, email, is_bot, country_code) " +
+			"select uuid, name, email, is_bot, country_code from profiles_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
 		res, err = s.Exec(s.db, tx, insert, uuid)
 	}
@@ -2833,8 +2849,10 @@ func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (err er
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
-		"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
+	//insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
+	//	"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
+	insert := "insert into profiles_archive(uuid, name, email, is_bot, country_code, archived_at) " +
+		"select uuid, name, email, is_bot, country_code, ? from profiles where uuid = ? limit 1"
 	res, err := s.Exec(s.db, tx, insert, tm, uuid)
 	if err != nil {
 		return
@@ -2902,23 +2920,25 @@ func (s *service) ValidateProfile(profileData *models.ProfileDataOutput, tx *sql
 			return
 		}
 	}
-	if profileData.Gender != nil {
-		if *profileData.Gender != "male" && *profileData.Gender != "female" {
-			err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.ToLocalProfile(profileData))
+	/*
+		if profileData.Gender != nil {
+			if *profileData.Gender != "male" && *profileData.Gender != "female" {
+				err = fmt.Errorf("profile '%+v' gender should be 'male' or 'female'", s.ToLocalProfile(profileData))
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
+				return
+			}
+			if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
+				err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.ToLocalProfile(profileData))
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
+				return
+			}
+		}
+		if profileData.Gender == nil && profileData.GenderAcc != nil {
+			err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.ToLocalProfile(profileData))
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
 			return
 		}
-		if profileData.GenderAcc != nil && (*profileData.GenderAcc < 1 || *profileData.GenderAcc > 100) {
-			err = fmt.Errorf("profile '%+v' gender_acc should be within [1, 100]", s.ToLocalProfile(profileData))
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
-			return
-		}
-	}
-	if profileData.Gender == nil && profileData.GenderAcc != nil {
-		err = fmt.Errorf("profile '%+v' gender_acc can only be set when gender is given", s.ToLocalProfile(profileData))
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ValidateProfile")
-		return
-	}
+	*/
 	return
 }
 
@@ -3049,14 +3069,16 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 	if profile.Email != nil {
 		email = *(profile.Email)
 	}
-	gender := ""
-	if profile.Gender != nil {
-		gender = *(profile.Gender)
-	}
-	genderAcc := ""
-	if profile.GenderAcc != nil {
-		genderAcc = fmt.Sprintf("%d", *(profile.GenderAcc))
-	}
+	/*
+		gender := ""
+		if profile.Gender != nil {
+			gender = *(profile.Gender)
+		}
+		genderAcc := ""
+		if profile.GenderAcc != nil {
+			genderAcc = fmt.Sprintf("%d", *(profile.GenderAcc))
+		}
+	*/
 	isBot := ""
 	if profile.IsBot != nil {
 		isBot = fmt.Sprintf("%d", *(profile.IsBot))
@@ -3065,7 +3087,8 @@ func (s *service) ProfileUUIDHash(profile *models.ProfileDataOutput) (idHash str
 	if profile.CountryCode != nil {
 		countryCode = *(profile.CountryCode)
 	}
-	arg := stripF(name) + ":" + stripF(email) + ":" + stripF(gender) + ":" + genderAcc + ":" + isBot + ":" + stripF(countryCode)
+	//arg := stripF(name) + ":" + stripF(email) + ":" + stripF(gender) + ":" + genderAcc + ":" + isBot + ":" + stripF(countryCode)
+	arg := stripF(name) + ":" + stripF(email) + ":" + isBot + ":" + stripF(countryCode)
 	hash := sha1.New()
 	_, err = hash.Write([]byte(arg))
 	if err != nil {
@@ -3514,7 +3537,8 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		profileData = nil
 		return
 	}
-	insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
+	//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
+	insert := "insert into profiles(uuid, name, email, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -3524,8 +3548,8 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		profileData.UUID,
 		profileData.Name,
 		profileData.Email,
-		profileData.Gender,
-		profileData.GenderAcc,
+		//profileData.Gender,
+		//profileData.GenderAcc,
 		profileData.IsBot,
 		profileData.CountryCode,
 	)
@@ -3946,16 +3970,18 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		columns = append(columns, "country_code")
 		values = append(values, *profileData.CountryCode)
 	}
-	if profileData.Gender != nil {
-		columns = append(columns, "gender")
-		values = append(values, *profileData.Gender)
-		columns = append(columns, "gender_acc")
-		if profileData.GenderAcc == nil {
-			values = append(values, 100)
-		} else {
-			values = append(values, *profileData.GenderAcc)
+	/*
+		if profileData.Gender != nil {
+			columns = append(columns, "gender")
+			values = append(values, *profileData.Gender)
+			columns = append(columns, "gender_acc")
+			if profileData.GenderAcc == nil {
+				values = append(values, 100)
+			} else {
+				values = append(values, *profileData.GenderAcc)
+			}
 		}
-	}
+	*/
 	nColumns := len(columns)
 	if nColumns > 0 {
 		lastIndex := nColumns - 1
@@ -4506,19 +4532,14 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				rid := 0
+				// To avoid updates while feching rows - we need to fetch all rws and then update after rows are closed
+				rids := []int{}
 				for rows.Next() {
 					err = rows.Scan(&rid)
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
-					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
-						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
-						return
-					}
-					if err != nil {
-						conflicts++
-					}
+					rids = append(rids, rid)
 				}
 				err = rows.Err()
 				if err != nil {
@@ -4528,7 +4549,18 @@ func (s *service) MapOrgNames() (status string, err error) {
 				if err != nil {
 					return
 				}
-				affected++
+				for _, rid := range rids {
+					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						conflicts++
+						continue
+					}
+					affected++
+				}
 			} else {
 				affected, err = res.RowsAffected()
 			}
@@ -4552,20 +4584,16 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				rid := 0
+				rids := []int{}
 				var archivedAt time.Time
+				archivedAts := []time.Time{}
 				for rows.Next() {
 					err = rows.Scan(&rid, &archivedAt)
 					if err != nil {
 						return
 					}
-					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
-					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
-						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
-						return
-					}
-					if err != nil {
-						archivedConflicts++
-					}
+					rids = append(rids, rid)
+					archivedAts = append(archivedAts, archivedAt)
 				}
 				err = rows.Err()
 				if err != nil {
@@ -4575,7 +4603,20 @@ func (s *service) MapOrgNames() (status string, err error) {
 				if err != nil {
 					return
 				}
-				affected++
+				for i := range rids {
+					rid := rids[i]
+					archivedAt := archivedAts[i]
+					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
+					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
+						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
+						return
+					}
+					if err != nil {
+						archivedConflicts++
+						continue
+					}
+					affected++
+				}
 			} else {
 				affected, err = res.RowsAffected()
 			}
@@ -5189,10 +5230,12 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
 						to.CountryCode = from.CountryCode
 					}
-					if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
-						to.Gender = from.Gender
-						to.GenderAcc = from.GenderAcc
-					}
+					/*
+						if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+							to.Gender = from.Gender
+							to.GenderAcc = from.GenderAcc
+						}
+					*/
 					if from.IsBot != nil && *from.IsBot == 1 {
 						isBot := int64(1)
 						to.IsBot = &isBot
@@ -5372,11 +5415,12 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 	return
 }
 
-func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (updateESUUID string, updateESIsBot bool, err error) {
-	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v", fromUUID, toUUID, archive))
+func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool, tx *sql.Tx) (updateESUUID string, updateESIsBot bool, err error) {
+	externalTx := tx != nil
+	log.Info(fmt.Sprintf("MergeUniqueIdentities: fromUUID:%s toUUID:%s archive:%v tx:%v/%v", fromUUID, toUUID, archive, tx != nil, externalTx))
 	// s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, err))
+		log.Info(fmt.Sprintf("MergeUniqueIdentities(exit): fromUUID:%s toUUID:%s archive:%v updateESUUID:%s updateESIsBot:%v tx:%v/%v err:%v", fromUUID, toUUID, archive, updateESUUID, updateESIsBot, tx != nil, externalTx, err))
 	}()
 	if fromUUID == toUUID {
 		return
@@ -5397,16 +5441,18 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 	if err != nil {
 		return
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
+	if !externalTx {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
 		}
-	}()
+		// Rollback unless tx was set to nil after successful commit
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+	}
 	// Archive fromUUID and toUUID objects, all with the same archived_at date
 	if archive {
 		archivedDate := time.Now()
@@ -5429,10 +5475,12 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 		if to.CountryCode == nil || (to.CountryCode != nil && *to.CountryCode == "") {
 			to.CountryCode = from.CountryCode
 		}
-		if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
-			to.Gender = from.Gender
-			to.GenderAcc = from.GenderAcc
-		}
+		/*
+			if to.Gender == nil || (to.Gender != nil && *to.Gender == "") {
+				to.Gender = from.Gender
+				to.GenderAcc = from.GenderAcc
+			}
+		*/
 		// Do we need to mass update is_bot on all ES indices
 		// on the fromUUID profile that will be merged into toUUID?
 		if from.IsBot != nil && to.IsBot != nil && *from.IsBot != *to.IsBot {
@@ -5501,12 +5549,14 @@ func (s *service) MergeUniqueIdentities(fromUUID, toUUID string, archive bool) (
 			return
 		}
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if !externalTx {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
 	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
 	return
 }
 
@@ -5623,11 +5673,12 @@ func (s *service) Unarchive(id, uuid string) (unarchived bool, err error) {
 	return
 }
 
-func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) {
-	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v", fromID, toUUID, archive))
+func (s *service) MoveIdentity(fromID, toUUID string, archive bool, tx *sql.Tx) (err error) {
+	externalTx := tx != nil
+	log.Info(fmt.Sprintf("MoveIdentity: fromID:%s toUUID:%s archive:%v tx:%v/%v", fromID, toUUID, archive, tx != nil, externalTx))
 	// s.SetOrigin()
 	defer func() {
-		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v err:%v", fromID, toUUID, archive, err))
+		log.Info(fmt.Sprintf("MoveIdentity(exit): fromID:%s toUUID:%s archive:%v tx:%v/%v err:%v", fromID, toUUID, archive, tx != nil, externalTx, err))
 	}()
 	if archive {
 		unarchived := false
@@ -5653,16 +5704,18 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "MoveIdentity")
 		return
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return
-	}
-	// Rollback unless tx was set to nil after successful commit
-	defer func() {
-		if tx != nil {
-			tx.Rollback()
+	if !externalTx {
+		tx, err = s.db.Begin()
+		if err != nil {
+			return
 		}
-	}()
+		// Rollback unless tx was set to nil after successful commit
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+	}
 	if to == nil {
 		to, err = s.AddUniqueIdentity(
 			&models.UniqueIdentityDataOutput{
@@ -5691,12 +5744,14 @@ func (s *service) MoveIdentity(fromID, toUUID string, archive bool) (err error) 
 	if err != nil {
 		return
 	}
-	err = tx.Commit()
-	if err != nil {
-		return
+	if !externalTx {
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		// Set tx to nil, so deferred rollback will not happen
+		tx = nil
 	}
-	// Set tx to nil, so deferred rollback will not happen
-	tx = nil
 	return
 }
 
@@ -5796,9 +5851,11 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		s.mtx.RUnlock()
 		log.Info(fmt.Sprintf("GetAllAffiliations(exit): all:%d err:%v", len(all.Profiles), err))
 	}()
-	sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
+	//sel := "select distinct s.uuid, s.name, s.email, s.gender, s.is_bot, s.country_code, "
+	sel := "select distinct s.uuid, s.name, s.email, s.is_bot, s.country_code, "
 	sel += "i.id, i.name, i.email, i.username, i.source, s.id, s.start, s.end, s.project_slug, s.role, s.oname "
-	sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
+	//sel += "from (select distinct u.uuid, p.name, p.email, p.gender, p.is_bot, p.country_code, "
+	sel += "from (select distinct u.uuid, p.name, p.email, p.is_bot, p.country_code, "
 	sel += "e.id, e.start, e.end, e.project_slug, e.role, o.name as oname from uidentities u, profiles p "
 	sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 	sel += "where u.uuid = p.uuid) s left join identities i on s.uuid = i.uuid"
@@ -5829,7 +5886,7 @@ func (s *service) GetAllAffiliations() (all *models.AllArrayOutput, err error) {
 		id := &models.IdentityShortOutput{}
 		rol := &models.EnrollmentShortOutput{}
 		err = rows.Scan(
-			&uuid, &prof.Name, &prof.Email, &prof.Gender, &prof.IsBot, &prof.CountryCode,
+			&uuid, &prof.Name, &prof.Email /*, &prof.Gender*/, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource,
 			&rolID, &rolStart, &rolEnd, &rolProjectSlug, &rolRole, &rolOrganization,
 		)
@@ -6011,15 +6068,18 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	uuids := []interface{}{}
 	uuid := ""
 	if identityRequired {
-		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		//sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		sel = "select distinct u.uuid, u.last_modified, p.name, p.email, p.is_bot, p.country_code, "
 		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, e.id, e.start, e.end, e.organization_id, e.project_slug, e.role, o.name "
 		sel += "from uidentities u, identities i, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = i.uuid and u.uuid = p.uuid and i.uuid = p.uuid and u.uuid in ("
 	} else {
-		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
+		//sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.gender, s.gender_acc, s.is_bot, s.country_code, "
+		sel = "select distinct s.uuid, s.last_modified, s.name, s.email, s.is_bot, s.country_code, "
 		sel += "i.id, i.name, i.email, i.username, i.source, i.last_modified, s.id, s.start, s.end, s.organization_id, s.project_slug, s.role, s.oname "
-		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		//sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.gender, p.gender_acc, p.is_bot, p.country_code, "
+		sel += "from (select distinct u.uuid, u.last_modified, p.name, p.email, p.is_bot, p.country_code, "
 		sel += "e.id, e.start, e.end, e.organization_id, e.project_slug, e.role, o.name as oname from uidentities u, profiles p "
 		sel += "left join enrollments e on e.uuid = p.uuid left join organizations o on o.id = e.organization_id "
 		sel += "where u.uuid = p.uuid and u.uuid in ("
@@ -6081,7 +6141,7 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		rol := &models.EnrollmentNestedDataOutput{}
 		err = qrows.Scan(
 			&uid.UUID, &uid.LastModified,
-			&prof.Name, &prof.Email, &prof.Gender, &prof.GenderAcc, &prof.IsBot, &prof.CountryCode,
+			&prof.Name, &prof.Email /*, &prof.Gender, &prof.GenderAcc*/, &prof.IsBot, &prof.CountryCode,
 			&iID, &iName, &iEmail, &iUsername, &iSource, &iLastModified,
 			&rolID, &rolStart, &rolEnd, &rolOrganizationID, &rolProjectSlug, &rolRole, &rolOrganization,
 		)
@@ -7612,10 +7672,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "BulkUpdate")
 			return
 		}
-		if prof.Gender != nil {
-			columns = append(columns, "gender")
-			values = append(values, *prof.Gender)
-		}
+		/*
+			if prof.Gender != nil {
+				columns = append(columns, "gender")
+				values = append(values, *prof.Gender)
+			}
+		*/
 		if prof.IsBot != nil {
 			columns = append(columns, "is_bot")
 			values = append(values, *prof.IsBot)
@@ -7777,10 +7839,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "BulkUpdate")
 			return
 		}
-		if prof.Gender != nil {
-			columns = append(columns, "gender")
-			values = append(values, *prof.Gender)
-		}
+		/*
+			if prof.Gender != nil {
+				columns = append(columns, "gender")
+				values = append(values, *prof.Gender)
+			}
+		*/
 		if prof.IsBot != nil {
 			columns = append(columns, "is_bot")
 			values = append(values, *prof.IsBot)
@@ -7829,9 +7893,9 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 					s.ToLocalEnrollments(enrollments),
 				))
 				del := &models.AllOutput{
-					Name:        foundProf.Name,
-					Email:       foundProf.Email,
-					Gender:      foundProf.Gender,
+					Name:  foundProf.Name,
+					Email: foundProf.Email,
+					//Gender:      foundProf.Gender,
 					IsBot:       foundProf.IsBot,
 					CountryCode: foundProf.CountryCode,
 				}
@@ -7898,16 +7962,18 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			delete(mAddProf, k)
 			continue
 		}
-		var genderAcc *int64
-		if prof.Gender != nil {
-			i100 := int64(100)
-			genderAcc = &i100
-		}
+		/*
+			var genderAcc *int64
+			if prof.Gender != nil {
+				i100 := int64(100)
+				genderAcc = &i100
+			}
+		*/
 		profile := &models.ProfileDataOutput{
-			Name:        prof.Name,
-			Email:       prof.Email,
-			Gender:      prof.Gender,
-			GenderAcc:   genderAcc,
+			Name:  prof.Name,
+			Email: prof.Email,
+			//Gender:      prof.Gender,
+			//GenderAcc:   genderAcc,
 			IsBot:       prof.IsBot,
 			CountryCode: prof.CountryCode,
 		}
@@ -8012,10 +8078,12 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "BulkUpdate")
 				return
 			}
-			if prof.Gender != nil {
-				columns = append(columns, "gender")
-				values = append(values, *prof.Gender)
-			}
+			/*
+				if prof.Gender != nil {
+					columns = append(columns, "gender")
+					values = append(values, *prof.Gender)
+				}
+			*/
 			if prof.IsBot != nil {
 				columns = append(columns, "is_bot")
 				values = append(values, *prof.IsBot)
@@ -8149,17 +8217,19 @@ func (s *service) BulkUpdate(add, del []*models.AllOutput) (nAdded, nDeleted, nU
 			}
 		}
 		for uuid := range uuids {
-			var genderAcc *int64
-			if prof.Gender != nil {
-				i100 := int64(100)
-				genderAcc = &i100
-			}
+			/*
+				var genderAcc *int64
+				if prof.Gender != nil {
+					i100 := int64(100)
+					genderAcc = &i100
+				}
+			*/
 			profile := &models.ProfileDataOutput{
-				UUID:        uuid,
-				Name:        prof.Name,
-				Email:       prof.Email,
-				Gender:      prof.Gender,
-				GenderAcc:   genderAcc,
+				UUID:  uuid,
+				Name:  prof.Name,
+				Email: prof.Email,
+				//Gender:      prof.Gender,
+				//GenderAcc:   genderAcc,
 				IsBot:       prof.IsBot,
 				CountryCode: prof.CountryCode,
 			}
