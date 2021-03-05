@@ -1461,6 +1461,7 @@ mappings:
   - ['^[[:space:]]*indiehosters[[:space:]]*$','IndieHosters']
   - ['^[[:space:]]*indigitus[[:space:]]*$','Indigitous']
   - ['^[[:space:]]*(individual[[:space:]]contributor)[[:space:]]*$','Individual']
+  - ['^[[:space:]]*(individual[[:space:]]no|individual-?no[[:space:]]account)[[:space:]]*$', 'Individual - No Account']
   - ['^[[:space:]]*bank[[:space:]]of[[:space:]]china[[:space:]]*$','Industrial and Commercial Bank of China']
   - ['^[[:space:]]*(industrial[[:space:]]*light[[:space:]]*and[[:space:]]*magic|lucas[[:space:]]digital[[:space:]]llc,?[[:space:]]industrial[[:space:]]light[[:space:]]&[[:space:]]magic)[[:space:]]*$','Industrial Light & Magic']
   - ['^[[:space:]]*(itri|industrial[[:space:]]technology[[:space:]]research[[:space:]]institute)[[:space:]]*$','Industrial Technology Research Institute (ITRI)']
