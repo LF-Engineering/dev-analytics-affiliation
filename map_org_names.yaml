@@ -1451,6 +1451,7 @@ mappings:
   - ['^[[:space:]]*imt[[:space:]]*$','IMT Atlantique']
   - ['^[[:space:]]*(in[[:space:]]loco[[:space:]]media)[[:space:]]*$','In Loco']
   - ['^[[:space:]]*incognito[[:space:]]*$','Incognito Software Systems Inc.']
+  - ['^[[:space:]]*(individual[[:space:]]no|individual-?no[[:space:]]account)[[:space:]]*$', 'Individual - No Account']
   - ['^[[:space:]]*individual[[:space:]]*-?[[:space:]]*no[[:space:]]*account[[:space:]]*$','Individual - No Account']
   - ['^[[:space:]]*individual[[:space:]]*(contributor)?[[:space:]]*$','Individual - No Account']
   - ['^[[:space:]]*i(ndependent|ndepedent|ndepeendent|ndepemndent|ndependenti|ndependenyt|ndependnent|ndependnet|ndepenfent|ndepent|ndepependent|ndepnendent|ndepwndent)[[:space:]]*(id|ident|identity|research[[:space:]]*project)?$','Individual - No Account']
