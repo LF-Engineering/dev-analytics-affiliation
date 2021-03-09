@@ -3538,7 +3538,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		return
 	}
 	//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
-	insert := "insert into profiles(uuid, name, email, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
+	insert := "insert into profiles(uuid, name, email, is_bot, country_code) select ?, ?, ?, ?, ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
