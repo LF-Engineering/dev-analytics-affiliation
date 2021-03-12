@@ -2772,6 +2772,18 @@ definitions:
         type: integer
         example: 123
         x-omitempty: false
+      github_pull_request_prs_reviewed:
+        type: integer
+        example: 123
+        x-omitempty: false
+      github_pull_request_prs_approved:
+        type: integer
+        example: 123
+        x-omitempty: false
+      github_pull_request_prs_review_comments:
+        type: integer
+        example: 123
+        x-omitempty: false
       bugzilla_issues_created:
         type: integer
         example: 123

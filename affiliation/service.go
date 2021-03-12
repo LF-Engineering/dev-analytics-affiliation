@@ -3013,6 +3013,7 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	//fmt.Printf("topContributors: %+v,%+v\n", topContributors, err)
 	if len(topContributors.Contributors) > 0 {
 		err = s.shDB.EnrichContributors(topContributors.Contributors, projects, to, nil)
 		if err != nil {
@@ -3154,6 +3155,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	if !public {
 		hdr = append(hdr, "Email")
 	}
+	// TOPCON
 	possibleHeader := []string{
 		"git_commits",
 		"git_lines_added",
@@ -3163,6 +3165,9 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_pull_request_prs_open",
 		"github_pull_request_prs_closed",
 		"github_pull_request_prs_merged",
+		"github_pull_request_prs_reviewed",
+		"github_pull_request_prs_approved",
+		"github_pull_request_prs_review_comments",
 		"gerrit_approvals",
 		"gerrit_changesets",
 		"gerrit_merged_changesets",
@@ -3210,6 +3215,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		if !public {
 			row = append(row, contributor.Email)
 		}
+		// TOPCON
 		_, ok := m["git_commits"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GitCommits, 10))
@@ -3241,6 +3247,18 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		_, ok = m["github_pull_request_prs_merged"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsMerged, 10))
+		}
+		_, ok = m["github_pull_request_prs_reviewed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsReviewed, 10))
+		}
+		_, ok = m["github_pull_request_prs_approved"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsApproved, 10))
+		}
+		_, ok = m["github_pull_request_prs_review_comments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsReviewComments, 10))
 		}
 		_, ok = m["gerrit_approvals"]
 		if ok {
