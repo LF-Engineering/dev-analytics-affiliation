@@ -2994,6 +2994,8 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	}
 	var ok bool
 	topContributors, ok = s.getTopContributorsCache(key, projects)
+	// IMPL
+	ok = false
 	if ok {
 		return
 	}

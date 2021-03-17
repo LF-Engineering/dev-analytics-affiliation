@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,6 +54,7 @@ type Service interface {
 	TopContributorsCacheDeleteExpired()
 	// Internal methods
 	authorRootForColumn(string) string
+	translateNeededForColumn(string) bool
 	mapDataSourceTypes([]string) []string
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -68,7 +68,7 @@ type Service interface {
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
-	dataSourceQuery(string) (map[string][]string, bool, error)
+	dataSourceQuery(string, string) (map[string][]string, bool, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -977,7 +977,8 @@ func (s *service) ContributorsCount(indexPattern, cond, authorColumn string) (cn
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
-	// fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
+	// IMPL
+	fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1085,23 +1086,28 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	return
 }
 
-func (s *service) dataSourceQuery(query string) (result map[string][]string, drop bool, err error) {
-	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
+func (s *service) dataSourceQuery(query, column string) (result map[string][]string, drop bool, err error) {
+	log.Info(fmt.Sprintf("dataSourceQuery: query:%d column:%s", len(query), column))
 	defer func() {
 		l := 0
 		r, ok := result["author_uuid"]
 		if ok {
 			l = len(r)
 		}
-		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d result:%d err:%v", len(query), l, err))
+		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d column:%s result:%d err:%v", len(query), column, l, err))
 	}()
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
-	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
-	// url := fmt.Sprintf("%s/_sql/translate", s.url)
+	translate := s.translateNeededForColumn(column)
+	url := fmt.Sprintf("%s/_sql", s.url)
+	if translate {
+		url += "?format=csv"
+	} else {
+		url += "/translate"
+	}
 	// IMPL
-	// fmt.Printf(">>> dataSourceQuery: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
+	fmt.Printf(">>> dataSourceQuery: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
 		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s", err, method, url, query)
@@ -1651,6 +1657,17 @@ func (s *service) authorRootForColumn(column string) string {
 	}
 }
 
+// translateNeededForColumn - return information about translation needed for a given column
+func (s *service) translateNeededForColumn(column string) bool {
+	// TOPCON
+	switch column {
+	case "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *service) contributorStatsMergeQuery(
 	dataSourceType, indexPattern, column, columnStr, search, uuids string,
 	from, to int64,
@@ -1826,7 +1843,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	// true: will use pattern matching all current project(s) data so for example 'sds-proj1-*,sds-proj2-*,...,sds-projN-*,-*-raw,-*-for-merge'
 	//       this can give more contributors than actual results, because the main query depending on 'sort_filed' will query one of data-sources, not all of them
 	// false: will use the pattern as the main data query uses (depending on sort_field), this will give the same number of records (so pagination will always be OK)
-	//       but when sort_filed is changed, numbe rof contributors will change too
+	//       but when sort_filed is changed, number of contributors will change too
 	useCaptureAllPatternToCountContributors := false
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
@@ -2016,6 +2033,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 
 	// Get count of all contributors
 	authorColumnRoot := s.authorRootForColumn(sortField)
+	authorColumn := authorColumnRoot + "_uuid"
 	var searchCondAll string
 	if useCaptureAllPatternToCountContributors {
 		searchCondAll, err = s.searchCondition(patternAll, search, authorColumnRoot)
@@ -2044,13 +2062,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		}
 	}
 	if useCaptureAllPatternToCountContributors {
-		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, "author_uuid")
-		//top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, authorColumnRoot)
+		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, authorColumn)
 	} else {
-		// fmt.Printf(">>> mainPattern = %s\n", mainPattern)
-		// fmt.Printf(">>> searchCondAll = %s\n", searchCondAll)
-		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, "author_uuid")
-		//top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, authorColumnRoot)
+		// IMPL
+		fmt.Printf(">>> mainPattern = %s\n", mainPattern)
+		fmt.Printf(">>> searchCondAll = %s\n", searchCondAll)
+		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, authorColumn)
 	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
@@ -2092,8 +2109,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	)
 	results := make(map[string]map[string]string)
 	uuids := []string{}
-	gotRoots := 0
-	ff, tt := fromIdx, toIdx
 	authorRootsAry := []string{}
 	hasAuthor := false
 	for authorRoot := range authorRoots {
@@ -2106,68 +2121,44 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	if hasAuthor {
 		authorRootsAry = append(authorRootsAry, "author")
 	}
-	for _, authorRoot := range authorRootsAry {
-		query, err = s.contributorStatsMainQuery(mainDataSourceType, mainPattern, mainColumn, from, to, limit, offset, searchCond, mainSortField, mainSortOrder, authorRoot)
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-			return
-		}
-		res, drop, err = s.dataSourceQuery(query)
-		if drop == true {
-			err = fmt.Errorf("cannot find main index, no data available for all projects '%+v'", projectSlugs)
-		}
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-			return
-		}
-		nResults := int64(len(res["author_uuid"]))
-		if ff > nResults {
-			ff = nResults
-		}
-		if tt > nResults {
-			tt = nResults
-		}
-		if ff == tt {
-			continue
-		}
-		gotRoots++
-		for i := ff; i < tt; i++ {
-			uuid := res["author_uuid"][i]
-			rec, exists := results[uuid]
-			if !exists {
-				rec = make(map[string]string)
-				uuids = append(uuids, uuid)
-			} else {
-				if authorRoot == "author" {
-					// We assume that some specialistic column gave a better value
-					continue
-				}
-			}
-			for column, values := range res {
-				if column == "author_uuid" || column == "cnt" {
-					continue
-				}
-				rec[column] = values[i]
-			}
-			results[uuid] = rec
-		}
-	}
-	if gotRoots == 0 {
+	query, err = s.contributorStatsMainQuery(mainDataSourceType, mainPattern, mainColumn, from, to, limit, offset, searchCond, mainSortField, mainSortOrder, authorColumnRoot)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
-	sort.SliceStable(uuids, func(i, j int) bool {
-		vI, okI := results[uuids[i]][mainColumnName]
-		vJ, okJ := results[uuids[j]][mainColumnName]
-		if okI && okJ {
-			fI, errI := strconv.ParseFloat(vI, 64)
-			fJ, errJ := strconv.ParseFloat(vJ, 64)
-			// fmt.Printf("%s: (%d,%d): (%v,%v,%v,%v) <-> (%v,%v,%v,%v)\n", mainColumn, i, j, vI, fI, okI, errI, vJ, fJ, okJ, errJ)
-			if errI == nil && errJ == nil {
-				return fI > fJ
-			}
+	res, drop, err = s.dataSourceQuery(query, mainColumnName)
+	if drop == true {
+		err = fmt.Errorf("cannot find main index, no data available for all projects '%+v'", projectSlugs)
+	}
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
+	}
+	nResults := int64(len(res["author_uuid"]))
+	if fromIdx > nResults {
+		fromIdx = nResults
+	}
+	if toIdx > nResults {
+		toIdx = nResults
+	}
+	if fromIdx == toIdx {
+		return
+	}
+	for i := fromIdx; i < toIdx; i++ {
+		uuid := res["author_uuid"][i]
+		rec, exists := results[uuid]
+		if !exists {
+			rec = make(map[string]string)
+			uuids = append(uuids, uuid)
 		}
-		return uuids[i] < uuids[j]
-	})
+		for column, values := range res {
+			if column == "author_uuid" || column == "cnt" {
+				continue
+			}
+			rec[column] = values[i]
+		}
+		results[uuid] = rec
+	}
 	uuidsCond := ""
 	for _, uuid := range uuids {
 		uuidsCond += "'" + uuid + "',"
@@ -2343,12 +2334,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				if column == sortField {
 					continue
 				}
-				go func(ch chan queryResult, ds, query string) (qr queryResult) {
+				go func(ch chan queryResult, ds, query, column string) (qr queryResult) {
 					defer func() {
 						ch <- qr
 					}()
 					qr.ds = ds
-					res, qr.drop, qr.err = s.dataSourceQuery(query)
+					res, qr.drop, qr.err = s.dataSourceQuery(query, column)
 					if qr.err != nil {
 						return
 					}
@@ -2356,7 +2347,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					qr.err = mergeResults(res)
 					mtx.Unlock()
 					return
-				}(ch, ds, query)
+				}(ch, ds, query, column)
 				nThreads++
 				if nThreads == thrN {
 					mqr = <-ch
@@ -2389,7 +2380,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					continue
 				}
 				var res map[string][]string
-				res, drop, err = s.dataSourceQuery(query)
+				res, drop, err = s.dataSourceQuery(query, column)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return
