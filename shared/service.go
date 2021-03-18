@@ -1155,6 +1155,9 @@ func (s *ServiceStruct) QueryToStringIntArrays(db *sqlx.DB, tx *sql.Tx, query st
 
 // DA2SF - map DA name to SF name (fallback to no change)
 func (s *ServiceStruct) DA2SF(da string) (sf string) {
+	if da == "no-projects" || da == "all-projects" {
+		return da
+	}
 	GSlugMappingMtx.Lock()
 	defer GSlugMappingMtx.Unlock()
 	var ok bool
@@ -1167,6 +1170,9 @@ func (s *ServiceStruct) DA2SF(da string) (sf string) {
 
 // SF2DA - map SF name to DA name (fallback to no change)
 func (s *ServiceStruct) SF2DA(sf string) (da string) {
+	if sf == "no-projects" || sf == "all-projects" {
+		return sf
+	}
 	GSlugMappingMtx.Lock()
 	defer GSlugMappingMtx.Unlock()
 	var ok bool
