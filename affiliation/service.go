@@ -481,7 +481,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	for i := range projectsAry {
 		projectsAry[i] = strings.TrimSpace(strings.Replace(projectsAry[i], "/projects/", "", -1))
 		// SF -> DA
-		if projectsAry[i] != "" {
+		if projectsAry[i] != "" && projectsAry[i] != "all-projects" && projectsAry[i] != "no-projects" {
 			projectsAry[i] = s.SF2DA(projectsAry[i])
 		}
 	}
@@ -501,7 +501,11 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	if !agw {
 		// Check if that user can manage identities for given projects/scopes
 		var allowed bool
-		for i := range projectsAry {
+		for i, prj := range projectsAry {
+			if apiName == "PutMoveIdentity" && (prj == "all-projects" || prj == "no-projects") {
+				projects = append(projects, prj)
+				continue
+			}
 			allowed, err = s.apiDB.CheckIdentityManagePermission(username, projectsAry[i], nil)
 			if err != nil {
 				err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
