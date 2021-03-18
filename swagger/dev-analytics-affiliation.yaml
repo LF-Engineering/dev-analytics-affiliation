@@ -2643,6 +2643,7 @@ definitions:
     title: Contributor stats
     description: contributor stats
     type: object
+    # TOPCON
     properties:
       name:
         type: string

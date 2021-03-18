@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,13 +53,13 @@ type Service interface {
 	TopContributorsCacheDelete(string)
 	TopContributorsCacheDeleteExpired()
 	// Internal methods
-	authorRootForColumn(string) string
+	jsonQueryForColumn(string) bool
 	mapDataSourceTypes([]string) []string
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
 	projectSlugsToIndexPattern([]string) string
 	projectSlugsToIndexPatterns([]string, []string) []string
-	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string, string) (string, error)
+	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
 	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string, string) (string, error)
@@ -68,7 +67,7 @@ type Service interface {
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
-	dataSourceQuery(string) (map[string][]string, bool, error)
+	dataSourceQuery(string, string) (map[string][]string, bool, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -952,17 +951,17 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
-// ContributorsCount - returns the number of distinct author_uuids in a given index pattern (or other author UUID column)
-func (s *service) ContributorsCount(indexPattern, cond, authorColumn string) (cnt int64, err error) {
-	log.Info(fmt.Sprintf("ContributorsCount: indexPattern:%s cond:%s authorColumn:%s", indexPattern, cond, authorColumn))
+// ContributorsCount - returns the number of distinct author_uuids in a given index pattern
+func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int64, err error) {
+	log.Info(fmt.Sprintf("ContributorsCount: indexPattern:%s cond:%s column:%s", indexPattern, cond, column))
 	defer func() {
-		log.Info(fmt.Sprintf("ContributorsCount(exit): indexPattern:%s cond:%s authorColumn:%s cnt:%d err:%v", indexPattern, cond, authorColumn, cnt, err))
+		log.Info(fmt.Sprintf("ContributorsCount(exit): indexPattern:%s cond:%s column:%s cnt:%d err:%v", indexPattern, cond, column, cnt, err))
 	}()
 	var data string
 	if cond == "" {
-		data = fmt.Sprintf(`{"query":"select count(distinct %s) as cnt from \"%s\""}`, authorColumn, s.JSONEscape(indexPattern))
+		data = fmt.Sprintf(`{"query":"select count(distinct author_uuid) as cnt from \"%s\""}`, s.JSONEscape(indexPattern))
 	} else {
-		data = fmt.Sprintf(`{"query":"select count(distinct %s) as cnt from \"%s\" where true %s"}`, authorColumn, s.JSONEscape(indexPattern), cond)
+		data = fmt.Sprintf(`{"query":"select count(distinct author_uuid) as cnt from \"%s\" where true %s"}`, s.JSONEscape(indexPattern), cond)
 		re1 := regexp.MustCompile(`\r?\n`)
 		re2 := regexp.MustCompile(`\s+`)
 		data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
@@ -977,7 +976,9 @@ func (s *service) ContributorsCount(indexPattern, cond, authorColumn string) (cn
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
-	// fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
+	// IMPL
+	fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
+	os.Exit(1)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1085,22 +1086,21 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 	return
 }
 
-func (s *service) dataSourceQuery(query string) (result map[string][]string, drop bool, err error) {
-	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
+func (s *service) dataSourceQuery(query, column string) (result map[string][]string, drop bool, err error) {
+	log.Info(fmt.Sprintf("dataSourceQuery: query:%d column:%s", len(query), column))
 	defer func() {
 		l := 0
 		r, ok := result["author_uuid"]
 		if ok {
 			l = len(r)
 		}
-		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d result:%d err:%v", len(query), l, err))
+		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d column:%s result:%d err:%v", len(query), column, l, err))
 	}()
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
 	url := fmt.Sprintf("%s/_sql?format=csv", s.url)
 	// url := fmt.Sprintf("%s/_sql/translate", s.url)
-	// IMPL
 	// fmt.Printf(">>> dataSourceQuery: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
@@ -1170,7 +1170,7 @@ func (s *service) dataSourceQuery(query string) (result map[string][]string, dro
 	return
 }
 
-func (s *service) searchCondition(indexPattern, search, authorColumnRoot string) (condition string, err error) {
+func (s *service) searchCondition(indexPattern, search, column string) (condition string, err error) {
 	// Example search queries:
 	// 'author_org_name=re:Red Hat.*'
 	// 'all=red*hat'
@@ -1178,9 +1178,9 @@ func (s *service) searchCondition(indexPattern, search, authorColumnRoot string)
 	// 'at&t'
 	// 're:.*[iI][nN][cC].?'
 	// 'author_org_name=re:.*([gG]oogle|[rR]ed *[hH]at).*'
-	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s authorColumnRoot:%s", indexPattern, search, authorColumnRoot))
+	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s column:%s", indexPattern, search, column))
 	defer func() {
-		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s authorColumnRoot:%s condition:%s err:%v", indexPattern, search, authorColumnRoot, condition, err))
+		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s column:%s condition:%s err:%v", indexPattern, search, column, condition, err))
 	}()
 	if search == "" {
 		return
@@ -1222,11 +1222,10 @@ func (s *service) searchCondition(indexPattern, search, authorColumnRoot string)
 	} else {
 		escaped := s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(search)))
 		condition = fmt.Sprintf(`
-			and (\"%[1]s_name\" rlike %[2]s
-			or \"%[1]s_org_name\" rlike %[2]s
-			or \"%[1]s_uuid\" rlike %[2]s)
+			and (\"author_name\" rlike %[1]s
+			or \"author_org_name\" rlike %[1]s
+			or \"author_uuid\" rlike %[1]s)
 			`,
-			authorColumnRoot,
 			escaped,
 		)
 		fmt.Printf("searchCondition: '%s' => '%s'\n", search, condition)
@@ -1285,9 +1284,9 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"github_pull_request_prs_merged":          "count(distinct pr_id) as github_pull_request_prs_merged",
 			"github_pull_request_prs_open":            "count(distinct pr_id) as github_pull_request_prs_open",
 			"github_pull_request_prs_closed":          "count(distinct pr_id) as github_pull_request_prs_closed",
-			"github_pull_request_prs_reviewed":        "count(distinct pr_id) as github_pull_request_prs_reviewed",
-			"github_pull_request_prs_approved":        "count(distinct pr_id) as github_pull_request_prs_approved",
-			"github_pull_request_prs_review_comments": "count(distinct reviewer_data.review_id) as github_pull_request_prs_review_comments",
+			"github_pull_request_prs_reviewed":        "json",
+			"github_pull_request_prs_approved":        "json",
+			"github_pull_request_prs_review_comments": "json",
 		}
 	case "bugzillarest":
 		fields = map[string]string{
@@ -1434,11 +1433,8 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "github_pull_request_prs_closed":
 			cond = `and \"pr_id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
 			return
-		case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
-			cond = `and \"pr_id\" is not null and \"pull_request\" = true and \"reviewer_data.reviewer_id\" is not null`
-			return
-		case "github_pull_request_prs_approved":
-			cond = `and \"pr_id\" is not null and \"pull_request\" = true and \"reviewer_data.reviewer_id\" is not null and \"reviewer_data.review_state\" = 'APPROVED'`
+		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+			cond = "json"
 			return
 		}
 	case "bugzillarest":
@@ -1551,8 +1547,11 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
+			return
+		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+			cond = "json"
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -1623,8 +1622,11 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "github/pull_request":
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
+			return
+		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+			order = "json"
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -1638,16 +1640,14 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 	return
 }
 
-// authorRootForColumn - return author column "root" name
-// for most columns it will be author, so identity fields will be author_id, author_uuid, author_bot, author_org_name and so on
-// but for GitHub review fields this is reviewer_data.reviewer, it it will map for example to reviewer_data.reviewer_uuid (as author_uuid)
-func (s *service) authorRootForColumn(column string) string {
+// jsonQueryForColumn - return information about translation needed for a given column
+func (s *service) jsonQueryForColumn(column string) bool {
 	// TOPCON
 	switch column {
 	case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-		return "reviewer_data.reviewer"
+		return true
 	default:
-		return "author"
+		return false
 	}
 }
 
@@ -1685,39 +1685,31 @@ func (s *service) contributorStatsMergeQuery(
 		err = errs.Wrap(err, "contributorStatsMergeQuery")
 		return
 	}
-	root := s.authorRootForColumn(column)
-	authorUUIDCol := root + "_uuid"
-	authorBotCol := root + "_bot"
 	data := fmt.Sprintf(`
 		select
-			\"%s\" as \"author_uuid\", %s
+			\"author_uuid\", %s
 		from
 			\"%s\"
 		where
-			\"%s\" is not null
-			and length(\"%s\") = 40
-			and not (\"%s\" = true)
+			\"author_uuid\" is not null
+			and length(\"author_uuid\") = 40
+			and not (\"author_bot\" = true)
 			and cast(\"grimoire_creation_date\" as long) >= %d
 			and cast(\"grimoire_creation_date\" as long) < %d
 			%s
 			%s
 			%s
 		group by
-			\"%s\"
+			\"author_uuid\"
 			%s
 		`,
-		authorUUIDCol,
 		columnStr,
 		s.JSONEscape(indexPattern),
-		authorUUIDCol,
-		authorUUIDCol,
-		authorBotCol,
 		from,
 		to,
 		search,
 		additionalWhereStr,
 		uuids,
-		authorUUIDCol,
 		havingStr,
 	)
 	re1 := regexp.MustCompile(`\r?\n`)
@@ -1730,19 +1722,19 @@ func (s *service) contributorStatsMergeQuery(
 func (s *service) contributorStatsMainQuery(
 	dataSourceType, indexPattern, column string,
 	from, to, limit, offset int64,
-	search, sortField, sortOrder, authorColumnRoot string,
+	search, sortField, sortOrder string,
 ) (jsonStr string, err error) {
 	log.Debug(
 		fmt.Sprintf(
-			"contributorStatsMainQuery: dataSourceType:%s indexPattern:%s column:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s authorColumnRoot:%s",
-			dataSourceType, indexPattern, column, from, to, limit, offset, search, sortField, sortOrder, authorColumnRoot,
+			"contributorStatsMainQuery: dataSourceType:%s indexPattern:%s column:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s",
+			dataSourceType, indexPattern, column, from, to, limit, offset, search, sortField, sortOrder,
 		),
 	)
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"contributorStatsMainQuery(exit): dataSourceType:%s indexPattern:%s column:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s authorColumnRoot:%s jsonStr:%s err:%v",
-				dataSourceType, indexPattern, column, from, to, limit, offset, search, sortField, sortOrder, authorColumnRoot, jsonStr, err,
+				"contributorStatsMainQuery(exit): dataSourceType:%s indexPattern:%s column:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s jsonStr:%s err:%v",
+				dataSourceType, indexPattern, column, from, to, limit, offset, search, sortField, sortOrder, jsonStr, err,
 			),
 		)
 	}()
@@ -1768,38 +1760,31 @@ func (s *service) contributorStatsMainQuery(
 	if iLimit > shared.MaxAggsSize {
 		iLimit = shared.MaxAggsSize
 	}
-	authorUUIDCol := authorColumnRoot + "_uuid"
-	authorBotCol := authorColumnRoot + "_bot"
 	data := fmt.Sprintf(`
 		select
-			\"%s\" as \"author_uuid\", %s
+			\"author_uuid\", %s
 		from
 			\"%s\"
 		where
-			\"%s\" is not null
-			and length(\"%s\") = 40
-			and not (\"%s\" = true)
+			\"author_uuid\" is not null
+			and length(\"author_uuid\") = 40
+			and not (\"author_bot\" = true)
 			and cast(\"grimoire_creation_date\" as long) >= %d
 			and cast(\"grimoire_creation_date\" as long) < %d
 			%s
 			%s
 		group by
-			\"%s\"
+			\"author_uuid\"
 			%s
 			%s
 		limit %d
 		`,
-		authorUUIDCol,
 		column,
 		s.JSONEscape(indexPattern),
-		authorUUIDCol,
-		authorUUIDCol,
-		authorBotCol,
 		from,
 		to,
 		search,
 		additionalWhereStr,
-		authorUUIDCol,
 		havingStr,
 		orderByClause,
 		iLimit,
@@ -1826,7 +1811,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	// true: will use pattern matching all current project(s) data so for example 'sds-proj1-*,sds-proj2-*,...,sds-projN-*,-*-raw,-*-for-merge'
 	//       this can give more contributors than actual results, because the main query depending on 'sort_filed' will query one of data-sources, not all of them
 	// false: will use the pattern as the main data query uses (depending on sort_field), this will give the same number of records (so pagination will always be OK)
-	//       but when sort_filed is changed, numbe rof contributors will change too
+	//       but when sort_filed is changed, number of contributors will change too
 	useCaptureAllPatternToCountContributors := false
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
@@ -1837,7 +1822,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		patterns[i] += ",-*-slack"
 	}
 	// FIXME: hack to deal with broken slack mapping: ends
-	//fmt.Printf("%s %+v\n", patternAll, patterns)
+	// fmt.Printf("%s %+v\n", patternAll, patterns)
 	log.Debug(
 		fmt.Sprintf(
 			"GetTopContributors: projectSlugs:%+v dataSourceTypes:%+v patterns:%+v patternAll:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
@@ -1886,14 +1871,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	}()
 	var dsFields map[string]string
 	fields := make(map[string]map[string]string)
-	authorRoots := make(map[string]struct{})
 	mainPattern := ""
 	mainDataSourceType := "all"
 	if len(dataSourceTypes) == 1 {
 		mainDataSourceType = dataSourceTypes[0]
 	}
 	mainColumn := "count(*) as cnt"
-	mainColumnName := "cnt"
 	mainSortField := "cnt"
 	mainSortOrder := "desc"
 	if sortField == "author_uuid" {
@@ -1905,9 +1888,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		if err != nil {
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 			return
-		}
-		for column := range dsFields {
-			authorRoots[s.authorRootForColumn(column)] = struct{}{}
 		}
 		fields[dataSourceType] = dsFields
 		if mainPattern == "" {
@@ -1924,7 +1904,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					mainPattern = patterns[i]
 					mainDataSourceType = dataSourceType
 					mainColumn = columnStr
-					mainColumnName = column
 					mainSortField = sortField
 					mainSortOrder = sortOrder
 					break
@@ -1932,6 +1911,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			}
 		}
 	}
+
 	if mainPattern == "" {
 		if sortField != "" && sortField != "author_uuid" {
 			err = errs.Wrap(errs.New(fmt.Errorf("cannot find main data source type for sort column: %s", sortField), errs.ErrBadRequest), "es.GetTopContributors")
@@ -2015,12 +1995,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	}
 
 	// Get count of all contributors
-	authorColumnRoot := s.authorRootForColumn(sortField)
 	var searchCondAll string
 	if useCaptureAllPatternToCountContributors {
-		searchCondAll, err = s.searchCondition(patternAll, search, authorColumnRoot)
+		searchCondAll, err = s.searchCondition(patternAll, search, mainSortField)
 	} else {
-		searchCondAll, err = s.searchCondition(mainPattern, search, authorColumnRoot)
+		searchCondAll, err = s.searchCondition(mainPattern, search, mainSortField)
 	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
@@ -2044,13 +2023,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		}
 	}
 	if useCaptureAllPatternToCountContributors {
-		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, "author_uuid")
-		//top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, authorColumnRoot)
+		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, mainSortField)
 	} else {
 		// fmt.Printf(">>> mainPattern = %s\n", mainPattern)
 		// fmt.Printf(">>> searchCondAll = %s\n", searchCondAll)
-		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, "author_uuid")
-		//top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, authorColumnRoot)
+		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, mainSortField)
 	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
@@ -2079,96 +2056,58 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 
 	searchCond := ""
 	searchCondMap := make(map[string]string)
-	searchCond, err = s.searchCondition(mainPattern, search, authorColumnRoot)
+	searchCond, err = s.searchCondition(mainPattern, search, mainSortField)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
-	searchCondMap[mainPattern] = searchCond
-	var (
-		res   map[string][]string
-		drop  bool
-		query string
-	)
-	results := make(map[string]map[string]string)
-	uuids := []string{}
-	gotRoots := 0
-	ff, tt := fromIdx, toIdx
-	authorRootsAry := []string{}
-	hasAuthor := false
-	for authorRoot := range authorRoots {
-		if authorRoot == "author" {
-			hasAuthor = true
-			continue
-		}
-		authorRootsAry = append(authorRootsAry, authorRoot)
-	}
-	if hasAuthor {
-		authorRootsAry = append(authorRootsAry, "author")
-	}
-	for _, authorRoot := range authorRootsAry {
-		query, err = s.contributorStatsMainQuery(mainDataSourceType, mainPattern, mainColumn, from, to, limit, offset, searchCond, mainSortField, mainSortOrder, authorRoot)
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-			return
-		}
-		res, drop, err = s.dataSourceQuery(query)
-		if drop == true {
-			err = fmt.Errorf("cannot find main index, no data available for all projects '%+v'", projectSlugs)
-		}
-		if err != nil {
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-			return
-		}
-		nResults := int64(len(res["author_uuid"]))
-		if ff > nResults {
-			ff = nResults
-		}
-		if tt > nResults {
-			tt = nResults
-		}
-		if ff == tt {
-			continue
-		}
-		gotRoots++
-		for i := ff; i < tt; i++ {
-			uuid := res["author_uuid"][i]
-			rec, exists := results[uuid]
-			if !exists {
-				rec = make(map[string]string)
-				uuids = append(uuids, uuid)
-			} else {
-				if authorRoot == "author" {
-					// We assume that some specialistic column gave a better value
-					continue
-				}
-			}
-			for column, values := range res {
-				if column == "author_uuid" || column == "cnt" {
-					continue
-				}
-				rec[column] = values[i]
-			}
-			results[uuid] = rec
-		}
-	}
-	if gotRoots == 0 {
+	searchCondMap[mainPattern+mainSortField] = searchCond
+	query := ""
+	query, err = s.contributorStatsMainQuery(mainDataSourceType, mainPattern, mainColumn, from, to, limit, offset, searchCond, mainSortField, mainSortOrder)
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
-	sort.SliceStable(uuids, func(i, j int) bool {
-		vI, okI := results[uuids[i]][mainColumnName]
-		vJ, okJ := results[uuids[j]][mainColumnName]
-		if okI && okJ {
-			fI, errI := strconv.ParseFloat(vI, 64)
-			fJ, errJ := strconv.ParseFloat(vJ, 64)
-			// fmt.Printf("%s: (%d,%d): (%v,%v,%v,%v) <-> (%v,%v,%v,%v)\n", mainColumn, i, j, vI, fI, okI, errI, vJ, fJ, okJ, errJ)
-			if errI == nil && errJ == nil {
-				return fI > fJ
-			}
+	var (
+		res  map[string][]string
+		drop bool
+	)
+	res, drop, err = s.dataSourceQuery(query, mainSortField)
+	if drop == true {
+		err = fmt.Errorf("cannot find main index, no data available for all projects '%+v'", projectSlugs)
+	}
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+		return
+	}
+	results := make(map[string]map[string]string)
+	nResults := int64(len(res["author_uuid"]))
+	if fromIdx > nResults {
+		fromIdx = nResults
+	}
+	if toIdx > nResults {
+		toIdx = nResults
+	}
+	if fromIdx == toIdx {
+		return
+	}
+	var uuids []string
+	for i := fromIdx; i < toIdx; i++ {
+		uuid := res["author_uuid"][i]
+		rec, ok := results[uuid]
+		if !ok {
+			rec = make(map[string]string)
 		}
-		return uuids[i] < uuids[j]
-	})
-	uuidsCond := ""
+		for column, values := range res {
+			if column == "author_uuid" || column == "cnt" {
+				continue
+			}
+			rec[column] = values[i]
+		}
+		results[uuid] = rec
+		uuids = append(uuids, uuid)
+	}
+	uuidsCond := `and \"author_uuid\" in (`
 	for _, uuid := range uuids {
 		uuidsCond += "'" + uuid + "',"
 	}
@@ -2199,11 +2138,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					)
 					if useSearchInMergeQueries {
 						condMtx.Lock()
-						srchCond, ok = searchCondMap[pattern]
+						srchCond, ok = searchCondMap[pattern+column]
 						if !ok {
-							srchCond, err = s.searchCondition(pattern, search, authorColumnRoot)
+							srchCond, err = s.searchCondition(pattern, search, column)
 							if err == nil {
-								searchCondMap[pattern] = srchCond
+								searchCondMap[pattern+column] = srchCond
 							}
 						}
 						condMtx.Unlock()
@@ -2211,7 +2150,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 							return
 						}
 					}
-					uuidsCondRoot := `and \"` + s.authorRootForColumn(column) + `_uuid\" in (`
 					query := ""
 					query, err = s.contributorStatsMergeQuery(
 						dataSourceType,
@@ -2219,7 +2157,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 						column,
 						columnStr,
 						srchCond,
-						uuidsCondRoot+uuidsCond,
+						uuidsCond,
 						from,
 						to,
 						useSearchInMergeQueries,
@@ -2255,29 +2193,28 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		for i, dataSourceType := range dataSourceTypes {
 			queries[dataSourceType] = make(map[string]string)
 			var ok bool
-			if useSearchInMergeQueries {
-				searchCond, ok = searchCondMap[patterns[i]]
-				if !ok {
-					searchCond, err = s.searchCondition(patterns[i], search, authorColumnRoot)
-					if err != nil {
-						err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-						return
-					}
-					searchCondMap[patterns[i]] = searchCond
-				}
-			}
 			for column, columnStr := range fields[dataSourceType] {
 				if column == sortField {
 					continue
 				}
-				uuidsCondRoot := `and \"` + s.authorRootForColumn(column) + `_uuid\" in (`
+				if useSearchInMergeQueries {
+					searchCond, ok = searchCondMap[patterns[i]+column]
+					if !ok {
+						searchCond, err = s.searchCondition(patterns[i], search, column)
+						if err != nil {
+							err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+							return
+						}
+						searchCondMap[patterns[i]+column] = searchCond
+					}
+				}
 				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(
 					dataSourceType,
 					patterns[i],
 					column,
 					columnStr,
 					searchCond,
-					uuidsCondRoot+uuidsCond,
+					uuidsCond,
 					from,
 					to,
 					useSearchInMergeQueries,
@@ -2296,11 +2233,8 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 			uuid := res["author_uuid"][i]
 			rec, ok := results[uuid]
 			if !ok {
-				// err = errs.Wrap(errs.New(fmt.Errorf("merge query returned uuid %s which is not present in main query results", uuid), errs.ErrBadRequest), "mergeResults")
-				// return
-				// This is no longer fatal, when you query any array/object field in ES SQL it returns all array items where at least one item matches the SQL condition
-				// We just need to discard them
-				continue
+				err = errs.Wrap(errs.New(fmt.Errorf("merge query returned uuid %s which is not present in main query results", uuid), errs.ErrBadRequest), "mergeResults")
+				return
 			}
 			for column, values := range res {
 				if column == "author_uuid" {
@@ -2343,12 +2277,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				if column == sortField {
 					continue
 				}
-				go func(ch chan queryResult, ds, query string) (qr queryResult) {
+				go func(ch chan queryResult, ds, query, column string) (qr queryResult) {
 					defer func() {
 						ch <- qr
 					}()
 					qr.ds = ds
-					res, qr.drop, qr.err = s.dataSourceQuery(query)
+					res, qr.drop, qr.err = s.dataSourceQuery(query, column)
 					if qr.err != nil {
 						return
 					}
@@ -2356,7 +2290,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					qr.err = mergeResults(res)
 					mtx.Unlock()
 					return
-				}(ch, ds, query)
+				}(ch, ds, query, column)
 				nThreads++
 				if nThreads == thrN {
 					mqr = <-ch
@@ -2389,7 +2323,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					continue
 				}
 				var res map[string][]string
-				res, drop, err = s.dataSourceQuery(query)
+				res, drop, err = s.dataSourceQuery(query, column)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return

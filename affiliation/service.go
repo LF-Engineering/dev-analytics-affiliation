@@ -2915,9 +2915,9 @@ func (s *service) TopContributorsParams(params *affiliation.GetTopContributorsPa
 	} else {
 		// FIXME
 		// prod
-		dss = "git"
+		// dss = "git"
 		// test
-		// dss = "all"
+		dss = "all"
 	}
 	dsa := strings.Split(dss, ",")
 	for _, ds := range dsa {
@@ -2994,6 +2994,8 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 	}
 	var ok bool
 	topContributors, ok = s.getTopContributorsCache(key, projects)
+	// IMPL
+	ok = false
 	if ok {
 		return
 	}
@@ -3013,7 +3015,6 @@ func (s *service) GetTopContributors(ctx context.Context, params *affiliation.Ge
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	//fmt.Printf("topContributors: %+v,%+v\n", topContributors, err)
 	if len(topContributors.Contributors) > 0 {
 		err = s.shDB.EnrichContributors(topContributors.Contributors, projects, to, nil)
 		if err != nil {
