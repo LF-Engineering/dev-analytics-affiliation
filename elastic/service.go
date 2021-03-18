@@ -54,6 +54,7 @@ type Service interface {
 	TopContributorsCacheDeleteExpired()
 	// Internal methods
 	jsonQueryForColumn(string) bool
+	authorForColumn(string) string
 	mapDataSourceTypes([]string) []string
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -63,6 +64,7 @@ type Service interface {
 	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string, string) (string, error)
+	searchConditionJSON(string, string, string) (string, error)
 	getAllStringFields(string) ([]string, error)
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
@@ -978,7 +980,12 @@ func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int6
 	}
 	// IMPL
 	fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
-	os.Exit(1)
+	// TODO: hanlde from-to grimoire_creation_date filter and a new JSON marshaled regexp filter
+	// return a new method that will fill the complex query from qapprovals.json
+	// IMPL
+	if 1 == 1 {
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1170,6 +1177,78 @@ func (s *service) dataSourceQuery(query, column string) (result map[string][]str
 	return
 }
 
+func (s *service) searchConditionJSON(indexPattern, search, column string) (condition string, err error) {
+	log.Info(fmt.Sprintf("searchConditionJSON: indexPattern:%s search:%s column:%s", indexPattern, search, column))
+	defer func() {
+		log.Info(fmt.Sprintf("searchConditionJSON(exit): indexPattern:%s search:%s column:%s condition:%s err:%v", indexPattern, search, column, condition, err))
+	}()
+	authorColumnRoot := s.authorForColumn(column)
+	ary := strings.Split(search, "=")
+	m := map[string]interface{}{}
+	if len(ary) > 1 {
+		fields := ary[0]
+		fieldsAry := strings.Split(fields, ",")
+		if strings.TrimSpace(fieldsAry[0]) == "" {
+			return
+		}
+		values := ary[1]
+		valuesAry := strings.Split(values, ",")
+		if strings.TrimSpace(valuesAry[0]) == "" {
+			return
+		}
+		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
+			fieldsAry, err = s.getAllStringFields(indexPattern)
+			if err != nil {
+				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchConditionJSON")
+				return
+			}
+		}
+		fieldsNested := []bool{}
+		for _, field := range fieldsAry {
+			fieldsNested = append(fieldsNested, strings.Contains(field, "."))
+		}
+		for _, value := range valuesAry {
+			value := strings.Trim(s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(value))), "'")
+			for i, field := range fieldsAry {
+				field = s.JSONEscape(field)
+				fieldNested := fieldsNested[i]
+				name := "r"
+				if fieldNested {
+					name = "n"
+				}
+				_, ok := m[name]
+				if !ok {
+					m[name] = map[string]interface{}{}
+				}
+				m[name].(map[string]interface{})[field] = value
+			}
+		}
+	} else {
+		nested := strings.Contains(authorColumnRoot, ".")
+		name := "r"
+		if nested {
+			name = "n"
+		}
+		_, ok := m[name]
+		if !ok {
+			m[name] = map[string]interface{}{}
+		}
+		escaped := strings.Trim(s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(search))), "'")
+		for _, suff := range []string{"name", "org_name", "uuid"} {
+			m[name].(map[string]interface{})[authorColumnRoot+suff] = escaped
+		}
+	}
+	var bytesCondition []byte
+	bytesCondition, err = json.Marshal(m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("searchConditionJSON error: %v, for %+v\n", err, m))
+		return
+	}
+	condition = string(bytesCondition)
+	fmt.Printf("searchConditionJSON: '%s' => '%s'\n", search, condition)
+	return
+}
+
 func (s *service) searchCondition(indexPattern, search, column string) (condition string, err error) {
 	// Example search queries:
 	// 'author_org_name=re:Red Hat.*'
@@ -1184,6 +1263,9 @@ func (s *service) searchCondition(indexPattern, search, column string) (conditio
 	}()
 	if search == "" {
 		return
+	}
+	if s.jsonQueryForColumn(column) {
+		return s.searchConditionJSON(indexPattern, search, column)
 	}
 	ary := strings.Split(search, "=")
 	if len(ary) > 1 {
@@ -1284,9 +1366,9 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"github_pull_request_prs_merged":          "count(distinct pr_id) as github_pull_request_prs_merged",
 			"github_pull_request_prs_open":            "count(distinct pr_id) as github_pull_request_prs_open",
 			"github_pull_request_prs_closed":          "count(distinct pr_id) as github_pull_request_prs_closed",
-			"github_pull_request_prs_reviewed":        "json",
-			"github_pull_request_prs_approved":        "json",
-			"github_pull_request_prs_review_comments": "json",
+			"github_pull_request_prs_reviewed":        "",
+			"github_pull_request_prs_approved":        "",
+			"github_pull_request_prs_review_comments": "",
 		}
 	case "bugzillarest":
 		fields = map[string]string{
@@ -1434,7 +1516,8 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			cond = `and \"pr_id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
 			return
 		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-			cond = "json"
+			// They use JSON query
+			cond = ""
 			return
 		}
 	case "bugzillarest":
@@ -1551,7 +1634,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-			cond = "json"
+			cond = ""
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -1626,7 +1709,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-			order = "json"
+			order = ""
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -1640,7 +1723,18 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 	return
 }
 
-// jsonQueryForColumn - return information about translation needed for a given column
+// authorForColumn - return author column name for a given column
+func (s *service) authorForColumn(column string) string {
+	// TOPCON
+	switch column {
+	case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+		return "reviewer_data.reviewer_"
+	default:
+		return "author_"
+	}
+}
+
+// jsonQueryForColumn - is JSON query needed for a given column (used for complex nested fields which cannot be processed using ES SQL)
 func (s *service) jsonQueryForColumn(column string) bool {
 	// TOPCON
 	switch column {
