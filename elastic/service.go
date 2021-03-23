@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"encoding/csv"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
+	jsoniter "github.com/json-iterator/go"
 )
 
 // TopContributorsCacheEntry - top contributors single cache entry
@@ -43,6 +43,7 @@ type Service interface {
 	GetUnaffiliated([]string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
 	ContributorsCount(string, string, string) (int64, error)
+	ContributorsCountJSON(string, string, string) (int64, error)
 	GetTopContributors([]string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
@@ -53,6 +54,11 @@ type Service interface {
 	TopContributorsCacheDelete(string)
 	TopContributorsCacheDeleteExpired()
 	// Internal methods
+	dig(interface{}, []string) (interface{}, bool)
+	jsonCondition(map[string]interface{}, string) string
+	contributorsCountQuery(string, string) string
+	contributorsCountJSONPath(string) []string
+	addDateRangeJSON(string, int64, int64) string
 	jsonQueryForColumn(string) bool
 	authorForColumn(string) string
 	mapDataSourceTypes([]string) []string
@@ -65,7 +71,7 @@ type Service interface {
 	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string, string) (string, error)
 	searchConditionJSON(string, string, string) (string, error)
-	getAllStringFields(string) ([]string, error)
+	getAllStringFields(string, string) ([]string, error)
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
@@ -129,7 +135,7 @@ func (s *service) TopContributorsCacheGet(key string) (entry *TopContributorsCac
 		Data []interface{} `json:"rows"`
 	}
 	var result Result
-	err = json.Unmarshal(body, &result)
+	err = jsoniter.Unmarshal(body, &result)
 	if err != nil {
 		log.Warn(fmt.Sprintf("Unmarshal error: %+v", err))
 		return
@@ -144,7 +150,7 @@ func (s *service) TopContributorsCacheGet(key string) (entry *TopContributorsCac
 
 func (s *service) TopContributorsCacheSet(key string, entry *TopContributorsCacheEntry) {
 	entry.Key = key
-	payloadBytes, err := json.Marshal(entry)
+	payloadBytes, err := jsoniter.Marshal(entry)
 	if err != nil {
 		log.Warn(fmt.Sprintf("json %+v marshal error: %+v\n", entry, err))
 		return
@@ -305,7 +311,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			Rows   [][]string `json:"rows"`
 		}
 		var result uuidsResult
-		err = json.Unmarshal(body, &result)
+		err = jsoniter.Unmarshal(body, &result)
 		if err != nil {
 			res.err = fmt.Errorf("unmarshal error: %+v", err)
 			return
@@ -341,7 +347,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 				res.err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 				return
 			}
-			err = json.Unmarshal(body, &result)
+			err = jsoniter.Unmarshal(body, &result)
 			if err != nil {
 				res.err = fmt.Errorf("unmarshal error: %+v", err)
 				return
@@ -933,7 +939,7 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	defer res.Body.Close()
 	if res.IsError() {
 		var e map[string]interface{}
-		if err = json.NewDecoder(res.Body).Decode(&e); err != nil {
+		if err = jsoniter.NewDecoder(res.Body).Decode(&e); err != nil {
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result.decode")
 			return
 		}
@@ -942,7 +948,7 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 		return
 	}
 	var result aggsUnaffiliatedResult
-	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err = jsoniter.NewDecoder(res.Body).Decode(&result); err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.aggs.decode")
 		return
 	}
@@ -953,12 +959,245 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
+// dig interface for array of keys
+func (s *service) dig(iface interface{}, keys []string) (v interface{}, ok bool) {
+	miss := false
+	item, o := iface.(map[string]interface{})
+	if !o {
+		return
+	}
+	last := len(keys) - 1
+	for i, key := range keys {
+		var o bool
+		if i < last {
+			item, o = item[key].(map[string]interface{})
+		} else {
+			v, o = item[key]
+		}
+		if !o {
+			miss = true
+			break
+		}
+	}
+	ok = !miss
+	return
+}
+
+// jsonCondition - return search condition for either root or nested field
+func (s *service) jsonCondition(m map[string]interface{}, ky string) (cond string) {
+	cI, ok := m[ky]
+	if !ok {
+		return
+	}
+	c, ok := cI.(map[string]interface{})
+	if !ok {
+		return
+	}
+	if len(c) == 0 {
+		return
+	}
+	cond = `
+      {
+	     "bool": {
+	       "minimum_should_match" : 1,
+	       "should": [
+`
+	for col, re := range c {
+		cond += `
+	         {
+	           "regexp": {
+	             "` + col + `": {
+	               "value": "` + re.(string) + `",
+	               "flags": "ALL"
+	             }
+	           }
+	         },`
+	}
+	cond = cond[:len(cond)-1] + `
+	       ]
+	     }
+	   },
+`
+	return
+}
+
+// contributorsCountJSONPath - return dig path for aggregation result count for a given column
+func (s *service) contributorsCountJSONPath(column string) (path []string) {
+	// TOPCON
+	switch column {
+	case "github_pull_request_prs_approved":
+		return []string{"aggregations", "approvers", "approvers_count", "unique_approvers_count", "value"}
+	}
+	return
+}
+
+// contributorsCountQuery - count contributors using a given column (for example approvers, reviewers etc.)
+func (s *service) contributorsCountQuery(column, cond string) (query string) {
+	var m map[string]interface{}
+	err := jsoniter.Unmarshal([]byte(cond), &m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: contributorsCountQuery: %+v, for %s", err, cond))
+		return
+	}
+	fromStr, _ := m["f"].(string)
+	toStr, _ := m["t"].(string)
+	rootStr := s.jsonCondition(m, "r")
+	nestedStr := s.jsonCondition(m, "n")
+	// TOPCON
+	switch column {
+	case "github_pull_request_prs_approved":
+		query = `
+{
+  "size": 0,
+  "aggs": {
+    "approvers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "approvers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "reviewer_data.review_state.keyword": "APPROVED"
+                  }
+                },
+                %%nested_cond%%
+                {
+                  "bool": {
+                  }
+                }
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "unique_approvers_count": {
+              "cardinality": {
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}`
+	}
+	query = strings.Replace(query, "%%from_cond%%", fromStr, -1)
+	query = strings.Replace(query, "%%to_cond%%", toStr, -1)
+	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
+	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
+	return
+}
+
+// ContributorsCountJSON - returns the number of distinct authors in a given index pattern (using JSON query)
+func (s *service) ContributorsCountJSON(indexPattern, cond, column string) (cnt int64, err error) {
+	var data string
+	data = s.contributorsCountQuery(column, cond)
+	re1 := regexp.MustCompile(`\r?\n`)
+	re2 := regexp.MustCompile(`\s+`)
+	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
+	// fmt.Printf("\n\n\n>>> contributorsCountQuery:\n%s\n\n\n", data)
+	payloadBytes := []byte(data)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/%s/_search", s.url, indexPattern)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
+		return
+	}
+	// fmt.Printf("\n\n\n>>> ContributorsCountJSON: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n\n\n", url, data)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
+		return
+	}
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
+		return
+	}
+	var result map[string]interface{}
+	err = jsoniter.Unmarshal(body, &result)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: ContributorsCountJSON: %+v, for %s", err, string(body)))
+		return
+	}
+	// fmt.Printf("##### %+v\n", result)
+	path := s.contributorsCountJSONPath(column)
+	iCnt, ok := s.dig(result, path)
+	cnt = int64(iCnt.(float64))
+	// fmt.Printf("##### %s -> %v,%T,%d\n", column, iCnt, iCnt, cnt)
+	if !ok {
+		err = fmt.Errorf("cannot get %s count %v from %+v", column, path, result)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
+	}
+	return
+}
+
 // ContributorsCount - returns the number of distinct author_uuids in a given index pattern
 func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int64, err error) {
 	log.Info(fmt.Sprintf("ContributorsCount: indexPattern:%s cond:%s column:%s", indexPattern, cond, column))
 	defer func() {
 		log.Info(fmt.Sprintf("ContributorsCount(exit): indexPattern:%s cond:%s column:%s cnt:%d err:%v", indexPattern, cond, column, cnt, err))
 	}()
+	if s.jsonQueryForColumn(column) {
+		return s.ContributorsCountJSON(indexPattern, cond, column)
+	}
 	var data string
 	if cond == "" {
 		data = fmt.Sprintf(`{"query":"select count(distinct author_uuid) as cnt from \"%s\""}`, s.JSONEscape(indexPattern))
@@ -978,14 +1217,7 @@ func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int6
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
-	// IMPL
-	fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
-	// TODO: hanlde from-to grimoire_creation_date filter and a new JSON marshaled regexp filter
-	// return a new method that will fill the complex query from qapprovals.json
-	// IMPL
-	if 1 == 1 {
-		return
-	}
+	// fmt.Printf("\n\n\n>>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n\n\n", url, data)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1033,10 +1265,10 @@ func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int6
 }
 
 // Top contributor functions
-func (s *service) getAllStringFields(indexPattern string) (fields []string, err error) {
-	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s", indexPattern))
+func (s *service) getAllStringFields(indexPattern, contain string) (fields []string, err error) {
+	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s contain:%s", indexPattern, contain))
 	defer func() {
-		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s fields:%+v err:%v", indexPattern, fields, err))
+		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s contain:%s fields:%+v err:%v", indexPattern, contain, fields, err))
 	}()
 	data := fmt.Sprintf(`{"query":"show columns in \"%s\""}`, s.JSONEscape(indexPattern))
 	payloadBytes := []byte(data)
@@ -1071,6 +1303,7 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
+	bContain := contain != ""
 	reader := csv.NewReader(resp.Body)
 	row := []string{}
 	n := 0
@@ -1085,6 +1318,9 @@ func (s *service) getAllStringFields(indexPattern string) (fields []string, err 
 			return
 		}
 		n++
+		if bContain && !strings.Contains(row[0], contain) {
+			continue
+		}
 		// hash_short,VARCHAR,keyword
 		if row[1] == "VARCHAR" && row[2] == "keyword" {
 			fields = append(fields, row[0])
@@ -1177,6 +1413,27 @@ func (s *service) dataSourceQuery(query, column string) (result map[string][]str
 	return
 }
 
+func (s *service) addDateRangeJSON(cond string, from, to int64) string {
+	var m map[string]interface{}
+	err := jsoniter.Unmarshal([]byte(cond), &m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: addDateRangeJSON: %+v, for %s", err, cond))
+		return cond
+	}
+	fT := time.Unix(0, from*1000000)
+	tT := time.Unix(0, to*1000000)
+	fS := fT.Format("2006-01-02T15:04:05Z")
+	tS := tT.Format("2006-01-02T15:04:05Z")
+	m["f"] = fS
+	m["t"] = tS
+	bytesCond, err := jsoniter.Marshal(m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("addDateRangeJSON error: %v, for %+v\n", err, m))
+		return cond
+	}
+	return string(bytesCond)
+}
+
 func (s *service) searchConditionJSON(indexPattern, search, column string) (condition string, err error) {
 	log.Info(fmt.Sprintf("searchConditionJSON: indexPattern:%s search:%s column:%s", indexPattern, search, column))
 	defer func() {
@@ -1197,7 +1454,7 @@ func (s *service) searchConditionJSON(indexPattern, search, column string) (cond
 			return
 		}
 		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
-			fieldsAry, err = s.getAllStringFields(indexPattern)
+			fieldsAry, err = s.getAllStringFields(indexPattern, ".")
 			if err != nil {
 				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchConditionJSON")
 				return
@@ -1205,7 +1462,7 @@ func (s *service) searchConditionJSON(indexPattern, search, column string) (cond
 		}
 		fieldsNested := []bool{}
 		for _, field := range fieldsAry {
-			fieldsNested = append(fieldsNested, strings.Contains(field, "."))
+			fieldsNested = append(fieldsNested, strings.Contains(strings.Replace(field, ".keyword", "", -1), "."))
 		}
 		for _, value := range valuesAry {
 			value := strings.Trim(s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(value))), "'")
@@ -1219,6 +1476,9 @@ func (s *service) searchConditionJSON(indexPattern, search, column string) (cond
 				_, ok := m[name]
 				if !ok {
 					m[name] = map[string]interface{}{}
+				}
+				if !strings.HasSuffix(field, ".keyword") {
+					field += ".keyword"
 				}
 				m[name].(map[string]interface{})[field] = value
 			}
@@ -1235,11 +1495,11 @@ func (s *service) searchConditionJSON(indexPattern, search, column string) (cond
 		}
 		escaped := strings.Trim(s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(search))), "'")
 		for _, suff := range []string{"name", "org_name", "uuid"} {
-			m[name].(map[string]interface{})[authorColumnRoot+suff] = escaped
+			m[name].(map[string]interface{})[authorColumnRoot+suff+".keyword"] = escaped
 		}
 	}
 	var bytesCondition []byte
-	bytesCondition, err = json.Marshal(m)
+	bytesCondition, err = jsoniter.Marshal(m)
 	if err != nil {
 		log.Warn(fmt.Sprintf("searchConditionJSON error: %v, for %+v\n", err, m))
 		return
@@ -1280,7 +1540,7 @@ func (s *service) searchCondition(indexPattern, search, column string) (conditio
 			return
 		}
 		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
-			fieldsAry, err = s.getAllStringFields(indexPattern)
+			fieldsAry, err = s.getAllStringFields(indexPattern, "")
 			if err != nil {
 				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchCondition")
 				return
@@ -2100,11 +2360,15 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		return
 	}
 	// Add from, to filter
-	searchCondAll += fmt.Sprintf(
-		` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
-		from,
-		to,
-	)
+	if s.jsonQueryForColumn(mainSortField) {
+		searchCondAll = s.addDateRangeJSON(searchCondAll, from, to)
+	} else {
+		searchCondAll += fmt.Sprintf(
+			` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
+			from,
+			to,
+		)
+	}
 	if !useCaptureAllPatternToCountContributors {
 		cnd := ""
 		cnd, err = s.additionalWhere(mainDataSourceType, mainSortField)
