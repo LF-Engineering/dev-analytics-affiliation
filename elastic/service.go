@@ -1027,6 +1027,8 @@ func (s *service) contributorsCountJSONPath(column string) (path []string) {
 	switch column {
 	case "github_pull_request_prs_approved":
 		return []string{"aggregations", "approvers", "approvers_count", "unique_approvers_count", "value"}
+	case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
+		return []string{"aggregations", "reviewers", "reviewers_count", "unique_reviewers_count", "value"}
 	}
 	return
 }
@@ -1079,6 +1081,78 @@ func (s *service) contributorsCountQuery(column, cond string) (query string) {
           },
           "aggs": {
             "unique_approvers_count": {
+              "cardinality": {
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}`
+	case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
+		query = `
+{
+  "size": 0,
+  "aggs": {
+    "reviewers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "reviewers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                %%nested_cond%%
+                {
+                  "bool": {
+                  }
+                }
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "unique_reviewers_count": {
               "cardinality": {
                 "field": "reviewer_data.reviewer_uuid.keyword"
               }
@@ -1182,6 +1256,7 @@ func (s *service) ContributorsCountJSON(indexPattern, cond, column string) (cnt 
 	iCnt, ok := s.dig(result, path)
 	cnt = int64(iCnt.(float64))
 	// fmt.Printf("##### %s -> %v,%T,%d\n", column, iCnt, iCnt, cnt)
+	fmt.Printf("\n\n\n##### %s -> %d\n\n\n\n", column, cnt)
 	if !ok {
 		err = fmt.Errorf("cannot get %s count %v from %+v", column, path, result)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
@@ -1439,6 +1514,10 @@ func (s *service) searchConditionJSON(indexPattern, search, column string) (cond
 	defer func() {
 		log.Info(fmt.Sprintf("searchConditionJSON(exit): indexPattern:%s search:%s column:%s condition:%s err:%v", indexPattern, search, column, condition, err))
 	}()
+	if search == "" {
+		condition = "{}"
+		return
+	}
 	authorColumnRoot := s.authorForColumn(column)
 	ary := strings.Split(search, "=")
 	m := map[string]interface{}{}
@@ -1521,11 +1600,11 @@ func (s *service) searchCondition(indexPattern, search, column string) (conditio
 	defer func() {
 		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s column:%s condition:%s err:%v", indexPattern, search, column, condition, err))
 	}()
-	if search == "" {
-		return
-	}
 	if s.jsonQueryForColumn(column) {
 		return s.searchConditionJSON(indexPattern, search, column)
+	}
+	if search == "" {
+		return
 	}
 	ary := strings.Split(search, "=")
 	if len(ary) > 1 {
