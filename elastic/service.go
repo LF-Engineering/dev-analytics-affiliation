@@ -1548,8 +1548,7 @@ func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offs
 		return
 	}
 	query = string(b)
-	// IMPL
-	fmt.Printf("\n\n\n\n#### contributorStatsMainQueryJSON:\n%s\n\n\n\n", query)
+	// fmt.Printf("\n\n\n\n#### contributorStatsMainQueryJSON:\n%s\n\n\n\n", query)
 	return
 }
 
@@ -1604,8 +1603,7 @@ func (s *service) ContributorsCountJSON(indexPattern, cond, column string) (cnt 
 	path := s.contributorsJSONPath(column, "count")
 	iCnt, ok := s.dig(result, path)
 	cnt = int64(iCnt.(float64))
-	// IMPL
-	fmt.Printf("\n\n\n##### %s -> %d\n\n\n\n", column, cnt)
+	// fmt.Printf("\n\n\n##### %s -> %d\n\n\n\n", column, cnt)
 	if !ok {
 		err = fmt.Errorf("cannot get %s count %v from %+v", column, path, result)
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
@@ -1766,8 +1764,7 @@ func (s *service) dataSourceQueryJSON(query, column string) (result map[string][
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
 	url := fmt.Sprintf("%s/%s/_search", s.url, pattern)
-	// IMPL
-	fmt.Printf(">>> dataSourceQueryJSON: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
+	// fmt.Printf(">>> dataSourceQueryJSON: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
 	req, err := http.NewRequest(method, url, payloadBody)
 	if err != nil {
 		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s", err, method, url, query)
@@ -1808,8 +1805,7 @@ func (s *service) dataSourceQueryJSON(query, column string) (result map[string][
 		log.Warn(fmt.Sprintf("Unmarshal error: dataSourceQueryJSON: %+v, for %s", err, string(body)))
 		return
 	}
-	// IMPL
-	fmt.Printf("##### %+v\n", res)
+	// fmt.Printf("##### %+v\n", res)
 	path := s.contributorsJSONPath(column, "items")
 	iItems, ok := s.dig(res, path)
 	if !ok {
@@ -1818,8 +1814,7 @@ func (s *service) dataSourceQueryJSON(query, column string) (result map[string][
 		return
 	}
 	iAry, _ := iItems.([]interface{})
-	// IMPL
-	fmt.Printf("\n\n\n##### %s -> %+v\n\n\n\n", column, iAry)
+	//fmt.Printf("\n\n\n##### %s -> %+v\n\n\n\n", column, iAry)
 	path = s.contributorsJSONPath(column, "value")
 	uuids := []string{}
 	values := []string{}
@@ -1839,7 +1834,7 @@ func (s *service) dataSourceQueryJSON(query, column string) (result map[string][
 	result = map[string][]string{"author_uuid": uuids}
 	result[column] = values
 	// IMPL
-	fmt.Printf("\n\n\n\n+++++\n%+v\n\n\n\n", result)
+	fmt.Printf("\n\n\n\n##### \n%+v\n\n\n\n", result)
 	return
 }
 
@@ -2885,7 +2880,9 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		return
 	}
 	// Add from, to filter
+	jsonQuery := false
 	if s.jsonQueryForColumn(mainSortField) {
+		jsonQuery = true
 		searchCondAll = s.addDateRangeJSON(searchCondAll, from, to)
 	} else {
 		searchCondAll += fmt.Sprintf(
@@ -2965,12 +2962,17 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	}
 	results := make(map[string]map[string]string)
 	nResults := int64(len(res["author_uuid"]))
+	if jsonQuery {
+		fromIdx = 0
+		toIdx = nResults
+	}
 	if fromIdx > nResults {
 		fromIdx = nResults
 	}
 	if toIdx > nResults {
 		toIdx = nResults
 	}
+	// fmt.Printf("results:%d, from:%d, to:%d\n", nResults, fromIdx, toIdx)
 	if fromIdx == toIdx {
 		return
 	}
@@ -2997,6 +2999,8 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	uuidsCond = uuidsCond[:len(uuidsCond)-1] + ")"
 	thrN := s.GetThreadsNum()
 	searchCond = ""
+	// IMPL
+	fmt.Printf("\n\n\n\n##### results:\n%+v\n\n\n\n", results)
 	queries := make(map[string]map[string]string)
 	if thrN > 1 {
 		mtx := &sync.Mutex{}

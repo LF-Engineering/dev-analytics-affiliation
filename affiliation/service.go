@@ -2816,7 +2816,7 @@ func (s *service) MakeDSInfo(actualArray []*models.DataSourceTypeFields, configu
 	for _, configured := range configuredArray {
 		item, ok := shared.DataSourcesFields[configured]
 		if !ok {
-			log.Info("Cannot find preconfigured data for data source n" + configured)
+			log.Info("Cannot find preconfigured data for data source " + configured)
 			continue
 		}
 		//item := &models.ConfiguredDataSourcesFields{}
