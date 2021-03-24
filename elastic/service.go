@@ -56,9 +56,9 @@ type Service interface {
 	// Internal methods
 	dig(interface{}, []string) (interface{}, bool)
 	jsonCondition(map[string]interface{}, string) string
-	contributorStatsMainQueryJSON(string, string, int64, int64, string) (string, error)
+	contributorStatsMainQueryJSON(string, string, int64, int64, string, string) (string, error)
 	contributorsCountQuery(string, string) string
-	contributorsCountJSONPath(string) []string
+	contributorsJSONPath(string, string) []string
 	addDateRangeJSON(string, int64, int64) string
 	jsonQueryForColumn(string) bool
 	authorForColumn(string) string
@@ -77,6 +77,7 @@ type Service interface {
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
 	dataSourceQuery(string, string) (map[string][]string, bool, error)
+	dataSourceQueryJSON(string, string) (map[string][]string, bool, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -1023,15 +1024,32 @@ func (s *service) jsonCondition(m map[string]interface{}, ky string) (cond strin
 }
 
 // contributorsCountJSONPath - return dig path for aggregation result count for a given column
-func (s *service) contributorsCountJSONPath(column string) (path []string) {
+func (s *service) contributorsJSONPath(column, what string) []string {
 	// TOPCON
-	switch column {
-	case "github_pull_request_prs_approved":
-		return []string{"aggregations", "approvers", "approvers_count", "unique_approvers_count", "value"}
-	case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
-		return []string{"aggregations", "reviewers", "reviewers_count", "unique_reviewers_count", "value"}
+	switch what {
+	case "count":
+		switch column {
+		case "github_pull_request_prs_approved":
+			return []string{"aggregations", "approvers", "approvers_count", "unique_approvers_count", "value"}
+		case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
+			return []string{"aggregations", "reviewers", "reviewers_count", "unique_reviewers_count", "value"}
+		}
+	case "items":
+		switch column {
+		case "github_pull_request_prs_approved":
+			return []string{"aggregations", "approvers", "approvers_count", "approvers_pr_count", "buckets"}
+		case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
+			return []string{"aggregations", "reviewers", "reviewers_count", "reviewers_pr_count", "buckets"}
+		}
+	case "value":
+		switch column {
+		case "github_pull_request_prs_approved", "github_pull_request_prs_reviewed":
+			return []string{"pr_count", "unique_pr_count", "value"}
+		case "github_pull_request_prs_review_comments":
+			return []string{"unique_review_count", "value"}
+		}
 	}
-	return
+	return []string{}
 }
 
 // contributorsCountQuery - count contributors using a given column (for example approvers, reviewers etc.)
@@ -1205,7 +1223,7 @@ func (s *service) contributorsCountQuery(column, cond string) (query string) {
 	return
 }
 
-func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offset int64, sortOrder string) (query string, err error) {
+func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offset int64, sortOrder, pattern string) (query string, err error) {
 	var m map[string]interface{}
 	err = jsoniter.Unmarshal([]byte(cond), &m)
 	if err != nil {
@@ -1519,6 +1537,17 @@ func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offs
 	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
 	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
 	query = strings.Replace(query, "%%sort_order_cond%%", sortOrder, -1)
+	j := map[string]interface{}{
+		"p": pattern,
+		"q": query,
+	}
+	var b []byte
+	b, err = jsoniter.Marshal(j)
+	if err != nil {
+		log.Warn(fmt.Sprintf("contributorStatsMainQueryJSON error: %v, for %+v\n", err, b))
+		return
+	}
+	query = string(b)
 	// IMPL
 	fmt.Printf("\n\n\n\n#### contributorStatsMainQueryJSON:\n%s\n\n\n\n", query)
 	return
@@ -1572,10 +1601,10 @@ func (s *service) ContributorsCountJSON(indexPattern, cond, column string) (cnt 
 		return
 	}
 	// fmt.Printf("##### %+v\n", result)
-	path := s.contributorsCountJSONPath(column)
+	path := s.contributorsJSONPath(column, "count")
 	iCnt, ok := s.dig(result, path)
 	cnt = int64(iCnt.(float64))
-	// fmt.Printf("##### %s -> %v,%T,%d\n", column, iCnt, iCnt, cnt)
+	// IMPL
 	fmt.Printf("\n\n\n##### %s -> %d\n\n\n\n", column, cnt)
 	if !ok {
 		err = fmt.Errorf("cannot get %s count %v from %+v", column, path, result)
@@ -1724,6 +1753,96 @@ func (s *service) getAllStringFields(indexPattern, contain string) (fields []str
 	return
 }
 
+func (s *service) dataSourceQueryJSON(query, column string) (result map[string][]string, drop bool, err error) {
+	var m map[string]interface{}
+	err = jsoniter.Unmarshal([]byte(query), &m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: dataSourceQueryJSON: %+v, for %s", err, query))
+		return
+	}
+	query = m["q"].(string)
+	pattern := m["p"].(string)
+	payloadBytes := []byte(query)
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/%s/_search", s.url, pattern)
+	// IMPL
+	fmt.Printf(">>> dataSourceQueryJSON: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
+	req, err := http.NewRequest(method, url, payloadBody)
+	if err != nil {
+		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s", err, method, url, query)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("do request error: %+v for %s url: %s query: %s", err, method, url, query)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s query: %s", err, method, url, query)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
+		return
+	}
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s", method, url, resp.StatusCode, query, body)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
+		if strings.Contains(err.Error(), " Unknown index ") || strings.Contains(err.Error(), " Unknown column ") {
+			log.Warn(fmt.Sprintf("unknown index or column: %v for query: %s\n", err, query))
+			err = nil
+			drop = true
+		}
+		return
+	}
+	log.Debug(fmt.Sprintf("Query: %s", query))
+	var res map[string]interface{}
+	err = jsoniter.Unmarshal(body, &res)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: dataSourceQueryJSON: %+v, for %s", err, string(body)))
+		return
+	}
+	// IMPL
+	fmt.Printf("##### %+v\n", res)
+	path := s.contributorsJSONPath(column, "items")
+	iItems, ok := s.dig(res, path)
+	if !ok {
+		err = fmt.Errorf("cannot get %s items %v from %+v", column, path, res)
+		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
+		return
+	}
+	iAry, _ := iItems.([]interface{})
+	// IMPL
+	fmt.Printf("\n\n\n##### %s -> %+v\n\n\n\n", column, iAry)
+	path = s.contributorsJSONPath(column, "value")
+	uuids := []string{}
+	values := []string{}
+	for _, iItem := range iAry {
+		item, _ := iItem.(map[string]interface{})
+		uuid, _ := item["key"].(string)
+		iValue, ok := s.dig(item, path)
+		if !ok {
+			err = fmt.Errorf("cannot get %s item %v from %+v", column, path, item)
+			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
+			return
+		}
+		value := fmt.Sprintf("%.0f", iValue.(float64))
+		uuids = append(uuids, uuid)
+		values = append(values, value)
+	}
+	result = map[string][]string{"author_uuid": uuids}
+	result[column] = values
+	// IMPL
+	fmt.Printf("\n\n\n\n+++++\n%+v\n\n\n\n", result)
+	return
+}
+
 func (s *service) dataSourceQuery(query, column string) (result map[string][]string, drop bool, err error) {
 	log.Info(fmt.Sprintf("dataSourceQuery: query:%d column:%s", len(query), column))
 	defer func() {
@@ -1734,6 +1853,9 @@ func (s *service) dataSourceQuery(query, column string) (result map[string][]str
 		}
 		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d column:%s result:%d err:%v", len(query), column, l, err))
 	}()
+	if s.jsonQueryForColumn(column) {
+		return s.dataSourceQueryJSON(query, column)
+	}
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
@@ -2493,7 +2615,7 @@ func (s *service) contributorStatsMainQuery(
 	}()
 	if s.jsonQueryForColumn(sortField) {
 		search = s.addDateRangeJSON(search, from, to)
-		return s.contributorStatsMainQueryJSON(sortField, search, limit, offset, sortOrder)
+		return s.contributorStatsMainQueryJSON(sortField, search, limit, offset, sortOrder, indexPattern)
 	}
 	additionalWhereStr := ""
 	havingStr := ""
