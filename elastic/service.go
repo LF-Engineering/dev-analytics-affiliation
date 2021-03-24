@@ -56,6 +56,7 @@ type Service interface {
 	// Internal methods
 	dig(interface{}, []string) (interface{}, bool)
 	jsonCondition(map[string]interface{}, string) string
+	contributorStatsMainQueryJSON(string, string, int64, int64, string) (string, error)
 	contributorsCountQuery(string, string) string
 	contributorsCountJSONPath(string) []string
 	addDateRangeJSON(string, int64, int64) string
@@ -1204,6 +1205,325 @@ func (s *service) contributorsCountQuery(column, cond string) (query string) {
 	return
 }
 
+func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offset int64, sortOrder string) (query string, err error) {
+	var m map[string]interface{}
+	err = jsoniter.Unmarshal([]byte(cond), &m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: contributorStatsMainQueryJSON: %+v, for %s", err, cond))
+		return
+	}
+	fromStr, _ := m["f"].(string)
+	toStr, _ := m["t"].(string)
+	offsetStr := fmt.Sprintf("%d", offset)
+	limitStr := fmt.Sprintf("%d", limit)
+	rootStr := s.jsonCondition(m, "r")
+	nestedStr := s.jsonCondition(m, "n")
+	// TOPCON
+	switch column {
+	case "github_pull_request_prs_approved":
+		query = `{
+  "size": 0,
+  "aggs": {
+    "approvers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "approvers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "reviewer_data.review_state.keyword": "APPROVED"
+                  }
+                },
+                %%nested_cond%%
+                {
+                  "bool": {}
+                }
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "approvers_pr_count": {
+              "terms": {
+                "size": 2147483647,
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              },
+              "aggs": {
+                "pr_sort": {
+                  "bucket_sort": {
+                    "from": %%offset_cond%%,
+                    "size": %%limit_cond%%,
+                    "sort": [
+                      {
+                        "pr_count>unique_pr_count": {
+                          "order": "%%sort_order_cond%%"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "pr_count": {
+                  "reverse_nested": {},
+                  "aggs": {
+                    "unique_pr_count": {
+                      "cardinality": {
+                        "field": "pr_id"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+`
+	case "github_pull_request_prs_reviewed":
+		query = `{
+  "size": 0,
+  "aggs": {
+    "reviewers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "reviewers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                %%nested_cond%%
+                {
+                  "bool": {}
+                }
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "reviewers_pr_count": {
+              "terms": {
+                "size": 2147483647,
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              },
+              "aggs": {
+                "pr_sort": {
+                  "bucket_sort": {
+                    "from": %%offset_cond%%,
+                    "size": %%limit_cond%%,
+                    "sort": [
+                      {
+                        "pr_count>unique_pr_count": {
+                          "order": "%%sort_order_cond%%"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "pr_count": {
+                  "reverse_nested": {},
+                  "aggs": {
+                    "unique_pr_count": {
+                      "cardinality": {
+                        "field": "pr_id"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+`
+	case "github_pull_request_prs_review_comments":
+		query = `{
+  "size": 0,
+  "aggs": {
+    "reviewers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "reviewers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                %%nested_cond%%
+                {
+                  "bool": {}
+                }
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "reviewers_pr_count": {
+              "terms": {
+                "size": 2147483647,
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              },
+              "aggs": {
+                "pr_sort": {
+                  "bucket_sort": {
+                    "from": %%offset_cond%%,
+                    "size": %%limit_cond%%,
+                    "sort": [
+                      {
+                        "unique_review_count": {
+                          "order": "%%sort_order_cond%%"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "unique_review_count": {
+                  "cardinality": {
+                    "field": "reviewer_data.review_id"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+`
+	}
+	query = strings.Replace(query, "%%from_cond%%", fromStr, -1)
+	query = strings.Replace(query, "%%to_cond%%", toStr, -1)
+	query = strings.Replace(query, "%%offset_cond%%", offsetStr, -1)
+	query = strings.Replace(query, "%%limit_cond%%", limitStr, -1)
+	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
+	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
+	query = strings.Replace(query, "%%sort_order_cond%%", sortOrder, -1)
+	// IMPL
+	fmt.Printf("\n\n\n\n#### contributorStatsMainQueryJSON:\n%s\n\n\n\n", query)
+	return
+}
+
 // ContributorsCountJSON - returns the number of distinct authors in a given index pattern (using JSON query)
 func (s *service) ContributorsCountJSON(indexPattern, cond, column string) (cnt int64, err error) {
 	var data string
@@ -2171,6 +2491,10 @@ func (s *service) contributorStatsMainQuery(
 			),
 		)
 	}()
+	if s.jsonQueryForColumn(sortField) {
+		search = s.addDateRangeJSON(search, from, to)
+		return s.contributorStatsMainQueryJSON(sortField, search, limit, offset, sortOrder)
+	}
 	additionalWhereStr := ""
 	havingStr := ""
 	orderByClause := ""
