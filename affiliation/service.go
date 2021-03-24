@@ -481,7 +481,7 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	for i := range projectsAry {
 		projectsAry[i] = strings.TrimSpace(strings.Replace(projectsAry[i], "/projects/", "", -1))
 		// SF -> DA
-		if projectsAry[i] != "" {
+		if projectsAry[i] != "" && projectsAry[i] != "all-projects" && projectsAry[i] != "no-projects" {
 			projectsAry[i] = s.SF2DA(projectsAry[i])
 		}
 	}
@@ -501,7 +501,11 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	if !agw {
 		// Check if that user can manage identities for given projects/scopes
 		var allowed bool
-		for i := range projectsAry {
+		for i, prj := range projectsAry {
+			if apiName == "PutMoveIdentity" && (prj == "all-projects" || prj == "no-projects") {
+				projects = append(projects, prj)
+				continue
+			}
 			allowed, err = s.apiDB.CheckIdentityManagePermission(username, projectsAry[i], nil)
 			if err != nil {
 				err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
@@ -2812,7 +2816,7 @@ func (s *service) MakeDSInfo(actualArray []*models.DataSourceTypeFields, configu
 	for _, configured := range configuredArray {
 		item, ok := shared.DataSourcesFields[configured]
 		if !ok {
-			log.Info("Cannot find preconfigured data for data source n" + configured)
+			log.Info("Cannot find preconfigured data for data source " + configured)
 			continue
 		}
 		//item := &models.ConfiguredDataSourcesFields{}
@@ -3154,6 +3158,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	if !public {
 		hdr = append(hdr, "Email")
 	}
+	// TOPCON
 	possibleHeader := []string{
 		"git_commits",
 		"git_lines_added",
@@ -3163,6 +3168,9 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_pull_request_prs_open",
 		"github_pull_request_prs_closed",
 		"github_pull_request_prs_merged",
+		"github_pull_request_prs_reviewed",
+		"github_pull_request_prs_approved",
+		"github_pull_request_prs_review_comments",
 		"gerrit_approvals",
 		"gerrit_changesets",
 		"gerrit_merged_changesets",
@@ -3210,6 +3218,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		if !public {
 			row = append(row, contributor.Email)
 		}
+		// TOPCON
 		_, ok := m["git_commits"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GitCommits, 10))
@@ -3241,6 +3250,18 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		_, ok = m["github_pull_request_prs_merged"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsMerged, 10))
+		}
+		_, ok = m["github_pull_request_prs_reviewed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsReviewed, 10))
+		}
+		_, ok = m["github_pull_request_prs_approved"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsApproved, 10))
+		}
+		_, ok = m["github_pull_request_prs_review_comments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsReviewComments, 10))
 		}
 		_, ok = m["gerrit_approvals"]
 		if ok {

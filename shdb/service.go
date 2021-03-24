@@ -6131,7 +6131,15 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 	idsMap := make(map[string]*models.IdentityDataOutput)
 	rolsMap := make(map[int64]*models.EnrollmentNestedDataOutput)
 	slugMap := make(map[string]struct{})
+	allSlugs := false
+	noSlugs := false
 	for _, projectSlug := range projectSlugs {
+		if projectSlug == "all-projects" {
+			allSlugs = true
+		}
+		if projectSlug == "no-projects" {
+			noSlugs = true
+		}
 		slugMap[projectSlug] = struct{}{}
 	}
 	for qrows.Next() {
@@ -6152,8 +6160,8 @@ func (s *service) QueryUniqueIdentitiesNested(q string, rows, page int64, identi
 		prof.UUID = uuid
 		addRol := false
 		if rolID != nil && rolOrganization != nil {
-			hit := false
-			if rolProjectSlug != nil {
+			hit := allSlugs
+			if !noSlugs && !hit && rolProjectSlug != nil {
 				_, hit = slugMap[*rolProjectSlug]
 			}
 			if rolProjectSlug == nil || hit {

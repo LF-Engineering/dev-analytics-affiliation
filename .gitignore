@@ -57,5 +57,6 @@ data.json
 confluence.txt
 secret/
 dump.sql
-
+q*.json
+q*.txt
 .idea
