@@ -57,6 +57,7 @@ type Service interface {
 	dig(interface{}, []string) (interface{}, bool)
 	jsonCondition(map[string]interface{}, string) string
 	contributorStatsMainQueryJSON(string, string, int64, int64, string, string) (string, error)
+	contributorStatsMergeQueryJSON(string, string, string, string) (string, error)
 	contributorsCountQuery(string, string) string
 	contributorsJSONPath(string, string) []string
 	addDateRangeJSON(string, int64, int64) string
@@ -68,7 +69,7 @@ type Service interface {
 	projectSlugsToIndexPattern([]string) string
 	projectSlugsToIndexPatterns([]string, []string) []string
 	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
-	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
+	contributorStatsMergeQuery(string, string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
 	searchCondition(string, string, string) (string, error)
 	searchConditionJSON(string, string, string) (string, error)
@@ -1223,6 +1224,301 @@ func (s *service) contributorsCountQuery(column, cond string) (query string) {
 	return
 }
 
+func (s *service) contributorStatsMergeQueryJSON(column, cond, uuids, pattern string) (query string, err error) {
+	var m map[string]interface{}
+	err = jsoniter.Unmarshal([]byte(cond), &m)
+	if err != nil {
+		log.Warn(fmt.Sprintf("Unmarshal error: contributorStatsMergeQueryJSON: %+v, for %s", err, cond))
+		return
+	}
+	fromStr, _ := m["f"].(string)
+	toStr, _ := m["t"].(string)
+	rootStr := s.jsonCondition(m, "r")
+	nestedStr := s.jsonCondition(m, "n")
+	// TOPCON
+	switch column {
+	case "github_pull_request_prs_approved":
+		query = `{
+  "size": 0,
+  "aggs": {
+    "approvers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "approvers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "reviewer_data.review_state.keyword": "APPROVED"
+                  }
+                },
+                %%nested_cond%%
+                %%uuids_cond%%
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "approvers_pr_count": {
+              "terms": {
+                "size": 2147483647,
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              },
+              "aggs": {
+                "pr_sort": {
+                  "bucket_sort": {
+                    "size": 2147483647
+                  }
+                },
+                "pr_count": {
+                  "reverse_nested": {},
+                  "aggs": {
+                    "unique_pr_count": {
+                      "cardinality": {
+                        "field": "pr_id"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+`
+	case "github_pull_request_prs_reviewed":
+		query = `{
+  "size": 0,
+  "aggs": {
+    "reviewers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "reviewers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                %%nested_cond%%
+                %%uuids_cond%%
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "reviewers_pr_count": {
+              "terms": {
+                "size": 2147483647,
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              },
+              "aggs": {
+                "pr_sort": {
+                  "bucket_sort": {
+                    "size": 2147483647
+                  }
+                },
+                "pr_count": {
+                  "reverse_nested": {},
+                  "aggs": {
+                    "unique_pr_count": {
+                      "cardinality": {
+                        "field": "pr_id"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+`
+	case "github_pull_request_prs_review_comments":
+		query = `{
+  "size": 0,
+  "aggs": {
+    "reviewers": {
+      "nested": {
+        "path": "reviewer_data"
+      },
+      "aggs": {
+        "reviewers_count": {
+          "filter": {
+            "bool": {
+              "filter": [
+                %%nested_cond%%
+                %%uuids_cond%%
+              ],
+              "must_not": {
+                "term": {
+                  "reviewer_data.reviewer_bot": true
+                }
+              }
+            }
+          },
+          "aggs": {
+            "reviewers_pr_count": {
+              "terms": {
+                "size": 2147483647,
+                "field": "reviewer_data.reviewer_uuid.keyword"
+              },
+              "aggs": {
+                "pr_sort": {
+                  "bucket_sort": {
+                    "size": 2147483647
+                  }
+                },
+                "unique_review_count": {
+                  "cardinality": {
+                    "field": "reviewer_data.review_id"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "pull_request": true
+          }
+        },
+        {
+          "exists": {
+            "field": "pr_id"
+          }
+        },
+        {
+          "range": {
+            "pr_id": {
+              "gt": 0
+            }
+          }
+        },
+        %%root_cond%%
+        {
+          "range": {
+            "grimoire_creation_date": {
+              "gte": "%%from_cond%%",
+              "lte": "%%to_cond%%",
+              "format": "strict_date_optional_time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+`
+	}
+	query = strings.Replace(query, "%%from_cond%%", fromStr, -1)
+	query = strings.Replace(query, "%%to_cond%%", toStr, -1)
+	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
+	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
+	query = strings.Replace(query, "%%uuids_cond%%", uuids, -1)
+	// fmt.Printf("\n\n\n\n#### contributorStatsMergeQueryJSON:\n%s\n\n\n\n", query)
+	j := map[string]interface{}{
+		"p": pattern,
+		"q": query,
+	}
+	var b []byte
+	b, err = jsoniter.Marshal(j)
+	if err != nil {
+		log.Warn(fmt.Sprintf("contributorStatsMergeQueryJSON error: %v, for %+v\n", err, b))
+		return
+	}
+	query = string(b)
+	return
+}
+
 func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offset int64, sortOrder, pattern string) (query string, err error) {
 	var m map[string]interface{}
 	err = jsoniter.Unmarshal([]byte(cond), &m)
@@ -1833,8 +2129,7 @@ func (s *service) dataSourceQueryJSON(query, column string) (result map[string][
 	}
 	result = map[string][]string{"author_uuid": uuids}
 	result[column] = values
-	// IMPL
-	fmt.Printf("\n\n\n\n##### \n%+v\n\n\n\n", result)
+	// fmt.Printf("\n\n\n\n##### dataSourceQueryJSON:\n%+v\n\n\n\n", result)
 	return
 }
 
@@ -1926,6 +2221,9 @@ func (s *service) dataSourceQuery(query, column string) (result map[string][]str
 }
 
 func (s *service) addDateRangeJSON(cond string, from, to int64) string {
+	if cond == "" {
+		cond = "{}"
+	}
 	var m map[string]interface{}
 	err := jsoniter.Unmarshal([]byte(cond), &m)
 	if err != nil {
@@ -2522,26 +2820,30 @@ func (s *service) jsonQueryForColumn(column string) bool {
 }
 
 func (s *service) contributorStatsMergeQuery(
-	dataSourceType, indexPattern, column, columnStr, search, uuids string,
+	dataSourceType, indexPattern, column, columnStr, search, uuids, uuidsJSON string,
 	from, to int64,
 	useSearch bool,
 ) (jsonStr string, err error) {
 	log.Debug(
 		fmt.Sprintf(
-			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v",
-			dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, useSearch,
+			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s uuidsJSON:%s from:%d to:%d useSearch:%v",
+			dataSourceType, indexPattern, column, columnStr, search, uuids, uuidsJSON, from, to, useSearch,
 		),
 	)
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v jsonStr:%s err:%v",
-				dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, useSearch, jsonStr, err,
+				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s uuidsJSON:%s from:%d to:%d useSearch:%v jsonStr:%s err:%v",
+				dataSourceType, indexPattern, column, columnStr, search, uuids, uuidsJSON, from, to, useSearch, jsonStr, err,
 			),
 		)
 	}()
 	if !useSearch {
 		search = ""
+	}
+	if s.jsonQueryForColumn(column) {
+		search = s.addDateRangeJSON(search, from, to)
+		return s.contributorStatsMergeQueryJSON(column, search, uuidsJSON, indexPattern)
 	}
 	additionalWhereStr := ""
 	havingStr := ""
@@ -2992,6 +3294,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		results[uuid] = rec
 		uuids = append(uuids, uuid)
 	}
+	uuidsCondJSON := `{"terms":{"reviewer_data.reviewer_uuid":[`
+	for _, uuid := range uuids {
+		uuidsCondJSON += `"` + uuid + `",`
+	}
+	uuidsCondJSON = uuidsCondJSON[:len(uuidsCondJSON)-1] + `]}}`
 	uuidsCond := `and \"author_uuid\" in (`
 	for _, uuid := range uuids {
 		uuidsCond += "'" + uuid + "',"
@@ -2999,8 +3306,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	uuidsCond = uuidsCond[:len(uuidsCond)-1] + ")"
 	thrN := s.GetThreadsNum()
 	searchCond = ""
-	// IMPL
-	fmt.Printf("\n\n\n\n##### results:\n%+v\n\n\n\n", results)
+	// fmt.Printf("\n\n\n\n##### results:\n%+v\n%s\n\n%s\n\n\n\n", results, uuidsCond, uuidsCondJSON)
 	queries := make(map[string]map[string]string)
 	if thrN > 1 {
 		mtx := &sync.Mutex{}
@@ -3045,6 +3351,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 						columnStr,
 						srchCond,
 						uuidsCond,
+						uuidsCondJSON,
 						from,
 						to,
 						useSearchInMergeQueries,
@@ -3102,6 +3409,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					columnStr,
 					searchCond,
 					uuidsCond,
+					uuidsCondJSON,
 					from,
 					to,
 					useSearchInMergeQueries,
