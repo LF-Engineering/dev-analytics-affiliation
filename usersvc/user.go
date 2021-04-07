@@ -49,15 +49,30 @@ func (s *service) GetListUsers(q string, rows, page int64) (*models.UserDataArra
 func (s *service) GetListAllUsers() (*models.UserDataArray, error) {
 	getListUsers := &models.UserDataArray{}
 	var users []*models.UserData
-	response, err := s.client.ListUsers("", "5000", "0")
-	if err != nil {
-		return nil, err
-	}
-	for _, usr := range response.Data {
-		users = append(users, &models.UserData{ID: usr.ID, Name: usr.Name, Email: usr.Email, Username: usr.Username})
+	pageSize := 5000
+	offset := 0
+	total := -1
+	for {
+		response, err := s.client.ListUsers("", strconv.Itoa(pageSize), strconv.Itoa(offset))
+		if err != nil {
+			if strings.Contains(err.Error(), "502 Bad Gateway") {
+				os.Sleep(5)
+				continue
+			}
+			return nil, err
+		}
+		for _, usr := range response.Data {
+			users = append(users, &models.UserData{ID: usr.ID, Name: usr.Name, Email: usr.Email, Username: usr.Username})
+		}
+		if total < 0 {
+			total = response.Metadata.TotalSize
+		}
+		if offset+pageSize < total {
+			offset += pageSize
+		}
+		log.Info(fmt.Sprintf("GetListAllUsers: got %d users so far, page size: %d, offset: %d", len(users), pageSize, offset))
+		//log.Info(fmt.Sprintf("Metadata: %+v\n", response.Metadata))
 	}
 	getListUsers.Users = users
-	log.Info(fmt.Sprintf("GetListAllUsers: %d users", len(users)))
-	log.Info(fmt.Sprintf("Metadata: %+v\n", response.Metadata))
 	return getListUsers, nil
 }

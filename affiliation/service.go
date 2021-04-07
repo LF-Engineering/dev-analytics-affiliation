@@ -3467,7 +3467,8 @@ func (s *service) PutSyncSfProfiles(ctx context.Context, params *affiliation.Put
 		*/
 		allIdentities[[3]string{us.Email, us.Name, us.Username}] = struct{}{}
 	}
-	stat = fmt.Sprintf("%d identities: %+v\n", len(allIdentities), allIdentities)
+	nIdents := len(allIdentities)
+	stat = fmt.Sprintf("%d identities:\n%+v\n(%d identities)\n", nIdents, allIdentities, nIdents)
 	status.Text = stat
 	return
 }
