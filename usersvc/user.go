@@ -71,8 +71,7 @@ func (s *service) GetListAll() (*models.UserDataArray, error) {
 		}
 		if offset+pageSize < total {
 			offset += pageSize
-		}
-		if offset >= total {
+		} else {
 			break
 		}
 		log.Info(fmt.Sprintf("GetListAll: got %d users so far, page size: %d, offset: %d", len(users), pageSize, offset))
