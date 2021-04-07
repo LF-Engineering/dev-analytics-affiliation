@@ -51,7 +51,7 @@ func (s *service) GetListUsers(q string, rows, page int64) (*models.UserDataArra
 func (s *service) GetListAllUsers() (*models.UserDataArray, error) {
 	getListUsers := &models.UserDataArray{}
 	var users []*models.UserData
-	pageSize := 5000
+	pageSize := 7000
 	offset := 0
 	total := -1
 	for {
@@ -71,6 +71,9 @@ func (s *service) GetListAllUsers() (*models.UserDataArray, error) {
 		}
 		if offset+pageSize < total {
 			offset += pageSize
+		}
+		if offset >= total {
+			break
 		}
 		log.Info(fmt.Sprintf("GetListAllUsers: got %d users so far, page size: %d, offset: %d", len(users), pageSize, offset))
 		//log.Info(fmt.Sprintf("Metadata: %+v\n", response.Metadata))
