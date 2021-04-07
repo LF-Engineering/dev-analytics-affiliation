@@ -3,7 +3,7 @@ module github.com/LF-Engineering/dev-analytics-affiliation
 go 1.15
 
 require (
-	github.com/LF-Engineering/dev-analytics-libraries v1.0.7
+	github.com/LF-Engineering/dev-analytics-libraries v1.1.2
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -21,6 +21,7 @@ require (
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jmoiron/sqlx v1.3.1
 	github.com/joho/godotenv v1.3.0
+	github.com/json-iterator/go v1.1.10
 	github.com/labstack/gommon v0.3.0
 	github.com/lib/pq v1.9.0
 	github.com/pkg/errors v0.9.1
