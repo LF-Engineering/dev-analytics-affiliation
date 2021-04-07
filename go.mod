@@ -3,7 +3,7 @@ module github.com/LF-Engineering/dev-analytics-affiliation
 go 1.15
 
 require (
-	github.com/LF-Engineering/dev-analytics-libraries v1.1.3-0.20210407080805-4f4f1c72f49a
+	github.com/LF-Engineering/dev-analytics-libraries v1.1.3
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
@@ -32,3 +32,5 @@ require (
 	golang.org/x/text v0.3.5
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+replace github.com/LF-Engineering/dev-analytics-libraries => /root/dev/go/src/github.com/LF-Engineering/dev-analytics-libraries

@@ -3446,7 +3446,28 @@ func (s *service) PutSyncSfProfiles(ctx context.Context, params *affiliation.Put
 		err = errs.Wrap(err, apiName)
 		return
 	}
-	stat = fmt.Sprintf("%+v\n", sfUsers)
+	allIdentities := map[[3]string]struct{}{}
+	for _, us := range sfUsers.Users {
+		if us.Email == "" || us.Name == "" || us.Username == "" {
+			continue
+		}
+		/*
+			if us.Email == "" {
+				fmt.Printf("no primary email address in %+v\n", us)
+				continue
+			}
+			if us.Name == "" {
+				fmt.Printf("no name in %+v\n", us)
+				continue
+			}
+			if us.Username == "" {
+				fmt.Printf("no username in %+v\n", us)
+				continue
+			}
+		*/
+		allIdentities[[3]string{us.Email, us.Name, us.Username}] = struct{}{}
+	}
+	stat = fmt.Sprintf("%d identities: %+v\n", len(allIdentities), allIdentities)
 	status.Text = stat
 	return
 }

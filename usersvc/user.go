@@ -49,7 +49,7 @@ func (s *service) GetListUsers(q string, rows, page int64) (*models.UserDataArra
 func (s *service) GetListAllUsers() (*models.UserDataArray, error) {
 	getListUsers := &models.UserDataArray{}
 	var users []*models.UserData
-	response, err := s.client.ListUsers("", "10000", "0")
+	response, err := s.client.ListUsers("", "5000", "0")
 	if err != nil {
 		return nil, err
 	}
@@ -58,5 +58,6 @@ func (s *service) GetListAllUsers() (*models.UserDataArray, error) {
 	}
 	getListUsers.Users = users
 	log.Info(fmt.Sprintf("GetListAllUsers: %d users", len(users)))
+	log.Info(fmt.Sprintf("Metadata: %+v\n", response.Metadata))
 	return getListUsers, nil
 }
