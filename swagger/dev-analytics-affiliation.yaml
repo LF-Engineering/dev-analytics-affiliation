@@ -1037,6 +1037,37 @@ paths:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/debug'
         - $ref: '#/parameters/dry'
+  /affiliation/sync_sf_profiles:
+    put:
+      summary: Syncs SF - DA profiles
+      operationId: putSyncSfProfiles
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Successfully synced SF and DA profiles"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - merge
+        - all
+      parameters:
+        - $ref: '#/parameters/auth'
   /affiliation/{projectSlugs}/merge_unique_identities/{fromUUID}/{toUUID}:
     put:
       summary: Merge Unique Identities fromUUID into toUUID
@@ -3196,6 +3227,32 @@ definitions:
         items:
           type: string
           example: 'CNCF'
+  user-data:
+    title: Single user data
+    description: Single user data
+    type: object
+    properties:
+      id:
+        type: string
+        example: "00Ta3420000Te"
+      name:
+        type: string
+        example: Lukasz Gryglicki
+      email:
+        type: string
+        example: lgryglicki@cncf.io
+      username:
+        type: string
+        example: lgryglicki
+  user-data-array:
+    title: List users output
+    description: List users data
+    type: object
+    properties:
+      users:
+        type: array
+        items:
+          $ref: "#/definitions/user-data"
 schemes:
   - http
 consumes:

@@ -23,7 +23,9 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/platform"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
+	"github.com/LF-Engineering/dev-analytics-affiliation/usersvc"
 	orgservice "github.com/LF-Engineering/dev-analytics-libraries/orgs"
+	userservice "github.com/LF-Engineering/dev-analytics-libraries/users"
 
 	"github.com/LF-Engineering/dev-analytics-libraries/slack"
 	"github.com/go-openapi/loads"
@@ -164,6 +166,31 @@ func initOrg() *orgservice.Org {
 	return orgClient
 }
 
+func initUser() *userservice.Usr {
+	slackProvider := slack.New(os.Getenv("SLACK_WEBHOOK_URL"))
+
+	usrClient, err := userservice.NewClient(
+		os.Getenv("PLATFORM_USER_SERVICE_ENDPOINT"),
+		os.Getenv("ELASTIC_CACHE_URL"),
+		os.Getenv("ELASTIC_CACHE_USERNAME"),
+		os.Getenv("ELASTIC_CACHE_PASSWORD"),
+		os.Getenv("STAGE"),
+		os.Getenv("AUTH0_GRANT_TYPE"),
+		os.Getenv("AUTH0_CLIENT_ID"),
+		os.Getenv("AUTH0_CLIENT_SECRET"),
+		os.Getenv("AUTH0_AUDIENCE"),
+		os.Getenv("AUTH0_TOKEN_ENDPOINT"),
+		&slackProvider,
+	)
+
+	if err != nil {
+		log.Panicf("unable to get user client info: %v", err)
+	}
+
+	log.Println("Initialized", "User Service", host)
+	return usrClient
+}
+
 func setupEnv() {
 	shared.GSQLOut = os.Getenv("DA_AFF_API_SQL_OUT") != ""
 	shared.GSyncURL = os.Getenv("SYNC_URL")
@@ -208,7 +235,8 @@ func main() {
 	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
 	esService := elastic.New(initES())
 	organizationServiceAPI := platform.New(initOrg())
-	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI)
+	userServiceAPI := usersvc.New(initUser())
+	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI, userServiceAPI)
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)
