@@ -51,7 +51,7 @@ func (s *service) GetList(q string, rows, page int64) (*models.UserDataArray, er
 func (s *service) GetListAll() (*models.UserDataArray, error) {
 	getList := &models.UserDataArray{}
 	var users []*models.UserData
-	pageSize := 6000
+	pageSize := 5000
 	offset := 0
 	total := -1
 	for {
