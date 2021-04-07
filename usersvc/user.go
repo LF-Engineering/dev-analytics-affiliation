@@ -3,6 +3,8 @@ package usersvc
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
@@ -56,7 +58,7 @@ func (s *service) GetListAllUsers() (*models.UserDataArray, error) {
 		response, err := s.client.ListUsers("", strconv.Itoa(pageSize), strconv.Itoa(offset))
 		if err != nil {
 			if strings.Contains(err.Error(), "502 Bad Gateway") {
-				os.Sleep(5)
+				time.Sleep(3 * time.Second)
 				continue
 			}
 			return nil, err
