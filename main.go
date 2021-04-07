@@ -166,7 +166,7 @@ func initOrg() *orgservice.Org {
 	return orgClient
 }
 
-func initUser() *userservice.Usr {
+func initUser() *userservice.Client {
 	slackProvider := slack.New(os.Getenv("SLACK_WEBHOOK_URL"))
 
 	usrClient, err := userservice.NewClient(

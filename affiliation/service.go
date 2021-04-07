@@ -3441,7 +3441,7 @@ func (s *service) PutSyncSfProfiles(ctx context.Context, params *affiliation.Put
 	}
 	stat := ""
 	var sfUsers *models.UserDataArray
-	sfUsers, err = s.usersvc.GetListAllUsers()
+	sfUsers, err = s.usersvc.GetListAll()
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
