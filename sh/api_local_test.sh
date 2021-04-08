@@ -1,5 +1,5 @@
 #!/bin/bash
-export LOG_LEVEL=debug
+export LOG_LEVEL=warn
 export STAGE=test
 export ONLYRUN=1
 export NOCHECKS=1

@@ -113,6 +113,7 @@ type Service interface {
 	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
 	// Other
 	SyncSfProfiles(map[[3]string]struct{}) (string, error)
+	MakeLFXIdentityPrimary(chan []interface{}, string) (int, error)
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetArchiveUniqueIdentityIdentities(string, time.Time, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
@@ -195,6 +196,86 @@ const (
 // BeginTx - begin transaction on R/W connection
 func (s *service) BeginTx() (*sql.Tx, error) {
 	return s.db.Begin()
+}
+
+// MakeLFXIdentityPrimary - make a given email's identity a main profile's identity for identities with the same email address
+func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (merged int, err error) {
+	defer func() {
+		if ch != nil {
+			ch <- []interface{}{merged, err}
+		}
+	}()
+	var (
+		rows  *sql.Rows
+		uuid  string
+		puuid string
+		src   string
+	)
+	uuids := map[string]struct{}{}
+	rows, err = s.Query(s.rodb, nil, "select source, uuid from identities where coalesce(email, '') = ?", email)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		err = rows.Scan(&src, &uuid)
+		if err != nil {
+			return
+		}
+		if src == "LFX" {
+			if puuid == "" {
+				puuid = uuid
+			} else {
+				if uuid != puuid {
+					err = fmt.Errorf("Email %s maps to multiple LFX uuids: %s != %s", email, puuid, uuid)
+					return
+				}
+			}
+		} else {
+			uuids[uuid] = struct{}{}
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if puuid == "" {
+		err = fmt.Errorf("Cannot find LFX profile for email %s\n", email)
+		fmt.Printf("MakeLFXIdentityPrimary: %v\n", err)
+		return
+	}
+	nUUIDs := len(uuids)
+	if nUUIDs == 0 {
+		//fmt.Printf("Nothing to do for %s email, uuid %s\n", email, puuid)
+		return
+	}
+	//fmt.Printf("For email %s need to merge %d uuids into %s\n", email, nUUIDs, puuid)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	for uuid := range uuids {
+		_, _, err = s.MergeUniqueIdentities(uuid, puuid, true, tx)
+		if err != nil {
+			return
+		}
+	}
+	merged = nUUIDs
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
+	fmt.Printf("Email %s merged %d uuids into %s\n", email, nUUIDs, puuid)
+	return
 }
 
 // SyncSfProfiles - maintain SF profiles identities with LFX dentity type and make them primary if email match
@@ -675,6 +756,59 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			}
 		}
 	}
+	nIdents, nProfiles, merged := 0, 0, 0
+	nThreads = 0
+	updateStats := func(merged int) {
+		if merged > 0 {
+			nIdents += merged
+			nProfiles++
+		}
+	}
+	emails := []string{}
+	for email := range sfEmails {
+		emails = append(emails, email)
+	}
+	sort.Strings(emails)
+	if thrN > 0 {
+		ich := make(chan []interface{})
+		for _, email := range emails {
+			go s.MakeLFXIdentityPrimary(ich, email)
+			nThreads++
+			if nThreads == thrN {
+				i := <-ich
+				nThreads--
+				e := i[1]
+				if e != nil {
+					errs = append(errs, e.(error))
+				} else {
+					updateStats(i[0].(int))
+				}
+			}
+		}
+		for nThreads > 0 {
+			i := <-ich
+			nThreads--
+			e := i[1]
+			if e != nil {
+				errs = append(errs, e.(error))
+			} else {
+				updateStats(i[0].(int))
+			}
+		}
+	} else {
+		for _, email := range emails {
+			merged, e = s.MakeLFXIdentityPrimary(nil, email)
+			if e != nil {
+				errs = append(errs, e)
+			} else {
+				if merged > 0 {
+					nIdents += merged
+					nProfiles++
+				}
+			}
+		}
+	}
+	stat += fmt.Sprintf("Merged %d identities, %d profiles\n", nIdents, nProfiles)
 	return
 }
 
