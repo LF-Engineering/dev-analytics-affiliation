@@ -279,6 +279,57 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 	if inf != "" {
 		stat += inf
 	}
+	update := map[string][3]string{}
+	missing := map[[3]string]struct{}{}
+	drop := map[[3]string]struct{}{}
+	for email, idents := range sfEmails {
+		if len(idents) > 1 {
+			// Skip non-unique emails from SFDC, we don't know which one should be used
+			continue
+		}
+		ident := idents[0]
+		_, okI := daIdents[ident]
+		if okI {
+			// We already have exactly the same identity in DA
+			continue
+		}
+		// We don't have exactly the same identity in DA
+		_, okE := daEmails[email]
+		if okE {
+			// We have an identity in DA with the same email, we need to update it
+			update[email] = ident
+			continue
+		}
+		// We don't even have that email in DA
+		missing[ident] = struct{}{}
+	}
+	for email, idents := range daEmails {
+		if len(idents) > 1 {
+			// Non-unique emails from DA, this should not happen
+			err = fmt.Errorf("DA LFX email %s on more than one identity: %+v", email, idents)
+			return
+		}
+		ident := idents[0]
+		_, okI := sfIdents[ident]
+		if okI {
+			// We have exactly the same identity in SF
+			continue
+		}
+		// We don't have exactly the same identity in SF
+		_, okE := sfEmails[email]
+		if okE {
+			// We have an identity in SF with the same email, it should be on the update list
+			_, okU := update[email]
+			if !okU {
+				err = fmt.Errorf("DA LFX identity %=v with email %s should be on the update list", ident, email)
+				return
+			}
+			continue
+		}
+		// We don't even have that email in SF
+		drop[ident] = struct{}{}
+	}
+	stat += fmt.Sprintf("%d identities to update, %d missing, %d should be dropped\n", len(update), len(missing), len(drop))
 	return
 }
 
