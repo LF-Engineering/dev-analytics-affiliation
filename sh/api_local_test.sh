@@ -1,5 +1,5 @@
 #!/bin/bash
-export LOG_LEVEL=warn
+export LOG_LEVEL=info
 export STAGE=test
 export ONLYRUN=1
 export NOCHECKS=1
@@ -18,4 +18,5 @@ export AUTH0_CLIENT_ID="`cat helm/da-affiliation/secrets/AUTH0_CLIENT_ID.test.se
 export AUTH0_CLIENT_SECRET="`cat helm/da-affiliation/secrets/AUTH0_CLIENT_SECRET.test.secret`"
 export AUTH0_AUDIENCE="`cat helm/da-affiliation/secrets/AUTH0_AUDIENCE.test.secret`"
 export AUTH0_TOKEN_ENDPOINT="`cat helm/da-affiliation/secrets/AUTH0_TOKEN_ENDPOINT.test.secret`"
+export SLACK_WEBHOOK_URL="`cat helm/da-affiliation/secrets/SLACK_WEBHOOK_URL.test.secret`"
 ./sh/api.sh

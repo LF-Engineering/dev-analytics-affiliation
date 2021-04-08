@@ -18,4 +18,5 @@ export AUTH0_CLIENT_ID="`cat helm/da-affiliation/secrets/AUTH0_CLIENT_ID.prod.se
 export AUTH0_CLIENT_SECRET="`cat helm/da-affiliation/secrets/AUTH0_CLIENT_SECRET.prod.secret`"
 export AUTH0_AUDIENCE="`cat helm/da-affiliation/secrets/AUTH0_AUDIENCE.prod.secret`"
 export AUTH0_TOKEN_ENDPOINT="`cat helm/da-affiliation/secrets/AUTH0_TOKEN_ENDPOINT.prod.secret`"
+export SLACK_WEBHOOK_URL="`cat helm/da-affiliation/secrets/SLACK_WEBHOOK_URL.prod.secret`"
 ./sh/api.sh
