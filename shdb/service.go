@@ -419,7 +419,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		rows, err = s.Query(
 			s.rodb,
 			nil,
-			"select id, uuid from identities where source = ? and email = ? and uuid is not null",
+			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and uuid is not null",
 			lfxStr,
 			email,
 		)
@@ -511,6 +511,136 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			errStr += e.Error() + ", "
 		}
 		err = fmt.Errorf("%d errors: %s", nErrs, errStr)
+	}
+	dropFunc := func(ch chan error, ident [3]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		// fmt.Printf("dropFunc: %v\n", ident)
+		rows, err = s.Query(
+			s.rodb,
+			nil,
+			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and coalesce(name, '') = ? and coalesce(username, '') = ? and uuid is not null",
+			lfxStr,
+			ident[0],
+			ident[1],
+			ident[2],
+		)
+		if err != nil {
+			return
+		}
+		id, uuid := "", ""
+		for rows.Next() {
+			err = rows.Scan(&id, &uuid)
+			if err != nil {
+				return
+			}
+			break
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if id == "" {
+			err = fmt.Errorf("LFX identity %+v not found", ident)
+			return
+		}
+		rows, err = s.Query(
+			s.rodb,
+			nil,
+			"select count(distinct id) from identities where uuid = ? and id != ?",
+			uuid,
+			id,
+		)
+		if err != nil {
+			return
+		}
+		cnt := 0
+		for rows.Next() {
+			err = rows.Scan(&cnt)
+			if err != nil {
+				return
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		fmt.Printf("LFX identity %+v is connected to a profile which has %d other identities\n", ident, cnt)
+		if cnt == 0 {
+			// No other identities connected to that profile, we can drop it.
+			_, err = s.DeleteProfileNested(uuid, true)
+			return
+		}
+		/*
+			tx, err := s.db.Begin()
+			if err != nil {
+				return
+			}
+			defer func() {
+				if tx != nil {
+					tx.Rollback()
+				}
+			}()
+			_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now() where uuid = ?", uuid)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now() where id = ?", ident[1], ident[2], id)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, tx, "update profiles set name = ? where uuid = ?", ident[1], uuid)
+			if err != nil {
+				return
+			}
+			err = tx.Commit()
+			if err != nil {
+				return
+			}
+			tx = nil
+			fmt.Printf("Updated LFX profile %s:%s:%s:%+v\n", id, uuid, email, ident)
+		*/
+		return
+	}
+	nThreads = 0
+	if thrN > 0 {
+		ch = make(chan error)
+		for ident := range drop {
+			go dropFunc(ch, ident)
+			nThreads++
+			if nThreads == thrN {
+				e = <-ch
+				nThreads--
+				if e != nil {
+					errs = append(errs, e)
+				}
+			}
+		}
+		for nThreads > 0 {
+			e = <-ch
+			nThreads--
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	} else {
+		for ident := range drop {
+			e = dropFunc(nil, ident)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
 	}
 	return
 }
