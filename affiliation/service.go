@@ -3443,7 +3443,7 @@ func (s *service) PutSyncSfProfiles(ctx context.Context, params *affiliation.Put
 	var sfUsers *models.UserDataArray
 	sfUsers, err = s.usersvc.GetListAll()
 	if err != nil {
-		err = errs.Wrap(err, apiName)
+		err = errs.Wrap(err, apiName+":GetListAll")
 		return
 	}
 	allIdentities := map[[3]string]struct{}{}
@@ -3451,24 +3451,13 @@ func (s *service) PutSyncSfProfiles(ctx context.Context, params *affiliation.Put
 		if us.Email == "" || us.Name == "" || us.Username == "" {
 			continue
 		}
-		/*
-			if us.Email == "" {
-				fmt.Printf("no primary email address in %+v\n", us)
-				continue
-			}
-			if us.Name == "" {
-				fmt.Printf("no name in %+v\n", us)
-				continue
-			}
-			if us.Username == "" {
-				fmt.Printf("no username in %+v\n", us)
-				continue
-			}
-		*/
 		allIdentities[[3]string{us.Email, us.Name, us.Username}] = struct{}{}
 	}
-	nIdents := len(allIdentities)
-	stat = fmt.Sprintf("%d identities:\n%+v\n(%d identities)\n", nIdents, allIdentities, nIdents)
+	stat, err = s.shDB.SyncSfProfiles(allIdentities)
+	if err != nil {
+		err = errs.Wrap(err, apiName+":SyncSfProfiles")
+		return
+	}
 	status.Text = stat
 	return
 }

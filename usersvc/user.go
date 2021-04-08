@@ -71,6 +71,8 @@ func (s *service) GetListAll() (*models.UserDataArray, error) {
 		}
 		if offset+pageSize < total {
 			offset += pageSize
+			// IMPL
+			break
 		} else {
 			break
 		}

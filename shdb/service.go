@@ -111,6 +111,7 @@ type Service interface {
 	GetAffiliationsSingle(string, string, time.Time, *sql.Tx) string
 	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
 	// Other
+	SyncSfProfiles(map[[3]string]struct{}) (string, error)
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetArchiveUniqueIdentityIdentities(string, time.Time, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
@@ -193,6 +194,92 @@ const (
 // BeginTx - begin transaction on R/W connection
 func (s *service) BeginTx() (*sql.Tx, error) {
 	return s.db.Begin()
+}
+
+// SyncSfProfiles - maintain SF profiles identities with LFX dentity type and make them primary if email match
+// identity format from SF: [3]string{email, name, username}
+func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, err error) {
+	var (
+		rows     *sql.Rows
+		daKey    [3]string
+		daVal    [2]string
+		daIdents map[[3]string][2]string
+	)
+	defer func() {
+		if err == nil {
+			stat += fmt.Sprintf("Synced %d SF and %d DA profiles\n", len(sfIdents), len(daIdents))
+		}
+	}()
+	rows, err = s.Query(
+		s.rodb,
+		nil,
+		"select id, uuid, email, name, username from identities where source = ?",
+		"LFX",
+	)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		err = rows.Scan(
+			&daVal[0],
+			&daVal[1],
+			&daKey[0],
+			&daKey[1],
+			&daKey[2],
+		)
+		if err != nil {
+			return
+		}
+		daIdents[daKey] = daVal
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	sfEmails := map[string][][3]string{}
+	for sf := range sfIdents {
+		email := sf[0]
+		idents, ok := sfEmails[email]
+		if !ok {
+			sfEmails[email] = [][3]string{sf}
+		} else {
+			idents = append(idents, sf)
+			sfEmails[email] = idents
+		}
+	}
+	daEmails := map[string][][3]string{}
+	for da := range daIdents {
+		email := da[0]
+		idents, ok := daEmails[email]
+		if !ok {
+			daEmails[email] = [][3]string{da}
+		} else {
+			idents = append(idents, da)
+			daEmails[email] = idents
+		}
+	}
+	stat += fmt.Sprintf("%d SF emails, %d DA emails\n", len(sfEmails), len(daEmails))
+	inf := ""
+	for email, idents := range sfEmails {
+		nIdents := len(idents)
+		if nIdents > 1 {
+			inf += fmt.Sprintf("SF email %s present in %d SF users: %+v\n", email, nIdents, idents)
+		}
+	}
+	for email, idents := range daEmails {
+		nIdents := len(idents)
+		if nIdents > 1 {
+			inf += fmt.Sprintf("DA email %s present in %d profiles: %+v\n", email, nIdents, idents)
+		}
+	}
+	if inf != "" {
+		stat += inf
+	}
+	return
 }
 
 // GetAffiliationsSingle - returns org name (or Unknown) for given uuid and date
