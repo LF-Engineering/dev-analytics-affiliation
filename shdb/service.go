@@ -378,7 +378,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			return
 		}
 		tx = nil
-		// fmt.Printf("Added LFX profile %s:%+v\n", uuid, ident)
+		fmt.Printf("Added LFX profile %s:%+v\n", uuid, ident)
 		return
 	}
 	nThreads := 0
@@ -419,7 +419,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		rows, err = s.Query(
 			s.rodb,
 			nil,
-			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and uuid is not null",
+			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and uuid is not null limit 1",
 			lfxStr,
 			email,
 		)
@@ -522,7 +522,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		rows, err = s.Query(
 			s.rodb,
 			nil,
-			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and coalesce(name, '') = ? and coalesce(username, '') = ? and uuid is not null",
+			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and coalesce(name, '') = ? and coalesce(username, '') = ? and uuid is not null limit 1",
 			lfxStr,
 			ident[0],
 			ident[1],
@@ -576,41 +576,74 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		if err != nil {
 			return
 		}
-		fmt.Printf("LFX identity %+v is connected to a profile which has %d other identities\n", ident, cnt)
 		if cnt == 0 {
 			// No other identities connected to that profile, we can drop it.
 			_, err = s.DeleteProfileNested(uuid, true)
 			return
 		}
-		/*
-			tx, err := s.db.Begin()
+		primary := uuid == id
+		fmt.Printf("LFX identity %+v is (primary: %v) connected to a profile which has %d other identities\n", ident, primary, cnt)
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		now := time.Now()
+		if !primary {
+			// Not a primary identity, we can drop it.
+			err = s.DeleteIdentity(id, true, true, &now, tx)
 			if err != nil {
 				return
 			}
-			defer func() {
-				if tx != nil {
-					tx.Rollback()
+		} else {
+			// Primary identity, so much more complex
+			// Get any identity other than LFX one
+			rows, err = s.Query(s.db, tx, "select id from identities where uuid = ? and id != ? limit 1", uuid, id)
+			if err != nil {
+				return
+			}
+			oid := ""
+			for rows.Next() {
+				err = rows.Scan(&oid)
+				if err != nil {
+					return
 				}
-			}()
-			_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now() where uuid = ?", uuid)
+				break
+			}
+			err = rows.Err()
 			if err != nil {
 				return
 			}
-			_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now() where id = ?", ident[1], ident[2], id)
+			err = rows.Close()
 			if err != nil {
 				return
 			}
-			_, err = s.Exec(s.db, tx, "update profiles set name = ? where uuid = ?", ident[1], uuid)
+			// Unmerge it from the LFX profile (new profile with uuid=oid will be created)
+			err = s.MoveIdentity(oid, oid, true, tx)
 			if err != nil {
 				return
 			}
-			err = tx.Commit()
+			// Merge the current profile to just unmerged one (uuid->oid)
+			_, _, err = s.MergeUniqueIdentities(uuid, oid, true, tx)
 			if err != nil {
 				return
 			}
-			tx = nil
-			fmt.Printf("Updated LFX profile %s:%s:%s:%+v\n", id, uuid, email, ident)
-		*/
+			// Delete no more needed LFX identity (which is no longer primary now)
+			s.DeleteIdentity(id, true, true, &now, tx)
+			if err != nil {
+				return
+			}
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		fmt.Printf("Dropped LFX profile %s:%s:%+v\n", id, uuid, ident)
 		return
 	}
 	nThreads = 0
