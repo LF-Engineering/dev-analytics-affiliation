@@ -24,6 +24,7 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
+	uuidlib "github.com/LF-Engineering/dev-analytics-libraries/uuid"
 	yaml "gopkg.in/yaml.v2"
 
 	// SortingHat database is MariaDB/MySQL format
@@ -200,11 +201,11 @@ func (s *service) BeginTx() (*sql.Tx, error) {
 // identity format from SF: [3]string{email, name, username}
 func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, err error) {
 	var (
-		rows     *sql.Rows
-		daKey    [3]string
-		daVal    [2]string
-		daIdents map[[3]string][2]string
+		rows  *sql.Rows
+		daKey [3]string
+		daVal [2]string
 	)
+	daIdents := map[[3]string][2]string{}
 	defer func() {
 		if err == nil {
 			stat += fmt.Sprintf("Synced %d SF and %d DA profiles\n", len(sfIdents), len(daIdents))
@@ -330,6 +331,90 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		drop[ident] = struct{}{}
 	}
 	stat += fmt.Sprintf("%d identities to update, %d missing, %d should be dropped\n", len(update), len(missing), len(drop))
+	thrN := s.GetThreadsNum()
+	var (
+		ch   chan error
+		e    error
+		errs []error
+	)
+	lfxStr := "LFX"
+	addFunc := func(ch chan error, ident [3]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		var uuid string
+		uuid, err = uuidlib.GenerateIdentity(&lfxStr, &ident[0], &ident[1], &ident[2])
+		if err != nil {
+			return
+		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		_, err = s.Exec(s.db, tx, "insert into uidentities(uuid,last_modified) values(?,now())", uuid)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "insert into identities(id,source,email,name,username,uuid,last_modified) values(?,?,?,?,?,?,now())", uuid, lfxStr, ident[0], ident[1], ident[2], uuid)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "insert into profiles(uuid,email,name) values(?,?,?)", uuid, ident[0], ident[1])
+		if err != nil {
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		fmt.Printf("Added LFX identity %s:%+v\n", uuid, ident)
+		return
+	}
+	nThreads := 0
+	if thrN > 0 {
+		ch = make(chan error)
+		for ident := range missing {
+			go addFunc(ch, ident)
+			nThreads++
+			if nThreads == thrN {
+				e = <-ch
+				nThreads--
+				if e != nil {
+					errs = append(errs, e)
+				}
+			}
+		}
+		for nThreads > 0 {
+			e = <-ch
+			nThreads--
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	} else {
+		for ident := range missing {
+			e = addFunc(nil, ident)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	}
+	nErrs := len(errs)
+	if nErrs > 0 {
+		errStr := ""
+		for _, e := range errs {
+			errStr += e.Error() + ", "
+		}
+		err = fmt.Errorf("%d errors: %s", nErrs, errStr)
+	}
 	return
 }
 
