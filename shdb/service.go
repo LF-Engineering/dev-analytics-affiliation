@@ -247,6 +247,7 @@ func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (m
 		fmt.Printf("MakeLFXIdentityPrimary: %v\n", err)
 		return
 	}
+	delete(uuids, puuid)
 	nUUIDs := len(uuids)
 	if nUUIDs == 0 {
 		//fmt.Printf("Nothing to do for %s email, uuid %s\n", email, puuid)
@@ -274,7 +275,7 @@ func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (m
 		return
 	}
 	tx = nil
-	fmt.Printf("Email %s merged %d uuids into %s\n", email, nUUIDs, puuid)
+	fmt.Printf("Email %s merged %d uuids into %s (%+v)\n", email, nUUIDs, puuid, uuids)
 	return
 }
 
