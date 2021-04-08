@@ -205,6 +205,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		daKey [3]string
 		daVal [2]string
 	)
+	lfxStr := "LFX"
 	daIdents := map[[3]string][2]string{}
 	defer func() {
 		if err == nil {
@@ -214,8 +215,8 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 	rows, err = s.Query(
 		s.rodb,
 		nil,
-		"select id, uuid, email, name, username from identities where source = ?",
-		"LFX",
+		"select id, coalesce(uuid, ''), coalesce(email, ''), coalesce(name, ''), coalesce(username, '') from identities where source = ?",
+		lfxStr,
 	)
 	if err != nil {
 		return
@@ -232,6 +233,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			return
 		}
 		daIdents[daKey] = daVal
+		//fmt.Printf("%v --> %v\n", daKey, daVal)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -241,6 +243,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 	if err != nil {
 		return
 	}
+	//fmt.Printf("Got DA items\n")
 	sfEmails := map[string][][3]string{}
 	for sf := range sfIdents {
 		email := sf[0]
@@ -290,6 +293,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		}
 		ident := idents[0]
 		_, okI := daIdents[ident]
+		//fmt.Printf("ident, okI: %v, %v\n", ident, okI)
 		if okI {
 			// We already have exactly the same identity in DA
 			continue
@@ -337,7 +341,6 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		e    error
 		errs []error
 	)
-	lfxStr := "LFX"
 	addFunc := func(ch chan error, ident [3]string) (err error) {
 		defer func() {
 			if ch != nil {
@@ -375,7 +378,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			return
 		}
 		tx = nil
-		fmt.Printf("Added LFX identity %s:%+v\n", uuid, ident)
+		// fmt.Printf("Added LFX profile %s:%+v\n", uuid, ident)
 		return
 	}
 	nThreads := 0
@@ -402,6 +405,100 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 	} else {
 		for ident := range missing {
 			e = addFunc(nil, ident)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	}
+	updateFunc := func(ch chan error, email string, ident [3]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		rows, err = s.Query(
+			s.rodb,
+			nil,
+			"select id, uuid from identities where source = ? and email = ? and uuid is not null",
+			lfxStr,
+			email,
+		)
+		if err != nil {
+			return
+		}
+		id, uuid := "", ""
+		for rows.Next() {
+			err = rows.Scan(&id, &uuid)
+			if err != nil {
+				return
+			}
+			break
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if id == "" {
+			err = fmt.Errorf("LFX identity with email %s not found", email)
+			return
+		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now() where uuid = ?", uuid)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now() where id = ?", ident[1], ident[2], id)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "update profiles set name = ? where uuid = ?", ident[1], uuid)
+		if err != nil {
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		fmt.Printf("Updated LFX profile %s:%s:%s:%+v\n", id, uuid, email, ident)
+		return
+	}
+	nThreads = 0
+	if thrN > 0 {
+		ch = make(chan error)
+		for email, ident := range update {
+			go updateFunc(ch, email, ident)
+			nThreads++
+			if nThreads == thrN {
+				e = <-ch
+				nThreads--
+				if e != nil {
+					errs = append(errs, e)
+				}
+			}
+		}
+		for nThreads > 0 {
+			e = <-ch
+			nThreads--
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	} else {
+		for email, ident := range update {
+			e = updateFunc(nil, email, ident)
 			if e != nil {
 				errs = append(errs, e)
 			}
