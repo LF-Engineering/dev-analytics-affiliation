@@ -24,6 +24,7 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
+	uuidlib "github.com/LF-Engineering/dev-analytics-libraries/uuid"
 	yaml "gopkg.in/yaml.v2"
 
 	// SortingHat database is MariaDB/MySQL format
@@ -111,6 +112,8 @@ type Service interface {
 	GetAffiliationsSingle(string, string, time.Time, *sql.Tx) string
 	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
 	// Other
+	SyncSfProfiles(map[[3]string]struct{}) (string, error)
+	MakeLFXIdentityPrimary(chan []interface{}, string) (int, error)
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
 	GetArchiveUniqueIdentityEnrollments(string, time.Time, bool, *sql.Tx) ([]*models.EnrollmentDataOutput, error)
 	GetArchiveUniqueIdentityIdentities(string, time.Time, bool, *sql.Tx) ([]*models.IdentityDataOutput, error)
@@ -193,6 +196,621 @@ const (
 // BeginTx - begin transaction on R/W connection
 func (s *service) BeginTx() (*sql.Tx, error) {
 	return s.db.Begin()
+}
+
+// MakeLFXIdentityPrimary - make a given email's identity a main profile's identity for identities with the same email address
+func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (merged int, err error) {
+	defer func() {
+		if ch != nil {
+			ch <- []interface{}{merged, err}
+		}
+	}()
+	var (
+		rows  *sql.Rows
+		uuid  string
+		puuid string
+		src   string
+	)
+	uuids := map[string]struct{}{}
+	rows, err = s.Query(s.rodb, nil, "select source, uuid from identities where coalesce(email, '') = ?", email)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		err = rows.Scan(&src, &uuid)
+		if err != nil {
+			return
+		}
+		if src == "LFX" {
+			if puuid == "" {
+				puuid = uuid
+			} else {
+				if uuid != puuid {
+					err = fmt.Errorf("Email %s maps to multiple LFX uuids: %s != %s", email, puuid, uuid)
+					return
+				}
+			}
+		} else {
+			uuids[uuid] = struct{}{}
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	if puuid == "" {
+		err = fmt.Errorf("Cannot find LFX profile for email %s\n", email)
+		fmt.Printf("MakeLFXIdentityPrimary: %v\n", err)
+		return
+	}
+	delete(uuids, puuid)
+	nUUIDs := len(uuids)
+	if nUUIDs == 0 {
+		//fmt.Printf("Nothing to do for %s email, uuid %s\n", email, puuid)
+		return
+	}
+	//fmt.Printf("For email %s need to merge %d uuids into %s\n", email, nUUIDs, puuid)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+	for uuid := range uuids {
+		_, _, err = s.MergeUniqueIdentities(uuid, puuid, true, tx)
+		if err != nil {
+			return
+		}
+	}
+	merged = nUUIDs
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	tx = nil
+	fmt.Printf("Email %s merged %d uuids into %s (%+v)\n", email, nUUIDs, puuid, uuids)
+	return
+}
+
+// SyncSfProfiles - maintain SF profiles identities with LFX dentity type and make them primary if email match
+// identity format from SF: [3]string{email, name, username}
+func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, err error) {
+	var (
+		rows  *sql.Rows
+		daKey [3]string
+		daVal [2]string
+	)
+	lfxStr := "LFX"
+	daIdents := map[[3]string][2]string{}
+	defer func() {
+		if err == nil {
+			stat += fmt.Sprintf("Synced %d SF and %d DA profiles\n", len(sfIdents), len(daIdents))
+		}
+	}()
+	rows, err = s.Query(
+		s.rodb,
+		nil,
+		"select id, coalesce(uuid, ''), coalesce(email, ''), coalesce(name, ''), coalesce(username, '') from identities where source = ?",
+		lfxStr,
+	)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		err = rows.Scan(
+			&daVal[0],
+			&daVal[1],
+			&daKey[0],
+			&daKey[1],
+			&daKey[2],
+		)
+		if err != nil {
+			return
+		}
+		daIdents[daKey] = daVal
+		//fmt.Printf("%v --> %v\n", daKey, daVal)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		return
+	}
+	//fmt.Printf("Got DA items\n")
+	sfEmails := map[string][][3]string{}
+	for sf := range sfIdents {
+		email := sf[0]
+		idents, ok := sfEmails[email]
+		if !ok {
+			sfEmails[email] = [][3]string{sf}
+		} else {
+			idents = append(idents, sf)
+			sfEmails[email] = idents
+		}
+	}
+	daEmails := map[string][][3]string{}
+	for da := range daIdents {
+		email := da[0]
+		idents, ok := daEmails[email]
+		if !ok {
+			daEmails[email] = [][3]string{da}
+		} else {
+			idents = append(idents, da)
+			daEmails[email] = idents
+		}
+	}
+	stat += fmt.Sprintf("%d SF emails, %d DA emails\n", len(sfEmails), len(daEmails))
+	inf := ""
+	for email, idents := range sfEmails {
+		nIdents := len(idents)
+		if nIdents > 1 {
+			inf += fmt.Sprintf("SF email %s present in %d SF users: %+v\n", email, nIdents, idents)
+		}
+	}
+	for email, idents := range daEmails {
+		nIdents := len(idents)
+		if nIdents > 1 {
+			inf += fmt.Sprintf("DA email %s present in %d profiles: %+v\n", email, nIdents, idents)
+		}
+	}
+	if inf != "" {
+		stat += inf
+	}
+	update := map[string][3]string{}
+	missing := map[[3]string]struct{}{}
+	drop := map[[3]string]struct{}{}
+	for email, idents := range sfEmails {
+		if len(idents) > 1 {
+			// Skip non-unique emails from SFDC, we don't know which one should be used
+			continue
+		}
+		ident := idents[0]
+		_, okI := daIdents[ident]
+		//fmt.Printf("ident, okI: %v, %v\n", ident, okI)
+		if okI {
+			// We already have exactly the same identity in DA
+			continue
+		}
+		// We don't have exactly the same identity in DA
+		_, okE := daEmails[email]
+		if okE {
+			// We have an identity in DA with the same email, we need to update it
+			update[email] = ident
+			continue
+		}
+		// We don't even have that email in DA
+		missing[ident] = struct{}{}
+	}
+	for email, idents := range daEmails {
+		if len(idents) > 1 {
+			// Non-unique emails from DA, this should not happen
+			err = fmt.Errorf("DA LFX email %s on more than one identity: %+v", email, idents)
+			return
+		}
+		ident := idents[0]
+		_, okI := sfIdents[ident]
+		if okI {
+			// We have exactly the same identity in SF
+			continue
+		}
+		// We don't have exactly the same identity in SF
+		_, okE := sfEmails[email]
+		if okE {
+			// We have an identity in SF with the same email, it should be on the update list
+			_, okU := update[email]
+			if !okU {
+				err = fmt.Errorf("DA LFX identity %=v with email %s should be on the update list", ident, email)
+				return
+			}
+			continue
+		}
+		// We don't even have that email in SF
+		drop[ident] = struct{}{}
+	}
+	stat += fmt.Sprintf("%d identities to update, %d missing, %d should be dropped\n", len(update), len(missing), len(drop))
+	thrN := s.GetThreadsNum()
+	var (
+		ch   chan error
+		e    error
+		errs []error
+	)
+	addFunc := func(ch chan error, ident [3]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		var uuid string
+		uuid, err = uuidlib.GenerateIdentity(&lfxStr, &ident[0], &ident[1], &ident[2])
+		if err != nil {
+			return
+		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		_, err = s.Exec(s.db, tx, "insert into uidentities(uuid,last_modified) values(?,now())", uuid)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "insert into identities(id,source,email,name,username,uuid,last_modified) values(?,?,?,?,?,?,now())", uuid, lfxStr, ident[0], ident[1], ident[2], uuid)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "insert into profiles(uuid,email,name) values(?,?,?)", uuid, ident[0], ident[1])
+		if err != nil {
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		fmt.Printf("Added LFX profile %s:%+v\n", uuid, ident)
+		return
+	}
+	nThreads := 0
+	if thrN > 0 {
+		ch = make(chan error)
+		for ident := range missing {
+			go addFunc(ch, ident)
+			nThreads++
+			if nThreads == thrN {
+				e = <-ch
+				nThreads--
+				if e != nil {
+					errs = append(errs, e)
+				}
+			}
+		}
+		for nThreads > 0 {
+			e = <-ch
+			nThreads--
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	} else {
+		for ident := range missing {
+			e = addFunc(nil, ident)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	}
+	updateFunc := func(ch chan error, email string, ident [3]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		rows, err = s.Query(
+			s.rodb,
+			nil,
+			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and uuid is not null limit 1",
+			lfxStr,
+			email,
+		)
+		if err != nil {
+			return
+		}
+		id, uuid := "", ""
+		for rows.Next() {
+			err = rows.Scan(&id, &uuid)
+			if err != nil {
+				return
+			}
+			break
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if id == "" {
+			err = fmt.Errorf("LFX identity with email %s not found", email)
+			return
+		}
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now() where uuid = ?", uuid)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now() where id = ?", ident[1], ident[2], id)
+		if err != nil {
+			return
+		}
+		_, err = s.Exec(s.db, tx, "update profiles set name = ? where uuid = ?", ident[1], uuid)
+		if err != nil {
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		fmt.Printf("Updated LFX profile %s:%s:%s:%+v\n", id, uuid, email, ident)
+		return
+	}
+	nThreads = 0
+	if thrN > 0 {
+		ch = make(chan error)
+		for email, ident := range update {
+			go updateFunc(ch, email, ident)
+			nThreads++
+			if nThreads == thrN {
+				e = <-ch
+				nThreads--
+				if e != nil {
+					errs = append(errs, e)
+				}
+			}
+		}
+		for nThreads > 0 {
+			e = <-ch
+			nThreads--
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	} else {
+		for email, ident := range update {
+			e = updateFunc(nil, email, ident)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	}
+	nErrs := len(errs)
+	if nErrs > 0 {
+		errStr := ""
+		for _, e := range errs {
+			errStr += e.Error() + ", "
+		}
+		err = fmt.Errorf("%d errors: %s", nErrs, errStr)
+	}
+	dropFunc := func(ch chan error, ident [3]string) (err error) {
+		defer func() {
+			if ch != nil {
+				ch <- err
+			}
+		}()
+		// fmt.Printf("dropFunc: %v\n", ident)
+		rows, err = s.Query(
+			s.rodb,
+			nil,
+			"select id, uuid from identities where source = ? and coalesce(email, '') = ? and coalesce(name, '') = ? and coalesce(username, '') = ? and uuid is not null limit 1",
+			lfxStr,
+			ident[0],
+			ident[1],
+			ident[2],
+		)
+		if err != nil {
+			return
+		}
+		id, uuid := "", ""
+		for rows.Next() {
+			err = rows.Scan(&id, &uuid)
+			if err != nil {
+				return
+			}
+			break
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if id == "" {
+			err = fmt.Errorf("LFX identity %+v not found", ident)
+			return
+		}
+		rows, err = s.Query(
+			s.rodb,
+			nil,
+			"select count(distinct id) from identities where uuid = ? and id != ?",
+			uuid,
+			id,
+		)
+		if err != nil {
+			return
+		}
+		cnt := 0
+		for rows.Next() {
+			err = rows.Scan(&cnt)
+			if err != nil {
+				return
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return
+		}
+		err = rows.Close()
+		if err != nil {
+			return
+		}
+		if cnt == 0 {
+			// No other identities connected to that profile, we can drop it.
+			_, err = s.DeleteProfileNested(uuid, true)
+			return
+		}
+		primary := uuid == id
+		fmt.Printf("LFX identity %+v is (primary: %v) connected to a profile which has %d other identities\n", ident, primary, cnt)
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}()
+		now := time.Now()
+		if !primary {
+			// Not a primary identity, we can drop it.
+			err = s.DeleteIdentity(id, true, true, &now, tx)
+			if err != nil {
+				return
+			}
+		} else {
+			// Primary identity, so much more complex
+			// Get any identity other than LFX one
+			rows, err = s.Query(s.db, tx, "select id from identities where uuid = ? and id != ? limit 1", uuid, id)
+			if err != nil {
+				return
+			}
+			oid := ""
+			for rows.Next() {
+				err = rows.Scan(&oid)
+				if err != nil {
+					return
+				}
+				break
+			}
+			err = rows.Err()
+			if err != nil {
+				return
+			}
+			err = rows.Close()
+			if err != nil {
+				return
+			}
+			// Unmerge it from the LFX profile (new profile with uuid=oid will be created)
+			err = s.MoveIdentity(oid, oid, true, tx)
+			if err != nil {
+				return
+			}
+			// Merge the current profile to just unmerged one (uuid->oid)
+			_, _, err = s.MergeUniqueIdentities(uuid, oid, true, tx)
+			if err != nil {
+				return
+			}
+			// Delete no more needed LFX identity (which is no longer primary now)
+			s.DeleteIdentity(id, true, true, &now, tx)
+			if err != nil {
+				return
+			}
+		}
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		fmt.Printf("Dropped LFX profile %s:%s:%+v\n", id, uuid, ident)
+		return
+	}
+	nThreads = 0
+	if thrN > 0 {
+		ch = make(chan error)
+		for ident := range drop {
+			go dropFunc(ch, ident)
+			nThreads++
+			if nThreads == thrN {
+				e = <-ch
+				nThreads--
+				if e != nil {
+					errs = append(errs, e)
+				}
+			}
+		}
+		for nThreads > 0 {
+			e = <-ch
+			nThreads--
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	} else {
+		for ident := range drop {
+			e = dropFunc(nil, ident)
+			if e != nil {
+				errs = append(errs, e)
+			}
+		}
+	}
+	nIdents, nProfiles, merged := 0, 0, 0
+	nThreads = 0
+	updateStats := func(merged int) {
+		if merged > 0 {
+			nIdents += merged
+			nProfiles++
+		}
+	}
+	emails := []string{}
+	for email := range sfEmails {
+		emails = append(emails, email)
+	}
+	sort.Strings(emails)
+	if thrN > 0 {
+		ich := make(chan []interface{})
+		for _, email := range emails {
+			go s.MakeLFXIdentityPrimary(ich, email)
+			nThreads++
+			if nThreads == thrN {
+				i := <-ich
+				nThreads--
+				e := i[1]
+				if e != nil {
+					errs = append(errs, e.(error))
+				} else {
+					updateStats(i[0].(int))
+				}
+			}
+		}
+		for nThreads > 0 {
+			i := <-ich
+			nThreads--
+			e := i[1]
+			if e != nil {
+				errs = append(errs, e.(error))
+			} else {
+				updateStats(i[0].(int))
+			}
+		}
+	} else {
+		for _, email := range emails {
+			merged, e = s.MakeLFXIdentityPrimary(nil, email)
+			if e != nil {
+				errs = append(errs, e)
+			} else {
+				if merged > 0 {
+					nIdents += merged
+					nProfiles++
+				}
+			}
+		}
+	}
+	stat += fmt.Sprintf("Merged %d identities, %d profiles\n", nIdents, nProfiles)
+	return
 }
 
 // GetAffiliationsSingle - returns org name (or Unknown) for given uuid and date

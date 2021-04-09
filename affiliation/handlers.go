@@ -1070,6 +1070,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPutMergeAllOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPutSyncSfProfilesHandler = affiliation.PutSyncSfProfilesHandlerFunc(
+		func(params affiliation.PutSyncSfProfilesParams) middleware.Responder {
+			log.Info("PutSyncSfProfilesHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PutSyncSfProfilesHandlerFunc: " + info)
+
+			result, err := service.PutSyncSfProfiles(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PutSyncSfProfilesHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PutSyncSfProfilesHandlerFunc(ok): " + info)
+
+			return affiliation.NewPutSyncSfProfilesOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPutHideEmailsHandler = affiliation.PutHideEmailsHandlerFunc(
 		func(params affiliation.PutHideEmailsParams) middleware.Responder {
 			log.Info("PutHideEmailsHandlerFunc")
