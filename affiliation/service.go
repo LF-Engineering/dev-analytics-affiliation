@@ -27,6 +27,7 @@ import (
 	"github.com/LF-Engineering/dev-analytics-affiliation/platform"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shdb"
+	"github.com/LF-Engineering/dev-analytics-affiliation/usersvc"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/restapi/operations/affiliation"
@@ -93,6 +94,7 @@ type Service interface {
 	GetAllAffiliations(context.Context, *affiliation.GetAllAffiliationsParams) (*models.AllArrayOutput, error)
 	PostBulkUpdate(context.Context, *affiliation.PostBulkUpdateParams) (*models.TextStatusOutput, error)
 	PutMergeAll(context.Context, *affiliation.PutMergeAllParams) (*models.TextStatusOutput, error)
+	PutSyncSfProfiles(context.Context, *affiliation.PutSyncSfProfilesParams) (*models.TextStatusOutput, error)
 	PutHideEmails(context.Context, *affiliation.PutHideEmailsParams) (*models.TextStatusOutput, error)
 	PutCacheTopContributors(context.Context, *affiliation.PutCacheTopContributorsParams) (*models.TextStatusOutput, error)
 	PutMapOrgNames(context.Context, *affiliation.PutMapOrgNamesParams) (*models.TextStatusOutput, error)
@@ -138,16 +140,18 @@ type service struct {
 	shDBGitdm shdb.Service
 	es        elastic.Service
 	platform  platform.Service
+	usersvc   usersvc.Service
 }
 
 // New is a simple helper function to create a service instance
-func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service, platformAPI platform.Service) Service {
+func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service, platformAPI platform.Service, userAPI usersvc.Service) Service {
 	return &service{
 		apiDB:     apiDB,
 		shDB:      shDBAPI,
 		shDBGitdm: shDBGitdm,
 		es:        es,
 		platform:  platformAPI,
+		usersvc:   userAPI,
 	}
 }
 
@@ -438,6 +442,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 	case *affiliation.PutMergeAllParams:
 		auth = params.Authorization
 		apiName = "PutMergeAll"
+	case *affiliation.PutSyncSfProfilesParams:
+		auth = params.Authorization
+		apiName = "PutSyncSfProfiles"
 	case *affiliation.PutHideEmailsParams:
 		auth = params.Authorization
 		apiName = "PutHideEmails"
@@ -3430,6 +3437,45 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 		return
 	}
 	status.Text = fmt.Sprintf("Requested: Add: %d, Delete:%d, Done: Added: %d, Deleted: %d, Updated: %d", len(params.Body.Add), len(params.Body.Del), nAdded, nDeleted, nUpdated)
+	return
+}
+
+// PutSyncSfProfiles: API
+// ===========================================================================
+// maintain SF profiles identities with LFX dentity type and make them primary if email match
+// ===========================================================================
+// /v1/affiliation/sync_sf_profiles
+func (s *service) PutSyncSfProfiles(ctx context.Context, params *affiliation.PutSyncSfProfilesParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	log.Info("PutSyncSfProfiles")
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PutSyncSfProfiles(exit): apiName:%s username:%s status:%s err:%v", apiName, username, status.Text, err))
+	}()
+	if err != nil {
+		return
+	}
+	stat := ""
+	var sfUsers *models.UserDataArray
+	sfUsers, err = s.usersvc.GetListAll()
+	if err != nil {
+		err = errs.Wrap(err, apiName+":GetListAll")
+		return
+	}
+	allIdentities := map[[3]string]struct{}{}
+	for _, us := range sfUsers.Users {
+		if us.Email == "" || us.Name == "" || us.Username == "" {
+			continue
+		}
+		allIdentities[[3]string{us.Email, us.Name, us.Username}] = struct{}{}
+	}
+	stat, err = s.shDB.SyncSfProfiles(allIdentities)
+	if err != nil {
+		err = errs.Wrap(err, apiName+":SyncSfProfiles")
+		return
+	}
+	status.Text = stat
 	return
 }
 
