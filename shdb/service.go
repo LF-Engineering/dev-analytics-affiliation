@@ -243,7 +243,7 @@ func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (m
 		return
 	}
 	if puuid == "" {
-		err = fmt.Errorf("Cannot find LFX profile for email %s\n", email)
+		err = fmt.Errorf("cannot find LFX profile for email %s", email)
 		fmt.Printf("MakeLFXIdentityPrimary: %v\n", err)
 		return
 	}
@@ -408,7 +408,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			// We have an identity in SF with the same email, it should be on the update list
 			_, okU := update[email]
 			if !okU {
-				err = fmt.Errorf("DA LFX identity %=v with email %s should be on the update list", ident, email)
+				err = fmt.Errorf("DA LFX identity %+v with email %s should be on the update list", ident, email)
 				return
 			}
 			continue
