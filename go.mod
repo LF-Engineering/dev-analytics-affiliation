@@ -3,7 +3,7 @@ module github.com/LF-Engineering/dev-analytics-affiliation
 go 1.15
 
 require (
-	github.com/LF-Engineering/dev-analytics-libraries v1.1.3
+	github.com/LF-Engineering/dev-analytics-libraries v1.1.5
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
@@ -22,6 +22,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/jmoiron/sqlx v1.3.1
 	github.com/joho/godotenv v1.3.0
+	github.com/json-iterator/go v1.1.10
 	github.com/labstack/gommon v0.3.0
 	github.com/lib/pq v1.9.0
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -33,4 +34,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-replace github.com/LF-Engineering/dev-analytics-libraries => /root/dev/go/src/github.com/LF-Engineering/dev-analytics-libraries
+// replace github.com/LF-Engineering/dev-analytics-libraries => /root/dev/go/src/github.com/LF-Engineering/dev-analytics-libraries
