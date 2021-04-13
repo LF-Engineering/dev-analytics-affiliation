@@ -89,8 +89,8 @@ var (
 		"bugzillarest":        7,
 		"confluence":          8,
 	}
-	// TOPCON
 	// DataSourcesFields - predefined data for data source types
+	// TOPCON
 	DataSourcesFields = map[string]*models.ConfiguredDataSourcesFields{
 		"git": {
 			Key:  "git",
