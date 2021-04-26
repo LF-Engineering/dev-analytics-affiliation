@@ -243,7 +243,7 @@ func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (m
 		return
 	}
 	if puuid == "" {
-		err = fmt.Errorf("Cannot find LFX profile for email %s", email)
+		err = fmt.Errorf("cannot find LFX profile for email %s", email)
 		fmt.Printf("MakeLFXIdentityPrimary: %v\n", err)
 		return
 	}

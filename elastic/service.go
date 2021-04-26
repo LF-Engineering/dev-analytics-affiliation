@@ -42,8 +42,7 @@ type Service interface {
 	// External methods
 	GetUnaffiliated([]string, int64) (*models.GetUnaffiliatedOutput, error)
 	AggsUnaffiliated(string, int64) ([]*models.UnaffiliatedDataOutput, error)
-	ContributorsCount(string, string, string) (int64, error)
-	ContributorsCountJSON(string, string, string) (int64, error)
+	ContributorsCount(string, string) (int64, error)
 	GetTopContributors([]string, []string, int64, int64, int64, int64, string, string, string) (*models.TopContributorsFlatOutput, error)
 	UpdateByQuery(string, string, interface{}, string, interface{}, bool) error
 	DetAffRange([]*models.EnrollmentProjectRange) ([]*models.EnrollmentProjectRange, string, error)
@@ -54,31 +53,20 @@ type Service interface {
 	TopContributorsCacheDelete(string)
 	TopContributorsCacheDeleteExpired()
 	// Internal methods
-	dig(interface{}, []string) (interface{}, bool)
-	jsonCondition(map[string]interface{}, string) string
-	contributorStatsMainQueryJSON(string, string, int64, int64, string, string) (string, error)
-	contributorStatsMergeQueryJSON(string, string, string, string) (string, error)
-	contributorsCountQuery(string, string) string
-	contributorsJSONPath(string, string) []string
-	addDateRangeJSON(string, int64, int64) string
-	jsonQueryForColumn(string) bool
-	authorForColumn(string) string
-	mapDataSourceTypes([]string) []string
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
 	projectSlugsToIndexPattern([]string) string
 	projectSlugsToIndexPatterns([]string, []string) []string
+	mapDataSourceTypes([]string) []string
 	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
-	contributorStatsMergeQuery(string, string, string, string, string, string, string, int64, int64, bool) (string, error)
+	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
-	searchCondition(string, string, string) (string, error)
-	searchConditionJSON(string, string, string) (string, error)
-	getAllStringFields(string, string) ([]string, error)
+	searchCondition(string, string) (string, error)
+	getAllStringFields(string) ([]string, error)
 	additionalWhere(string, string) (string, error)
 	having(string, string) (string, error)
 	orderBy(string, string, string) (string, error)
-	dataSourceQuery(string, string) (map[string][]string, bool, error)
-	dataSourceQueryJSON(string, string) (map[string][]string, bool, error)
+	dataSourceQuery(string) (map[string][]string, bool, error)
 	search(string, io.Reader) (*esapi.Response, error)
 }
 
@@ -804,17 +792,6 @@ func (s *service) projectSlugsToIndexPattern(projectSlugs []string) (pattern str
 	return
 }
 
-// mapDataSourceTypes - return data source types replacing github/pull_request with github/issue
-func (s *service) mapDataSourceTypes(dataSourceTypes []string) (outDataSourceTypes []string) {
-	for _, dst := range dataSourceTypes {
-		if dst == "github/pull_request" {
-			dst = "github/issue"
-		}
-		outDataSourceTypes = append(outDataSourceTypes, dst)
-	}
-	return
-}
-
 // projectSlugToIndexPatterns - single project to its multiple data source index patterns
 func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes []string) (patterns []string) {
 	log.Info(fmt.Sprintf("projectSlugToIndexPatterns: projectSlug:%s dataSourceTypes:%+v", projectSlug, dataSourceTypes))
@@ -825,8 +802,8 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	if strings.HasPrefix(patternRoot, "/projects/") {
 		patternRoot = patternRoot[10:]
 	}
-	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	dataSourceTypes = s.mapDataSourceTypes(dataSourceTypes)
+	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
 		pat := patternRoot + dataSourceType
@@ -872,6 +849,18 @@ func (s *service) projectSlugsToIndexPatterns(projectSlugs []string, dataSourceT
 			}
 		}
 		patterns = append(patterns, pattern+",-*-raw,-*-for-merge")
+	}
+	return
+}
+
+// mapDataSourceTypes - return data source types replacing github/pull_request with github/issue
+// TOPCON
+func (s *service) mapDataSourceTypes(dataSourceTypes []string) (outDataSourceTypes []string) {
+	for _, dst := range dataSourceTypes {
+		if dst == "github/pull_request" {
+			dst = "github/issue"
+		}
+		outDataSourceTypes = append(outDataSourceTypes, dst)
 	}
 	return
 }
@@ -962,960 +951,12 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	return
 }
 
-// dig interface for array of keys
-func (s *service) dig(iface interface{}, keys []string) (v interface{}, ok bool) {
-	miss := false
-	item, o := iface.(map[string]interface{})
-	if !o {
-		return
-	}
-	last := len(keys) - 1
-	for i, key := range keys {
-		var o bool
-		if i < last {
-			item, o = item[key].(map[string]interface{})
-		} else {
-			v, o = item[key]
-		}
-		if !o {
-			miss = true
-			break
-		}
-	}
-	ok = !miss
-	return
-}
-
-// jsonCondition - return search condition for either root or nested field
-func (s *service) jsonCondition(m map[string]interface{}, ky string) (cond string) {
-	cI, ok := m[ky]
-	if !ok {
-		return
-	}
-	c, ok := cI.(map[string]interface{})
-	if !ok {
-		return
-	}
-	if len(c) == 0 {
-		return
-	}
-	cond = `
-      {
-	     "bool": {
-	       "minimum_should_match" : 1,
-	       "should": [
-`
-	for col, re := range c {
-		cond += `
-	         {
-	           "regexp": {
-	             "` + col + `": {
-	               "value": "` + re.(string) + `",
-	               "flags": "ALL"
-	             }
-	           }
-	         },`
-	}
-	cond = cond[:len(cond)-1] + `
-	       ]
-	     }
-	   },
-`
-	return
-}
-
-// contributorsCountJSONPath - return dig path for aggregation result count for a given column
-func (s *service) contributorsJSONPath(column, what string) []string {
-	// TOPCON
-	switch what {
-	case "count":
-		switch column {
-		case "github_pull_request_prs_approved":
-			return []string{"aggregations", "approvers", "approvers_count", "unique_approvers_count", "value"}
-		case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
-			return []string{"aggregations", "reviewers", "reviewers_count", "unique_reviewers_count", "value"}
-		}
-	case "items":
-		switch column {
-		case "github_pull_request_prs_approved":
-			return []string{"aggregations", "approvers", "approvers_count", "approvers_pr_count", "buckets"}
-		case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
-			return []string{"aggregations", "reviewers", "reviewers_count", "reviewers_pr_count", "buckets"}
-		}
-	case "value":
-		switch column {
-		case "github_pull_request_prs_approved", "github_pull_request_prs_reviewed":
-			return []string{"pr_count", "unique_pr_count", "value"}
-		case "github_pull_request_prs_review_comments":
-			return []string{"unique_review_count", "value"}
-		}
-	}
-	return []string{}
-}
-
-// contributorsCountQuery - count contributors using a given column (for example approvers, reviewers etc.)
-func (s *service) contributorsCountQuery(column, cond string) (query string) {
-	var m map[string]interface{}
-	err := jsoniter.Unmarshal([]byte(cond), &m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: contributorsCountQuery: %+v, for %s", err, cond))
-		return
-	}
-	fromStr, _ := m["f"].(string)
-	toStr, _ := m["t"].(string)
-	rootStr := s.jsonCondition(m, "r")
-	nestedStr := s.jsonCondition(m, "n")
-	// TOPCON
-	switch column {
-	case "github_pull_request_prs_approved":
-		query = `
-{
-  "size": 0,
-  "aggs": {
-    "approvers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "approvers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                {
-                  "term": {
-                    "reviewer_data.review_state.keyword": "APPROVED"
-                  }
-                },
-                %%nested_cond%%
-                {
-                  "bool": {
-                  }
-                }
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "unique_approvers_count": {
-              "cardinality": {
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}`
-	case "github_pull_request_prs_reviewed", "github_pull_request_prs_review_comments":
-		query = `
-{
-  "size": 0,
-  "aggs": {
-    "reviewers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "reviewers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                %%nested_cond%%
-                {
-                  "bool": {
-                  }
-                }
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "unique_reviewers_count": {
-              "cardinality": {
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}`
-	}
-	query = strings.Replace(query, "%%from_cond%%", fromStr, -1)
-	query = strings.Replace(query, "%%to_cond%%", toStr, -1)
-	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
-	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
-	return
-}
-
-func (s *service) contributorStatsMergeQueryJSON(column, cond, uuids, pattern string) (query string, err error) {
-	var m map[string]interface{}
-	err = jsoniter.Unmarshal([]byte(cond), &m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: contributorStatsMergeQueryJSON: %+v, for %s", err, cond))
-		return
-	}
-	fromStr, _ := m["f"].(string)
-	toStr, _ := m["t"].(string)
-	rootStr := s.jsonCondition(m, "r")
-	nestedStr := s.jsonCondition(m, "n")
-	// TOPCON
-	switch column {
-	case "github_pull_request_prs_approved":
-		query = `{
-  "size": 0,
-  "aggs": {
-    "approvers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "approvers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                {
-                  "term": {
-                    "reviewer_data.review_state.keyword": "APPROVED"
-                  }
-                },
-                %%nested_cond%%
-                %%uuids_cond%%
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "approvers_pr_count": {
-              "terms": {
-                "size": 2147483647,
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              },
-              "aggs": {
-                "pr_sort": {
-                  "bucket_sort": {
-                    "size": 2147483647
-                  }
-                },
-                "pr_count": {
-                  "reverse_nested": {},
-                  "aggs": {
-                    "unique_pr_count": {
-                      "cardinality": {
-                        "field": "pr_id"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-`
-	case "github_pull_request_prs_reviewed":
-		query = `{
-  "size": 0,
-  "aggs": {
-    "reviewers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "reviewers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                %%nested_cond%%
-                %%uuids_cond%%
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "reviewers_pr_count": {
-              "terms": {
-                "size": 2147483647,
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              },
-              "aggs": {
-                "pr_sort": {
-                  "bucket_sort": {
-                    "size": 2147483647
-                  }
-                },
-                "pr_count": {
-                  "reverse_nested": {},
-                  "aggs": {
-                    "unique_pr_count": {
-                      "cardinality": {
-                        "field": "pr_id"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-`
-	case "github_pull_request_prs_review_comments":
-		query = `{
-  "size": 0,
-  "aggs": {
-    "reviewers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "reviewers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                %%nested_cond%%
-                %%uuids_cond%%
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "reviewers_pr_count": {
-              "terms": {
-                "size": 2147483647,
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              },
-              "aggs": {
-                "pr_sort": {
-                  "bucket_sort": {
-                    "size": 2147483647
-                  }
-                },
-                "unique_review_count": {
-                  "cardinality": {
-                    "field": "reviewer_data.review_id"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-`
-	}
-	query = strings.Replace(query, "%%from_cond%%", fromStr, -1)
-	query = strings.Replace(query, "%%to_cond%%", toStr, -1)
-	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
-	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
-	query = strings.Replace(query, "%%uuids_cond%%", uuids, -1)
-	// fmt.Printf("\n\n\n\n#### contributorStatsMergeQueryJSON:\n%s\n\n\n\n", query)
-	j := map[string]interface{}{
-		"p": pattern,
-		"q": query,
-	}
-	var b []byte
-	b, err = jsoniter.Marshal(j)
-	if err != nil {
-		log.Warn(fmt.Sprintf("contributorStatsMergeQueryJSON error: %v, for %+v\n", err, b))
-		return
-	}
-	query = string(b)
-	return
-}
-
-func (s *service) contributorStatsMainQueryJSON(column, cond string, limit, offset int64, sortOrder, pattern string) (query string, err error) {
-	var m map[string]interface{}
-	err = jsoniter.Unmarshal([]byte(cond), &m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: contributorStatsMainQueryJSON: %+v, for %s", err, cond))
-		return
-	}
-	fromStr, _ := m["f"].(string)
-	toStr, _ := m["t"].(string)
-	offsetStr := fmt.Sprintf("%d", offset)
-	limitStr := fmt.Sprintf("%d", limit)
-	rootStr := s.jsonCondition(m, "r")
-	nestedStr := s.jsonCondition(m, "n")
-	// TOPCON
-	switch column {
-	case "github_pull_request_prs_approved":
-		query = `{
-  "size": 0,
-  "aggs": {
-    "approvers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "approvers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                {
-                  "term": {
-                    "reviewer_data.review_state.keyword": "APPROVED"
-                  }
-                },
-                %%nested_cond%%
-                {
-                  "bool": {}
-                }
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "approvers_pr_count": {
-              "terms": {
-                "size": 2147483647,
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              },
-              "aggs": {
-                "pr_sort": {
-                  "bucket_sort": {
-                    "from": %%offset_cond%%,
-                    "size": %%limit_cond%%,
-                    "sort": [
-                      {
-                        "pr_count>unique_pr_count": {
-                          "order": "%%sort_order_cond%%"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "pr_count": {
-                  "reverse_nested": {},
-                  "aggs": {
-                    "unique_pr_count": {
-                      "cardinality": {
-                        "field": "pr_id"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-`
-	case "github_pull_request_prs_reviewed":
-		query = `{
-  "size": 0,
-  "aggs": {
-    "reviewers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "reviewers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                %%nested_cond%%
-                {
-                  "bool": {}
-                }
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "reviewers_pr_count": {
-              "terms": {
-                "size": 2147483647,
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              },
-              "aggs": {
-                "pr_sort": {
-                  "bucket_sort": {
-                    "from": %%offset_cond%%,
-                    "size": %%limit_cond%%,
-                    "sort": [
-                      {
-                        "pr_count>unique_pr_count": {
-                          "order": "%%sort_order_cond%%"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "pr_count": {
-                  "reverse_nested": {},
-                  "aggs": {
-                    "unique_pr_count": {
-                      "cardinality": {
-                        "field": "pr_id"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-`
-	case "github_pull_request_prs_review_comments":
-		query = `{
-  "size": 0,
-  "aggs": {
-    "reviewers": {
-      "nested": {
-        "path": "reviewer_data"
-      },
-      "aggs": {
-        "reviewers_count": {
-          "filter": {
-            "bool": {
-              "filter": [
-                %%nested_cond%%
-                {
-                  "bool": {}
-                }
-              ],
-              "must_not": {
-                "term": {
-                  "reviewer_data.reviewer_bot": true
-                }
-              }
-            }
-          },
-          "aggs": {
-            "reviewers_pr_count": {
-              "terms": {
-                "size": 2147483647,
-                "field": "reviewer_data.reviewer_uuid.keyword"
-              },
-              "aggs": {
-                "pr_sort": {
-                  "bucket_sort": {
-                    "from": %%offset_cond%%,
-                    "size": %%limit_cond%%,
-                    "sort": [
-                      {
-                        "unique_review_count": {
-                          "order": "%%sort_order_cond%%"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "unique_review_count": {
-                  "cardinality": {
-                    "field": "reviewer_data.review_id"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "query": {
-    "bool": {
-      "filter": [
-        {
-          "term": {
-            "pull_request": true
-          }
-        },
-        {
-          "exists": {
-            "field": "pr_id"
-          }
-        },
-        {
-          "range": {
-            "pr_id": {
-              "gt": 0
-            }
-          }
-        },
-        %%root_cond%%
-        {
-          "range": {
-            "grimoire_creation_date": {
-              "gte": "%%from_cond%%",
-              "lte": "%%to_cond%%",
-              "format": "strict_date_optional_time"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-`
-	}
-	query = strings.Replace(query, "%%from_cond%%", fromStr, -1)
-	query = strings.Replace(query, "%%to_cond%%", toStr, -1)
-	query = strings.Replace(query, "%%offset_cond%%", offsetStr, -1)
-	query = strings.Replace(query, "%%limit_cond%%", limitStr, -1)
-	query = strings.Replace(query, "%%root_cond%%", rootStr, -1)
-	query = strings.Replace(query, "%%nested_cond%%", nestedStr, -1)
-	query = strings.Replace(query, "%%sort_order_cond%%", sortOrder, -1)
-	j := map[string]interface{}{
-		"p": pattern,
-		"q": query,
-	}
-	var b []byte
-	b, err = jsoniter.Marshal(j)
-	if err != nil {
-		log.Warn(fmt.Sprintf("contributorStatsMainQueryJSON error: %v, for %+v\n", err, b))
-		return
-	}
-	query = string(b)
-	// fmt.Printf("\n\n\n\n#### contributorStatsMainQueryJSON:\n%s\n\n\n\n", query)
-	return
-}
-
-// ContributorsCountJSON - returns the number of distinct authors in a given index pattern (using JSON query)
-func (s *service) ContributorsCountJSON(indexPattern, cond, column string) (cnt int64, err error) {
-	var data string
-	data = s.contributorsCountQuery(column, cond)
-	re1 := regexp.MustCompile(`\r?\n`)
-	re2 := regexp.MustCompile(`\s+`)
-	data = strings.TrimSpace(re1.ReplaceAllString(re2.ReplaceAllString(data, " "), " "))
-	// fmt.Printf("\n\n\n>>> contributorsCountQuery:\n%s\n\n\n", data)
-	payloadBytes := []byte(data)
-	payloadBody := bytes.NewReader(payloadBytes)
-	method := "POST"
-	url := fmt.Sprintf("%s/%s/_search", s.url, indexPattern)
-	req, err := http.NewRequest(method, url, payloadBody)
-	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, data: %s", err, method, url, data)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
-		return
-	}
-	// fmt.Printf("\n\n\n>>> ContributorsCountJSON: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n\n\n", url, data)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s, data: %s", err, method, url, data)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
-		return
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	var body []byte
-	body, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s, data: %s", err, method, url, data)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
-		return
-	}
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
-		return
-	}
-	var result map[string]interface{}
-	err = jsoniter.Unmarshal(body, &result)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: ContributorsCountJSON: %+v, for %s", err, string(body)))
-		return
-	}
-	// fmt.Printf("##### %+v\n", result)
-	path := s.contributorsJSONPath(column, "count")
-	iCnt, ok := s.dig(result, path)
-	cnt = int64(iCnt.(float64))
-	// fmt.Printf("\n\n\n##### %s -> %d\n\n\n\n", column, cnt)
-	if !ok {
-		err = fmt.Errorf("cannot get %s count %v from %+v", column, path, result)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCountJSON")
-	}
-	return
-}
-
 // ContributorsCount - returns the number of distinct author_uuids in a given index pattern
-func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int64, err error) {
-	log.Info(fmt.Sprintf("ContributorsCount: indexPattern:%s cond:%s column:%s", indexPattern, cond, column))
+func (s *service) ContributorsCount(indexPattern, cond string) (cnt int64, err error) {
+	log.Info(fmt.Sprintf("ContributorsCount: indexPattern:%s cond:%s", indexPattern, cond))
 	defer func() {
-		log.Info(fmt.Sprintf("ContributorsCount(exit): indexPattern:%s cond:%s column:%s cnt:%d err:%v", indexPattern, cond, column, cnt, err))
+		log.Info(fmt.Sprintf("ContributorsCount(exit): indexPattern:%s cond:%s cnt:%d err:%v", indexPattern, cond, cnt, err))
 	}()
-	if s.jsonQueryForColumn(column) {
-		return s.ContributorsCountJSON(indexPattern, cond, column)
-	}
 	var data string
 	if cond == "" {
 		data = fmt.Sprintf(`{"query":"select count(distinct author_uuid) as cnt from \"%s\""}`, s.JSONEscape(indexPattern))
@@ -1935,7 +976,7 @@ func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int6
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ContributorsCount")
 		return
 	}
-	// fmt.Printf("\n\n\n>>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n\n\n", url, data)
+	// fmt.Printf(">>> ContributorsCount: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, data)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1983,10 +1024,10 @@ func (s *service) ContributorsCount(indexPattern, cond, column string) (cnt int6
 }
 
 // Top contributor functions
-func (s *service) getAllStringFields(indexPattern, contain string) (fields []string, err error) {
-	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s contain:%s", indexPattern, contain))
+func (s *service) getAllStringFields(indexPattern string) (fields []string, err error) {
+	log.Info(fmt.Sprintf("getAllStringFields: indexPattern:%s", indexPattern))
 	defer func() {
-		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s contain:%s fields:%+v err:%v", indexPattern, contain, fields, err))
+		log.Info(fmt.Sprintf("getAllStringFields(exit): indexPattern:%s fields:%+v err:%v", indexPattern, fields, err))
 	}()
 	data := fmt.Sprintf(`{"query":"show columns in \"%s\""}`, s.JSONEscape(indexPattern))
 	payloadBytes := []byte(data)
@@ -2021,7 +1062,6 @@ func (s *service) getAllStringFields(indexPattern, contain string) (fields []str
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "getAllStringFields")
 		return
 	}
-	bContain := contain != ""
 	reader := csv.NewReader(resp.Body)
 	row := []string{}
 	n := 0
@@ -2036,9 +1076,6 @@ func (s *service) getAllStringFields(indexPattern, contain string) (fields []str
 			return
 		}
 		n++
-		if bContain && !strings.Contains(row[0], contain) {
-			continue
-		}
 		// hash_short,VARCHAR,keyword
 		if row[1] == "VARCHAR" && row[2] == "keyword" {
 			fields = append(fields, row[0])
@@ -2047,105 +1084,16 @@ func (s *service) getAllStringFields(indexPattern, contain string) (fields []str
 	return
 }
 
-func (s *service) dataSourceQueryJSON(query, column string) (result map[string][]string, drop bool, err error) {
-	var m map[string]interface{}
-	err = jsoniter.Unmarshal([]byte(query), &m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: dataSourceQueryJSON: %+v, for %s", err, query))
-		return
-	}
-	query = m["q"].(string)
-	pattern := m["p"].(string)
-	payloadBytes := []byte(query)
-	payloadBody := bytes.NewReader(payloadBytes)
-	method := "POST"
-	url := fmt.Sprintf("%s/%s/_search", s.url, pattern)
-	// fmt.Printf(">>> dataSourceQueryJSON: curl -s -XPOST -H 'Content-Type: application/json' %s -d'%s'\n", url, query)
-	req, err := http.NewRequest(method, url, payloadBody)
-	if err != nil {
-		err = fmt.Errorf("new request error: %+v for %s url: %s, query: %s", err, method, url, query)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		err = fmt.Errorf("do request error: %+v for %s url: %s query: %s", err, method, url, query)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
-		return
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	var body []byte
-	body, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		err = fmt.Errorf("readAll non-ok request error: %+v for %s url: %s query: %s", err, method, url, query)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
-		return
-	}
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("method:%s url:%s status:%d\nquery:\n%s\nbody:\n%s", method, url, resp.StatusCode, query, body)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
-		if strings.Contains(err.Error(), " Unknown index ") || strings.Contains(err.Error(), " Unknown column ") {
-			log.Warn(fmt.Sprintf("unknown index or column: %v for query: %s\n", err, query))
-			err = nil
-			drop = true
-		}
-		return
-	}
-	log.Debug(fmt.Sprintf("Query: %s", query))
-	var res map[string]interface{}
-	err = jsoniter.Unmarshal(body, &res)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: dataSourceQueryJSON: %+v, for %s", err, string(body)))
-		return
-	}
-	// fmt.Printf("##### %+v\n", res)
-	path := s.contributorsJSONPath(column, "items")
-	iItems, ok := s.dig(res, path)
-	if !ok {
-		err = fmt.Errorf("cannot get %s items %v from %+v", column, path, res)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
-		return
-	}
-	iAry, _ := iItems.([]interface{})
-	//fmt.Printf("\n\n\n##### %s -> %+v\n\n\n\n", column, iAry)
-	path = s.contributorsJSONPath(column, "value")
-	uuids := []string{}
-	values := []string{}
-	for _, iItem := range iAry {
-		item, _ := iItem.(map[string]interface{})
-		uuid, _ := item["key"].(string)
-		iValue, ok := s.dig(item, path)
-		if !ok {
-			err = fmt.Errorf("cannot get %s item %v from %+v", column, path, item)
-			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "dataSourceQueryJSON")
-			return
-		}
-		value := fmt.Sprintf("%.0f", iValue.(float64))
-		uuids = append(uuids, uuid)
-		values = append(values, value)
-	}
-	result = map[string][]string{"author_uuid": uuids}
-	result[column] = values
-	// fmt.Printf("\n\n\n\n##### dataSourceQueryJSON:\n%+v\n\n\n\n", result)
-	return
-}
-
-func (s *service) dataSourceQuery(query, column string) (result map[string][]string, drop bool, err error) {
-	log.Info(fmt.Sprintf("dataSourceQuery: query:%d column:%s", len(query), column))
+func (s *service) dataSourceQuery(query string) (result map[string][]string, drop bool, err error) {
+	log.Info(fmt.Sprintf("dataSourceQuery: query:%d", len(query)))
 	defer func() {
 		l := 0
 		r, ok := result["author_uuid"]
 		if ok {
 			l = len(r)
 		}
-		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d column:%s result:%d err:%v", len(query), column, l, err))
+		log.Info(fmt.Sprintf("dataSourceQuery(exit): query:%d result:%d err:%v", len(query), l, err))
 	}()
-	if s.jsonQueryForColumn(column) {
-		return s.dataSourceQueryJSON(query, column)
-	}
 	payloadBytes := []byte(query)
 	payloadBody := bytes.NewReader(payloadBytes)
 	method := "POST"
@@ -2220,110 +1168,7 @@ func (s *service) dataSourceQuery(query, column string) (result map[string][]str
 	return
 }
 
-func (s *service) addDateRangeJSON(cond string, from, to int64) string {
-	if cond == "" {
-		cond = "{}"
-	}
-	var m map[string]interface{}
-	err := jsoniter.Unmarshal([]byte(cond), &m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Unmarshal error: addDateRangeJSON: %+v, for %s", err, cond))
-		return cond
-	}
-	fT := time.Unix(0, from*1000000)
-	tT := time.Unix(0, to*1000000)
-	fS := fT.Format("2006-01-02T15:04:05Z")
-	tS := tT.Format("2006-01-02T15:04:05Z")
-	m["f"] = fS
-	m["t"] = tS
-	bytesCond, err := jsoniter.Marshal(m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("addDateRangeJSON error: %v, for %+v\n", err, m))
-		return cond
-	}
-	return string(bytesCond)
-}
-
-func (s *service) searchConditionJSON(indexPattern, search, column string) (condition string, err error) {
-	log.Info(fmt.Sprintf("searchConditionJSON: indexPattern:%s search:%s column:%s", indexPattern, search, column))
-	defer func() {
-		log.Info(fmt.Sprintf("searchConditionJSON(exit): indexPattern:%s search:%s column:%s condition:%s err:%v", indexPattern, search, column, condition, err))
-	}()
-	if search == "" {
-		condition = "{}"
-		return
-	}
-	authorColumnRoot := s.authorForColumn(column)
-	ary := strings.Split(search, "=")
-	m := map[string]interface{}{}
-	if len(ary) > 1 {
-		fields := ary[0]
-		fieldsAry := strings.Split(fields, ",")
-		if strings.TrimSpace(fieldsAry[0]) == "" {
-			return
-		}
-		values := ary[1]
-		valuesAry := strings.Split(values, ",")
-		if strings.TrimSpace(valuesAry[0]) == "" {
-			return
-		}
-		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
-			fieldsAry, err = s.getAllStringFields(indexPattern, ".")
-			if err != nil {
-				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchConditionJSON")
-				return
-			}
-		}
-		fieldsNested := []bool{}
-		for _, field := range fieldsAry {
-			fieldsNested = append(fieldsNested, strings.Contains(strings.Replace(field, ".keyword", "", -1), "."))
-		}
-		for _, value := range valuesAry {
-			value := strings.Trim(s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(value))), "'")
-			for i, field := range fieldsAry {
-				field = s.JSONEscape(field)
-				fieldNested := fieldsNested[i]
-				name := "r"
-				if fieldNested {
-					name = "n"
-				}
-				_, ok := m[name]
-				if !ok {
-					m[name] = map[string]interface{}{}
-				}
-				if !strings.HasSuffix(field, ".keyword") {
-					field += ".keyword"
-				}
-				m[name].(map[string]interface{})[field] = value
-			}
-		}
-	} else {
-		nested := strings.Contains(authorColumnRoot, ".")
-		name := "r"
-		if nested {
-			name = "n"
-		}
-		_, ok := m[name]
-		if !ok {
-			m[name] = map[string]interface{}{}
-		}
-		escaped := strings.Trim(s.SpecialUnescape(s.JSONEscape(s.ToCaseInsensitiveRegexp(search))), "'")
-		for _, suff := range []string{"name", "org_name", "uuid"} {
-			m[name].(map[string]interface{})[authorColumnRoot+suff+".keyword"] = escaped
-		}
-	}
-	var bytesCondition []byte
-	bytesCondition, err = jsoniter.Marshal(m)
-	if err != nil {
-		log.Warn(fmt.Sprintf("searchConditionJSON error: %v, for %+v\n", err, m))
-		return
-	}
-	condition = string(bytesCondition)
-	fmt.Printf("searchConditionJSON: '%s' => '%s'\n", search, condition)
-	return
-}
-
-func (s *service) searchCondition(indexPattern, search, column string) (condition string, err error) {
+func (s *service) searchCondition(indexPattern, search string) (condition string, err error) {
 	// Example search queries:
 	// 'author_org_name=re:Red Hat.*'
 	// 'all=red*hat'
@@ -2331,13 +1176,10 @@ func (s *service) searchCondition(indexPattern, search, column string) (conditio
 	// 'at&t'
 	// 're:.*[iI][nN][cC].?'
 	// 'author_org_name=re:.*([gG]oogle|[rR]ed *[hH]at).*'
-	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s column:%s", indexPattern, search, column))
+	log.Info(fmt.Sprintf("searchCondition: indexPattern:%s search:%s", indexPattern, search))
 	defer func() {
-		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s column:%s condition:%s err:%v", indexPattern, search, column, condition, err))
+		log.Info(fmt.Sprintf("searchCondition(exit): indexPattern:%s search:%s condition:%s err:%v", indexPattern, search, condition, err))
 	}()
-	if s.jsonQueryForColumn(column) {
-		return s.searchConditionJSON(indexPattern, search, column)
-	}
 	if search == "" {
 		return
 	}
@@ -2354,7 +1196,7 @@ func (s *service) searchCondition(indexPattern, search, column string) (conditio
 			return
 		}
 		if len(fieldsAry) == 1 && fieldsAry[0] == "all" {
-			fieldsAry, err = s.getAllStringFields(indexPattern, "")
+			fieldsAry, err = s.getAllStringFields(indexPattern)
 			if err != nil {
 				err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "searchCondition")
 				return
@@ -2429,20 +1271,20 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "github/issue":
 		fields = map[string]string{
-			"github_issue_issues_created":         "count(distinct issue_id) as github_issue_issues_created",
+			"github_issue_issues_created":         "count(distinct id) as github_issue_issues_created",
 			"github_issue_issues_assigned":        "count(distinct assignee_data_uuid) as github_issue_issues_assigned",
-			"github_issue_issues_closed":          "count(distinct issue_id) as github_issue_issues_closed",
+			"github_issue_issues_closed":          "count(distinct id) as github_issue_issues_closed",
 			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
 		}
 	case "github/pull_request":
 		fields = map[string]string{
-			"github_pull_request_prs_created":         "count(distinct pr_id) as github_pull_request_prs_created",
-			"github_pull_request_prs_merged":          "count(distinct pr_id) as github_pull_request_prs_merged",
-			"github_pull_request_prs_open":            "count(distinct pr_id) as github_pull_request_prs_open",
-			"github_pull_request_prs_closed":          "count(distinct pr_id) as github_pull_request_prs_closed",
-			"github_pull_request_prs_reviewed":        "",
-			"github_pull_request_prs_approved":        "",
-			"github_pull_request_prs_review_comments": "",
+			"github_pull_request_prs_created":         "count(distinct id) as github_pull_request_prs_created",
+			"github_pull_request_prs_merged":          "count(distinct id) as github_pull_request_prs_merged",
+			"github_pull_request_prs_open":            "count(distinct id) as github_pull_request_prs_open",
+			"github_pull_request_prs_closed":          "count(distinct id) as github_pull_request_prs_closed",
+			"github_pull_request_prs_reviewed":        "count(distinct pull_request_id) as github_pull_request_prs_reviewed",
+			"github_pull_request_prs_approved":        "count(distinct pull_request_id) as github_pull_request_prs_approved",
+			"github_pull_request_prs_review_comments": "count(distinct pull_request_review_id) as github_pull_request_prs_review_comments",
 		}
 	case "bugzillarest":
 		fields = map[string]string{
@@ -2563,13 +1405,13 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		}
 		switch sortField {
 		case "github_issue_issues_created", "github_issue_average_time_open_days", "cnt":
-			cond = `and \"issue_id\" is not null and \"pull_request\" = false`
+			cond = `and \"type\" = 'issue' and \"id\" is not null and \"pull_request\" = false`
 			return
 		case "github_issue_issues_closed":
-			cond = `and \"issue_id\" is not null and \"pull_request\" = false and \"state\" = 'closed'`
+			cond = `and \"type\" = 'issue' and \"id\" is not null and \"pull_request\" = false and \"state\" = 'closed'`
 			return
 		case "github_issue_issues_assigned":
-			cond = `and \"assignee_data_uuid\" is not null and \"issue_id\" is not null and \"pull_request\" = false`
+			cond = `and \"type\" = 'issue' and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
 			return
 		}
 	case "github/pull_request":
@@ -2578,20 +1420,25 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		}
 		switch sortField {
 		case "github_pull_request_prs_created", "cnt":
-			cond = `and \"pr_id\" is not null and \"pull_request\" = true`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true`
 			return
 		case "github_pull_request_prs_merged":
-			cond = `and \"pr_id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`
 			return
 		case "github_pull_request_prs_open":
-			cond = `and \"pr_id\" is not null and \"pull_request\" = true and \"state\" = 'open'`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true and \"state\" = 'open'`
 			return
 		case "github_pull_request_prs_closed":
-			cond = `and \"pr_id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
 			return
-		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-			// They use JSON query
-			cond = ""
+		case "github_pull_request_prs_reviewed":
+			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null`
+			return
+		case "github_pull_request_prs_approved":
+			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null and \"state\" = 'APPROVED'`
+			return
+		case "github_pull_request_prs_review_comments":
+			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null and \"pull_request_review_id\" is not null`
 			return
 		}
 	case "bugzillarest":
@@ -2704,11 +1551,8 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
-			return
-		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-			cond = ""
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -2779,11 +1623,8 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "github/pull_request":
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
-			return
-		case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-			order = ""
 			return
 		}
 	case "bugzilla", "bugzillarest":
@@ -2797,53 +1638,27 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 	return
 }
 
-// authorForColumn - return author column name for a given column
-func (s *service) authorForColumn(column string) string {
-	// TOPCON
-	switch column {
-	case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-		return "reviewer_data.reviewer_"
-	default:
-		return "author_"
-	}
-}
-
-// jsonQueryForColumn - is JSON query needed for a given column (used for complex nested fields which cannot be processed using ES SQL)
-func (s *service) jsonQueryForColumn(column string) bool {
-	// TOPCON
-	switch column {
-	case "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
-		return true
-	default:
-		return false
-	}
-}
-
 func (s *service) contributorStatsMergeQuery(
-	dataSourceType, indexPattern, column, columnStr, search, uuids, uuidsJSON string,
+	dataSourceType, indexPattern, column, columnStr, search, uuids string,
 	from, to int64,
 	useSearch bool,
 ) (jsonStr string, err error) {
 	log.Debug(
 		fmt.Sprintf(
-			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s uuidsJSON:%s from:%d to:%d useSearch:%v",
-			dataSourceType, indexPattern, column, columnStr, search, uuids, uuidsJSON, from, to, useSearch,
+			"contributorStatsMergeQuery: dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v",
+			dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, useSearch,
 		),
 	)
 	defer func() {
 		log.Debug(
 			fmt.Sprintf(
-				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s uuidsJSON:%s from:%d to:%d useSearch:%v jsonStr:%s err:%v",
-				dataSourceType, indexPattern, column, columnStr, search, uuids, uuidsJSON, from, to, useSearch, jsonStr, err,
+				"contributorStatsMergeQuery(exit): dataSourceType:%s indexPattern:%s column:%s columnStr:%s search:%s uuids:%s from:%d to:%d useSearch:%v jsonStr:%s err:%v",
+				dataSourceType, indexPattern, column, columnStr, search, uuids, from, to, useSearch, jsonStr, err,
 			),
 		)
 	}()
 	if !useSearch {
 		search = ""
-	}
-	if s.jsonQueryForColumn(column) {
-		search = s.addDateRangeJSON(search, from, to)
-		return s.contributorStatsMergeQueryJSON(column, search, uuidsJSON, indexPattern)
 	}
 	additionalWhereStr := ""
 	havingStr := ""
@@ -2910,10 +1725,6 @@ func (s *service) contributorStatsMainQuery(
 			),
 		)
 	}()
-	if s.jsonQueryForColumn(sortField) {
-		search = s.addDateRangeJSON(search, from, to)
-		return s.contributorStatsMainQueryJSON(sortField, search, limit, offset, sortOrder, indexPattern)
-	}
 	additionalWhereStr := ""
 	havingStr := ""
 	orderByClause := ""
@@ -2987,7 +1798,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	// true: will use pattern matching all current project(s) data so for example 'sds-proj1-*,sds-proj2-*,...,sds-projN-*,-*-raw,-*-for-merge'
 	//       this can give more contributors than actual results, because the main query depending on 'sort_filed' will query one of data-sources, not all of them
 	// false: will use the pattern as the main data query uses (depending on sort_field), this will give the same number of records (so pagination will always be OK)
-	//       but when sort_filed is changed, number of contributors will change too
+	//       but when sort_filed is changed, numbe rof contributors will change too
 	useCaptureAllPatternToCountContributors := false
 	// dataSourceTypes = []string{"git", "gerrit", "jira", "confluence", "github/issue", "github/pull_request", "bugzilla", "bugzillarest"}
 	patterns := s.projectSlugsToIndexPatterns(projectSlugs, dataSourceTypes)
@@ -2998,7 +1809,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		patterns[i] += ",-*-slack"
 	}
 	// FIXME: hack to deal with broken slack mapping: ends
-	// fmt.Printf("%s %+v\n", patternAll, patterns)
+	fmt.Printf("%s %+v\n", patternAll, patterns)
 	log.Debug(
 		fmt.Sprintf(
 			"GetTopContributors: projectSlugs:%+v dataSourceTypes:%+v patterns:%+v patternAll:%s from:%d to:%d limit:%d offset:%d search:%s sortField:%s sortOrder:%s useSearchInMergeQueries:%v",
@@ -3173,26 +1984,20 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	// Get count of all contributors
 	var searchCondAll string
 	if useCaptureAllPatternToCountContributors {
-		searchCondAll, err = s.searchCondition(patternAll, search, mainSortField)
+		searchCondAll, err = s.searchCondition(patternAll, search)
 	} else {
-		searchCondAll, err = s.searchCondition(mainPattern, search, mainSortField)
+		searchCondAll, err = s.searchCondition(mainPattern, search)
 	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
 	// Add from, to filter
-	jsonQuery := false
-	if s.jsonQueryForColumn(mainSortField) {
-		jsonQuery = true
-		searchCondAll = s.addDateRangeJSON(searchCondAll, from, to)
-	} else {
-		searchCondAll += fmt.Sprintf(
-			` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
-			from,
-			to,
-		)
-	}
+	searchCondAll += fmt.Sprintf(
+		` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
+		from,
+		to,
+	)
 	if !useCaptureAllPatternToCountContributors {
 		cnd := ""
 		cnd, err = s.additionalWhere(mainDataSourceType, mainSortField)
@@ -3205,11 +2010,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		}
 	}
 	if useCaptureAllPatternToCountContributors {
-		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll, mainSortField)
+		top.ContributorsCount, err = s.ContributorsCount(patternAll, searchCondAll)
 	} else {
 		// fmt.Printf(">>> mainPattern = %s\n", mainPattern)
 		// fmt.Printf(">>> searchCondAll = %s\n", searchCondAll)
-		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll, mainSortField)
+		top.ContributorsCount, err = s.ContributorsCount(mainPattern, searchCondAll)
 	}
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
@@ -3238,12 +2043,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 
 	searchCond := ""
 	searchCondMap := make(map[string]string)
-	searchCond, err = s.searchCondition(mainPattern, search, mainSortField)
+	searchCond, err = s.searchCondition(mainPattern, search)
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 		return
 	}
-	searchCondMap[mainPattern+mainSortField] = searchCond
+	searchCondMap[mainPattern] = searchCond
 	query := ""
 	query, err = s.contributorStatsMainQuery(mainDataSourceType, mainPattern, mainColumn, from, to, limit, offset, searchCond, mainSortField, mainSortOrder)
 	if err != nil {
@@ -3254,7 +2059,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		res  map[string][]string
 		drop bool
 	)
-	res, drop, err = s.dataSourceQuery(query, mainSortField)
+	res, drop, err = s.dataSourceQuery(query)
 	if drop == true {
 		err = fmt.Errorf("cannot find main index, no data available for all projects '%+v'", projectSlugs)
 	}
@@ -3264,17 +2069,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	}
 	results := make(map[string]map[string]string)
 	nResults := int64(len(res["author_uuid"]))
-	if jsonQuery {
-		fromIdx = 0
-		toIdx = nResults
-	}
 	if fromIdx > nResults {
 		fromIdx = nResults
 	}
 	if toIdx > nResults {
 		toIdx = nResults
 	}
-	// fmt.Printf("results:%d, from:%d, to:%d\n", nResults, fromIdx, toIdx)
 	if fromIdx == toIdx {
 		return
 	}
@@ -3294,11 +2094,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		results[uuid] = rec
 		uuids = append(uuids, uuid)
 	}
-	uuidsCondJSON := `{"terms":{"reviewer_data.reviewer_uuid":[`
-	for _, uuid := range uuids {
-		uuidsCondJSON += `"` + uuid + `",`
-	}
-	uuidsCondJSON = uuidsCondJSON[:len(uuidsCondJSON)-1] + `]}}`
 	uuidsCond := `and \"author_uuid\" in (`
 	for _, uuid := range uuids {
 		uuidsCond += "'" + uuid + "',"
@@ -3306,7 +2101,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	uuidsCond = uuidsCond[:len(uuidsCond)-1] + ")"
 	thrN := s.GetThreadsNum()
 	searchCond = ""
-	// fmt.Printf("\n\n\n\n##### results:\n%+v\n%s\n\n%s\n\n\n\n", results, uuidsCond, uuidsCondJSON)
 	queries := make(map[string]map[string]string)
 	if thrN > 1 {
 		mtx := &sync.Mutex{}
@@ -3331,11 +2125,11 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					)
 					if useSearchInMergeQueries {
 						condMtx.Lock()
-						srchCond, ok = searchCondMap[pattern+column]
+						srchCond, ok = searchCondMap[pattern]
 						if !ok {
-							srchCond, err = s.searchCondition(pattern, search, column)
+							srchCond, err = s.searchCondition(pattern, search)
 							if err == nil {
-								searchCondMap[pattern+column] = srchCond
+								searchCondMap[pattern] = srchCond
 							}
 						}
 						condMtx.Unlock()
@@ -3351,7 +2145,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 						columnStr,
 						srchCond,
 						uuidsCond,
-						uuidsCondJSON,
 						from,
 						to,
 						useSearchInMergeQueries,
@@ -3387,20 +2180,20 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 		for i, dataSourceType := range dataSourceTypes {
 			queries[dataSourceType] = make(map[string]string)
 			var ok bool
+			if useSearchInMergeQueries {
+				searchCond, ok = searchCondMap[patterns[i]]
+				if !ok {
+					searchCond, err = s.searchCondition(patterns[i], search)
+					if err != nil {
+						err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
+						return
+					}
+					searchCondMap[patterns[i]] = searchCond
+				}
+			}
 			for column, columnStr := range fields[dataSourceType] {
 				if column == sortField {
 					continue
-				}
-				if useSearchInMergeQueries {
-					searchCond, ok = searchCondMap[patterns[i]+column]
-					if !ok {
-						searchCond, err = s.searchCondition(patterns[i], search, column)
-						if err != nil {
-							err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
-							return
-						}
-						searchCondMap[patterns[i]+column] = searchCond
-					}
 				}
 				queries[dataSourceType][column], err = s.contributorStatsMergeQuery(
 					dataSourceType,
@@ -3409,7 +2202,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					columnStr,
 					searchCond,
 					uuidsCond,
-					uuidsCondJSON,
 					from,
 					to,
 					useSearchInMergeQueries,
@@ -3472,12 +2264,12 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				if column == sortField {
 					continue
 				}
-				go func(ch chan queryResult, ds, query, column string) (qr queryResult) {
+				go func(ch chan queryResult, ds, query string) (qr queryResult) {
 					defer func() {
 						ch <- qr
 					}()
 					qr.ds = ds
-					res, qr.drop, qr.err = s.dataSourceQuery(query, column)
+					res, qr.drop, qr.err = s.dataSourceQuery(query)
 					if qr.err != nil {
 						return
 					}
@@ -3485,7 +2277,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					qr.err = mergeResults(res)
 					mtx.Unlock()
 					return
-				}(ch, ds, query, column)
+				}(ch, ds, query)
 				nThreads++
 				if nThreads == thrN {
 					mqr = <-ch
@@ -3518,7 +2310,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					continue
 				}
 				var res map[string][]string
-				res, drop, err = s.dataSourceQuery(query, column)
+				res, drop, err = s.dataSourceQuery(query)
 				if err != nil {
 					err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "es.GetTopContributors")
 					return
@@ -3573,7 +2365,6 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					confluenceLastActionDate = ""
 				}
 			}
-			// TOPCON
 			contributor := &models.ContributorFlatStats{
 				UUID:                                 uuid,
 				GitLinesAdded:                        getInt(uuid, "git_lines_added"),
