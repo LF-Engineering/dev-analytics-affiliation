@@ -2674,6 +2674,7 @@ definitions:
     title: Contributor stats
     description: contributor stats
     type: object
+    # TOPCON
     properties:
       name:
         type: string
@@ -2800,6 +2801,18 @@ definitions:
         example: 123
         x-omitempty: false
       github_pull_request_prs_closed:
+        type: integer
+        example: 123
+        x-omitempty: false
+      github_pull_request_prs_reviewed:
+        type: integer
+        example: 123
+        x-omitempty: false
+      github_pull_request_prs_approved:
+        type: integer
+        example: 123
+        x-omitempty: false
+      github_pull_request_prs_review_comments:
         type: integer
         example: 123
         x-omitempty: false

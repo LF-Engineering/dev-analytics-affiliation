@@ -90,6 +90,7 @@ var (
 		"confluence":          8,
 	}
 	// DataSourcesFields - predefined data for data source types
+	// TOPCON
 	DataSourcesFields = map[string]*models.ConfiguredDataSourcesFields{
 		"git": {
 			Key:  "git",
@@ -119,6 +120,9 @@ var (
 				{Key: "github_pull_request_prs_open", Name: "PRs Open"},
 				{Key: "github_pull_request_prs_closed", Name: "PRs Closed"},
 				{Key: "github_pull_request_prs_merged", Name: "PRs Merged"},
+				{Key: "github_pull_request_prs_reviewed", Name: "PRs Reviewed"},
+				{Key: "github_pull_request_prs_approved", Name: "PRs Approved"},
+				{Key: "github_pull_request_prs_review_comments", Name: "PRs Review Comments"},
 			},
 		},
 		"gerrit": {

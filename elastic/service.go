@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"encoding/csv"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
+	jsoniter "github.com/json-iterator/go"
 )
 
 // TopContributorsCacheEntry - top contributors single cache entry
@@ -57,6 +57,7 @@ type Service interface {
 	projectSlugToIndexPatterns(string, []string) []string
 	projectSlugsToIndexPattern([]string) string
 	projectSlugsToIndexPatterns([]string, []string) []string
+	mapDataSourceTypes([]string) []string
 	contributorStatsMainQuery(string, string, string, int64, int64, int64, int64, string, string, string) (string, error)
 	contributorStatsMergeQuery(string, string, string, string, string, string, int64, int64, bool) (string, error)
 	dataSourceTypeFields(string) (map[string]string, error)
@@ -125,7 +126,7 @@ func (s *service) TopContributorsCacheGet(key string) (entry *TopContributorsCac
 		Data []interface{} `json:"rows"`
 	}
 	var result Result
-	err = json.Unmarshal(body, &result)
+	err = jsoniter.Unmarshal(body, &result)
 	if err != nil {
 		log.Warn(fmt.Sprintf("Unmarshal error: %+v", err))
 		return
@@ -140,7 +141,7 @@ func (s *service) TopContributorsCacheGet(key string) (entry *TopContributorsCac
 
 func (s *service) TopContributorsCacheSet(key string, entry *TopContributorsCacheEntry) {
 	entry.Key = key
-	payloadBytes, err := json.Marshal(entry)
+	payloadBytes, err := jsoniter.Marshal(entry)
 	if err != nil {
 		log.Warn(fmt.Sprintf("json %+v marshal error: %+v\n", entry, err))
 		return
@@ -301,7 +302,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 			Rows   [][]string `json:"rows"`
 		}
 		var result uuidsResult
-		err = json.Unmarshal(body, &result)
+		err = jsoniter.Unmarshal(body, &result)
 		if err != nil {
 			res.err = fmt.Errorf("unmarshal error: %+v", err)
 			return
@@ -337,7 +338,7 @@ func (s *service) GetUUIDsProjects(projects []string) (uuidsProjects map[string]
 				res.err = fmt.Errorf("method:%s url:%s data: %s status:%d\n%s", method, url, data, resp.StatusCode, body)
 				return
 			}
-			err = json.Unmarshal(body, &result)
+			err = jsoniter.Unmarshal(body, &result)
 			if err != nil {
 				res.err = fmt.Errorf("unmarshal error: %+v", err)
 				return
@@ -801,6 +802,7 @@ func (s *service) projectSlugToIndexPatterns(projectSlug string, dataSourceTypes
 	if strings.HasPrefix(patternRoot, "/projects/") {
 		patternRoot = patternRoot[10:]
 	}
+	dataSourceTypes = s.mapDataSourceTypes(dataSourceTypes)
 	patternRoot = "sds-" + strings.Replace(patternRoot, "/", "-", -1) + "-"
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
@@ -829,6 +831,7 @@ func (s *service) projectSlugsToIndexPatterns(projectSlugs []string, dataSourceT
 		pat = "sds-" + strings.Replace(pat, "/", "-", -1) + "-"
 		patternRoot = append(patternRoot, pat)
 	}
+	dataSourceTypes = s.mapDataSourceTypes(dataSourceTypes)
 	for _, dataSourceType := range dataSourceTypes {
 		dataSourceType = strings.Replace(dataSourceType, "/", "-", -1)
 
@@ -846,6 +849,18 @@ func (s *service) projectSlugsToIndexPatterns(projectSlugs []string, dataSourceT
 			}
 		}
 		patterns = append(patterns, pattern+",-*-raw,-*-for-merge")
+	}
+	return
+}
+
+// mapDataSourceTypes - return data source types replacing github/pull_request with github/issue
+// TOPCON
+func (s *service) mapDataSourceTypes(dataSourceTypes []string) (outDataSourceTypes []string) {
+	for _, dst := range dataSourceTypes {
+		if dst == "github/pull_request" {
+			dst = "github/issue"
+		}
+		outDataSourceTypes = append(outDataSourceTypes, dst)
 	}
 	return
 }
@@ -916,7 +931,7 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 	defer res.Body.Close()
 	if res.IsError() {
 		var e map[string]interface{}
-		if err = json.NewDecoder(res.Body).Decode(&e); err != nil {
+		if err = jsoniter.NewDecoder(res.Body).Decode(&e); err != nil {
 			err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.result.decode")
 			return
 		}
@@ -925,7 +940,7 @@ func (s *service) AggsUnaffiliated(indexPattern string, topN int64) (unaffiliate
 		return
 	}
 	var result aggsUnaffiliatedResult
-	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err = jsoniter.NewDecoder(res.Body).Decode(&result); err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "ES.search.aggs.decode")
 		return
 	}
@@ -1221,6 +1236,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 	defer func() {
 		log.Info(fmt.Sprintf("dataSourceTypeFields(exit): dataSourceType:%s fields:%+v err:%v", dataSourceType, fields, err))
 	}()
+	// TOPCON
 	switch dataSourceType {
 	case "git":
 		fields = map[string]string{
@@ -1262,10 +1278,13 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "github/pull_request":
 		fields = map[string]string{
-			"github_pull_request_prs_created": "count(distinct id) as github_pull_request_prs_created",
-			"github_pull_request_prs_merged":  "count(distinct id) as github_pull_request_prs_merged",
-			"github_pull_request_prs_open":    "count(distinct id) as github_pull_request_prs_open",
-			"github_pull_request_prs_closed":  "count(distinct id) as github_pull_request_prs_closed",
+			"github_pull_request_prs_created":         "count(distinct id) as github_pull_request_prs_created",
+			"github_pull_request_prs_merged":          "count(distinct id) as github_pull_request_prs_merged",
+			"github_pull_request_prs_open":            "count(distinct id) as github_pull_request_prs_open",
+			"github_pull_request_prs_closed":          "count(distinct id) as github_pull_request_prs_closed",
+			"github_pull_request_prs_reviewed":        "count(distinct pull_request_id) as github_pull_request_prs_reviewed",
+			"github_pull_request_prs_approved":        "count(distinct pull_request_id) as github_pull_request_prs_approved",
+			"github_pull_request_prs_review_comments": "count(distinct pull_request_review_id) as github_pull_request_prs_review_comments",
 		}
 	case "bugzillarest":
 		fields = map[string]string{
@@ -1293,6 +1312,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 	defer func() {
 		log.Info(fmt.Sprintf("additionalWhere(exit): dataSourceType:%s sortField:%s cond:%s err:%v", dataSourceType, sortField, cond, err))
 	}()
+	// TOPCON
 	switch dataSourceType {
 	case "all":
 		switch sortField {
@@ -1385,13 +1405,13 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		}
 		switch sortField {
 		case "github_issue_issues_created", "github_issue_average_time_open_days", "cnt":
-			cond = `and \"id\" is not null and \"pull_request\" = false`
+			cond = `and \"type\" = 'issue' and \"id\" is not null and \"pull_request\" = false`
 			return
 		case "github_issue_issues_closed":
-			cond = `and \"id\" is not null and \"pull_request\" = false and \"state\" = 'closed'`
+			cond = `and \"type\" = 'issue' and \"id\" is not null and \"pull_request\" = false and \"state\" = 'closed'`
 			return
 		case "github_issue_issues_assigned":
-			cond = `and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
+			cond = `and \"type\" = 'issue' and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
 			return
 		}
 	case "github/pull_request":
@@ -1400,16 +1420,25 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		}
 		switch sortField {
 		case "github_pull_request_prs_created", "cnt":
-			cond = `and \"id\" is not null and \"pull_request\" = true`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true`
 			return
 		case "github_pull_request_prs_merged":
-			cond = `and \"id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true and length(\"merged_by_data_uuid\") = 40 and \"merged\" = true`
 			return
 		case "github_pull_request_prs_open":
-			cond = `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'open'`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true and \"state\" = 'open'`
 			return
 		case "github_pull_request_prs_closed":
-			cond = `and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
+			cond = `and \"type\" = 'pull_request' and \"id\" is not null and \"pull_request\" = true and \"state\" = 'closed'`
+			return
+		case "github_pull_request_prs_reviewed":
+			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null`
+			return
+		case "github_pull_request_prs_approved":
+			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null and \"state\" = 'APPROVED'`
+			return
+		case "github_pull_request_prs_review_comments":
+			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null and \"pull_request_review_id\" is not null`
 			return
 		}
 	case "bugzillarest":
@@ -1462,6 +1491,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 	if sortField == "cnt" {
 		return
 	}
+	// TOPCON
 	switch dataSourceType {
 	case "all":
 		switch sortField {
@@ -1521,7 +1551,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -1553,6 +1583,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		err = errs.Wrap(errs.New(fmt.Errorf("unknown sortOrder: %s", sortOrder), errs.ErrBadRequest), "orderBy")
 		return
 	}
+	// TOPCON
 	switch dataSourceType {
 	case "all":
 		switch sortField {
@@ -1592,7 +1623,7 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "github/pull_request":
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
@@ -2364,6 +2395,9 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				GithubPullRequestPrsMerged:           getInt(uuid, "github_pull_request_prs_merged"),
 				GithubPullRequestPrsOpen:             getInt(uuid, "github_pull_request_prs_open"),
 				GithubPullRequestPrsClosed:           getInt(uuid, "github_pull_request_prs_closed"),
+				GithubPullRequestPrsReviewed:         getInt(uuid, "github_pull_request_prs_reviewed"),
+				GithubPullRequestPrsApproved:         getInt(uuid, "github_pull_request_prs_approved"),
+				GithubPullRequestPrsReviewComments:   getInt(uuid, "github_pull_request_prs_review_comments"),
 				BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
 				BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
 				BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
