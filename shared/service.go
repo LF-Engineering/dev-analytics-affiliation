@@ -110,6 +110,7 @@ var (
 				{Key: "github_issue_issues_created", Name: "Created"},
 				{Key: "github_issue_issues_assigned", Name: "Issues Assigned"},
 				{Key: "github_issue_issues_closed", Name: "Issues Closed"},
+				{Key: "github_issue_issues_comments", Name: "Issues Comments"},
 			},
 		},
 		"github/pull_request": {
@@ -123,6 +124,7 @@ var (
 				{Key: "github_pull_request_prs_reviewed", Name: "PRs Reviewed"},
 				{Key: "github_pull_request_prs_approved", Name: "PRs Approved"},
 				{Key: "github_pull_request_prs_review_comments", Name: "PRs Review Comments"},
+				{Key: "github_pull_request_prs_comment_activity", Name: "PRs Comment Activity"},
 			},
 		},
 		"gerrit": {

@@ -1275,6 +1275,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"github_issue_issues_assigned":        "count(distinct assignee_data_uuid) as github_issue_issues_assigned",
 			"github_issue_issues_closed":          "count(distinct id) as github_issue_issues_closed",
 			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
+			"github_issue_issues_comments":        "count(distinct id) as github_issue_issues_comments",
 		}
 	case "github/pull_request":
 		fields = map[string]string{
@@ -1285,6 +1286,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"github_pull_request_prs_reviewed":        "count(distinct pull_request_id) as github_pull_request_prs_reviewed",
 			"github_pull_request_prs_approved":        "count(distinct pull_request_id) as github_pull_request_prs_approved",
 			"github_pull_request_prs_review_comments": "count(distinct pull_request_review_id) as github_pull_request_prs_review_comments",
+			"github_pull_request_prs_comment_activity": "count(distinct id) as github_pull_request_prs_comment_activity",
 		}
 	case "bugzillarest":
 		fields = map[string]string{
@@ -1413,6 +1415,9 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 		case "github_issue_issues_assigned":
 			cond = `and \"type\" = 'issue' and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
 			return
+		case "github_issue_issues_comments":
+			cond = `and \"type\" = 'issue_comment' and \"id\" is not null and \"pull_request\" = false`
+			return
 		}
 	case "github/pull_request":
 		if len(sortField) > 20 && sortField[:20] != "github_pull_request_" {
@@ -1439,6 +1444,9 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			return
 		case "github_pull_request_prs_review_comments":
 			cond = `and \"type\" = 'pull_request_review' and \"pull_request_id\" is not null and \"pull_request_review_id\" is not null`
+			return
+		case "github_pull_request_prs_comment_activity":
+			cond = `and (\"type\" in ('pull_request_review', 'pull_request_comment') or (\"type\" = 'issue_comment' and \"pull_request\" = true)) and \"id\" is not null`
 			return
 		}
 	case "bugzillarest":
@@ -1542,7 +1550,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed", "github_issue_issues_comments":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -1551,7 +1559,7 @@ func (s *service) having(dataSourceType, sortField string) (cond string, err err
 			return
 		}
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments", "github_pull_request_prs_comment_activity":
 			cond = fmt.Sprintf(`having \"%s\" >= 0`, s.JSONEscape(sortField))
 			return
 		}
@@ -1617,13 +1625,13 @@ func (s *service) orderBy(dataSourceType, sortField, sortOrder string) (order st
 		}
 	case "github/issue":
 		switch sortField {
-		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed":
+		case "github_issue_issues_created", "github_issue_average_time_open_days", "github_issue_issues_assigned", "github_issue_issues_closed", "github_issue_issues_comments":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
 	case "github/pull_request":
 		switch sortField {
-		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments":
+		case "github_pull_request_prs_created", "github_pull_request_prs_merged", "github_pull_request_prs_closed", "github_pull_request_prs_open", "github_pull_request_prs_reviewed", "github_pull_request_prs_approved", "github_pull_request_prs_review_comments", "github_pull_request_prs_comment_activity":
 			order = fmt.Sprintf(`order by \"%s\" %s`, s.JSONEscape(sortField), dir)
 			return
 		}
