@@ -1279,13 +1279,13 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 		}
 	case "github/pull_request":
 		fields = map[string]string{
-			"github_pull_request_prs_created":         "count(distinct id) as github_pull_request_prs_created",
-			"github_pull_request_prs_merged":          "count(distinct id) as github_pull_request_prs_merged",
-			"github_pull_request_prs_open":            "count(distinct id) as github_pull_request_prs_open",
-			"github_pull_request_prs_closed":          "count(distinct id) as github_pull_request_prs_closed",
-			"github_pull_request_prs_reviewed":        "count(distinct pull_request_id) as github_pull_request_prs_reviewed",
-			"github_pull_request_prs_approved":        "count(distinct pull_request_id) as github_pull_request_prs_approved",
-			"github_pull_request_prs_review_comments": "count(distinct pull_request_review_id) as github_pull_request_prs_review_comments",
+			"github_pull_request_prs_created":          "count(distinct id) as github_pull_request_prs_created",
+			"github_pull_request_prs_merged":           "count(distinct id) as github_pull_request_prs_merged",
+			"github_pull_request_prs_open":             "count(distinct id) as github_pull_request_prs_open",
+			"github_pull_request_prs_closed":           "count(distinct id) as github_pull_request_prs_closed",
+			"github_pull_request_prs_reviewed":         "count(distinct pull_request_id) as github_pull_request_prs_reviewed",
+			"github_pull_request_prs_approved":         "count(distinct pull_request_id) as github_pull_request_prs_approved",
+			"github_pull_request_prs_review_comments":  "count(distinct pull_request_review_id) as github_pull_request_prs_review_comments",
 			"github_pull_request_prs_comment_activity": "count(distinct id) as github_pull_request_prs_comment_activity",
 		}
 	case "bugzillarest":
@@ -2373,6 +2373,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 					confluenceLastActionDate = ""
 				}
 			}
+			// TOPCON
 			contributor := &models.ContributorFlatStats{
 				UUID:                                 uuid,
 				GitLinesAdded:                        getInt(uuid, "git_lines_added"),
@@ -2398,6 +2399,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				GithubIssueIssuesCreated:             getInt(uuid, "github_issue_issues_created"),
 				GithubIssueIssuesClosed:              getInt(uuid, "github_issue_issues_closed"),
 				GithubIssueIssuesAssigned:            getInt(uuid, "github_issue_issues_assigned"),
+				GithubIssueIssuesComments:            getInt(uuid, "github_issue_issues_comments"),
 				GithubIssueAverageTimeOpenDays:       getFloat(uuid, "github_issue_average_time_open_days"),
 				GithubPullRequestPrsCreated:          getInt(uuid, "github_pull_request_prs_created"),
 				GithubPullRequestPrsMerged:           getInt(uuid, "github_pull_request_prs_merged"),
@@ -2406,6 +2408,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 				GithubPullRequestPrsReviewed:         getInt(uuid, "github_pull_request_prs_reviewed"),
 				GithubPullRequestPrsApproved:         getInt(uuid, "github_pull_request_prs_approved"),
 				GithubPullRequestPrsReviewComments:   getInt(uuid, "github_pull_request_prs_review_comments"),
+				GithubPullRequestPrsCommentActivity:  getInt(uuid, "github_pull_request_prs_comment_activity"),
 				BugzillaIssuesCreated:                getInt(uuid, "bugzilla_issues_created"),
 				BugzillaIssuesClosed:                 getInt(uuid, "bugzilla_issues_closed"),
 				BugzillaIssuesAssigned:               getInt(uuid, "bugzilla_issues_assigned"),
