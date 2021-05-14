@@ -3165,6 +3165,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 	if !public {
 		hdr = append(hdr, "Email")
 	}
+	// TOPCON
 	possibleHeader := []string{
 		"git_commits",
 		"git_lines_added",
@@ -3174,6 +3175,10 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_pull_request_prs_open",
 		"github_pull_request_prs_closed",
 		"github_pull_request_prs_merged",
+		"github_pull_request_prs_reviewed",
+		"github_pull_request_prs_approved",
+		"github_pull_request_prs_review_comments",
+		"github_pull_request_prs_comment_activity",
 		"gerrit_approvals",
 		"gerrit_changesets",
 		"gerrit_merged_changesets",
@@ -3187,6 +3192,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		"github_issue_issues_created",
 		"github_issue_issues_assigned",
 		"github_issue_issues_closed",
+		"github_issue_issues_comments",
 		"bugzilla_issues_assigned",
 		"bugzilla_issues_created",
 		"bugzilla_issues_closed",
@@ -3221,6 +3227,7 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		if !public {
 			row = append(row, contributor.Email)
 		}
+		// TOPCON
 		_, ok := m["git_commits"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GitCommits, 10))
@@ -3252,6 +3259,22 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		_, ok = m["github_pull_request_prs_merged"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsMerged, 10))
+		}
+		_, ok = m["github_pull_request_prs_reviewed"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsReviewed, 10))
+		}
+		_, ok = m["github_pull_request_prs_approved"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsApproved, 10))
+		}
+		_, ok = m["github_pull_request_prs_review_comments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsReviewComments, 10))
+		}
+		_, ok = m["github_pull_request_prs_comment_activity"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubPullRequestPrsCommentActivity, 10))
 		}
 		_, ok = m["gerrit_approvals"]
 		if ok {
@@ -3304,6 +3327,10 @@ func (s *service) GetTopContributorsCSV(ctx context.Context, params *affiliation
 		_, ok = m["github_issue_issues_closed"]
 		if ok {
 			row = append(row, strconv.FormatInt(contributor.GithubIssueIssuesClosed, 10))
+		}
+		_, ok = m["github_issue_issues_comments"]
+		if ok {
+			row = append(row, strconv.FormatInt(contributor.GithubIssueIssuesComments, 10))
 		}
 		_, ok = m["bugzilla_issues_assigned"]
 		if ok {

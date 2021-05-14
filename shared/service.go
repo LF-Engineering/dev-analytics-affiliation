@@ -90,6 +90,7 @@ var (
 		"confluence":          8,
 	}
 	// DataSourcesFields - predefined data for data source types
+	// TOPCON
 	DataSourcesFields = map[string]*models.ConfiguredDataSourcesFields{
 		"git": {
 			Key:  "git",
@@ -106,9 +107,10 @@ var (
 			Name: "Github Issues",
 			DataTypes: []*models.DataSourceTypeItems{
 				{Key: "github_issue_average_time_open_days", Name: "Issues Avg Days in Open"},
-				{Key: "github_issue_issues_created", Name: "Created"},
+				{Key: "github_issue_issues_created", Name: "Issues Created"},
 				{Key: "github_issue_issues_assigned", Name: "Issues Assigned"},
 				{Key: "github_issue_issues_closed", Name: "Issues Closed"},
+				{Key: "github_issue_issues_comments", Name: "Issues Comments"},
 			},
 		},
 		"github/pull_request": {
@@ -119,6 +121,10 @@ var (
 				{Key: "github_pull_request_prs_open", Name: "PRs Open"},
 				{Key: "github_pull_request_prs_closed", Name: "PRs Closed"},
 				{Key: "github_pull_request_prs_merged", Name: "PRs Merged"},
+				{Key: "github_pull_request_prs_reviewed", Name: "PRs Reviewed"},
+				{Key: "github_pull_request_prs_approved", Name: "PRs Approved"},
+				{Key: "github_pull_request_prs_review_comments", Name: "PRs Review Comments"},
+				{Key: "github_pull_request_prs_comment_activity", Name: "PRs Comment Activity"},
 			},
 		},
 		"gerrit": {

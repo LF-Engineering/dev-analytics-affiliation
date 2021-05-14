@@ -586,14 +586,6 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			}
 		}
 	}
-	nErrs := len(errs)
-	if nErrs > 0 {
-		errStr := ""
-		for _, e := range errs {
-			errStr += e.Error() + ", "
-		}
-		err = fmt.Errorf("%d errors: %s", nErrs, errStr)
-	}
 	dropFunc := func(ch chan error, ident [3]string) (err error) {
 		defer func() {
 			if ch != nil {
@@ -810,6 +802,14 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		}
 	}
 	stat += fmt.Sprintf("Merged %d identities, %d profiles\n", nIdents, nProfiles)
+	nErrs := len(errs)
+	if nErrs > 0 {
+		errStr := ""
+		for _, e := range errs {
+			errStr += e.Error() + ", "
+		}
+		stat += fmt.Sprintf(", %d warnings: %s", nErrs, errStr)
+	}
 	return
 }
 
