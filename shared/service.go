@@ -107,7 +107,7 @@ var (
 			Name: "Github Issues",
 			DataTypes: []*models.DataSourceTypeItems{
 				{Key: "github_issue_average_time_open_days", Name: "Issues Avg Days in Open"},
-				{Key: "github_issue_issues_created", Name: "Created"},
+				{Key: "github_issue_issues_created", Name: "Issues Created"},
 				{Key: "github_issue_issues_assigned", Name: "Issues Assigned"},
 				{Key: "github_issue_issues_closed", Name: "Issues Closed"},
 				{Key: "github_issue_issues_comments", Name: "Issues Comments"},

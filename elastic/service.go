@@ -1272,7 +1272,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 	case "github/issue":
 		fields = map[string]string{
 			"github_issue_issues_created":         "count(distinct id) as github_issue_issues_created",
-			"github_issue_issues_assigned":        "count(distinct assignee_data_uuid) as github_issue_issues_assigned",
+			"github_issue_issues_assigned":        "count(distinct issue_id) as github_issue_issues_assigned",
 			"github_issue_issues_closed":          "count(distinct id) as github_issue_issues_closed",
 			"github_issue_average_time_open_days": "avg(time_open_days) as github_issue_average_time_open_days",
 			"github_issue_issues_comments":        "count(distinct id) as github_issue_issues_comments",
@@ -1413,7 +1413,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			cond = `and \"type\" = 'issue' and \"id\" is not null and \"pull_request\" = false and \"state\" = 'closed'`
 			return
 		case "github_issue_issues_assigned":
-			cond = `and \"type\" = 'issue' and \"assignee_data_uuid\" is not null and \"id\" is not null and \"pull_request\" = false`
+			cond = `and \"type\" = 'issue_assignee' and \"issue_id\" is not null and \"pull_request\" = false`
 			return
 		case "github_issue_issues_comments":
 			cond = `and \"type\" = 'issue_comment' and \"id\" is not null and \"pull_request\" = false`
