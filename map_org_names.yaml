@@ -1042,7 +1042,7 @@ mappings:
   - ['^[[:space:]]*lumastar[[:space:]]*$','EPIK']
   - ["^[[:space:]]*école[[:space:]]pour[[:space:]]l'informatique[[:space:]]et[[:space:]]les[[:space:]]techniques[[:space:]]avancées[[:space:]]*$",'EPITA']
   - ['^[[:space:]]*epsilon[[:space:]]*$','Epsilon Data Management, LLC']
-  - ['^[[:space:]]*(ericssons|erricsson)[[:space:]]*$','ERICSSON']
+  - ['^[[:space:]]*(ericsson|ericsson[[:space:]]ab|ericsson[[:space:]]software[[:space:]]technology[[:space:]]ab)[[:space:]]*$', 'Ericsson Software Technology']
   - ['^[[:space:]]*(erlang[[:space:]]solutions,?[[:space:]]ltd\\.?|erlang[[:space:]]solutions)[[:space:]]*$','Erlang Solutions Ltd']
   - ['^[[:space:]]*ey[[:space:]]*$','Ernst & Young']
   - ['^[[:space:]]*erwin,?[[:space:]]inc\\.?[[:space:]]*$','Erwin']
