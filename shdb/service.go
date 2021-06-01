@@ -5099,6 +5099,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		// Because sql.Query escapes \ --> \\ and mysql special characters regexp is '\\.'
 		re = strings.Replace(re, "\\\\", "\\", -1)
 		//fmt.Printf("RE: %s\n", re)
+		log.Debug(fmt.Sprintf("RE: %s", re))
 		rows, err = s.Query(s.db, tx, "select id, name from organizations where name regexp ? and name != ?", re, to)
 		//rows, err = s.Query(s.db, tx, "select id, name from organizations where name = ?", re)
 		//rows, err = s.Query(s.db, tx, `select id, name from organizations where name regexp '` + re + `'`)
