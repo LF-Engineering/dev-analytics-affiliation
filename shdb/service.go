@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"io/ioutil"
+	"os"
 
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -5000,6 +5001,11 @@ func (s *service) DedupEnrollments() (err error) {
 
 func (s *service) MapOrgNames() (status string, err error) {
 	log.Info("MapOrgNames")
+	dbg := false
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "trace" || logLevel == "debug" {
+		dbg = true
+	}
 	// s.SetOrigin()
 	status = ""
 	defer func() {
@@ -5098,8 +5104,10 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		// Because sql.Query escapes \ --> \\ and mysql special characters regexp is '\\.'
 		re = strings.Replace(re, "\\\\", "\\", -1)
-		//fmt.Printf("RE: %s\n", re)
-		log.Debug(fmt.Sprintf("RE: %s", re))
+		if dbg {
+			fmt.Printf("RE: %s\n", re)
+			log.Debug(fmt.Sprintf("RE: %s", re))
+		}
 		rows, err = s.Query(s.db, tx, "select id, name from organizations where name regexp ? and name != ?", re, to)
 		//rows, err = s.Query(s.db, tx, "select id, name from organizations where name = ?", re)
 		//rows, err = s.Query(s.db, tx, `select id, name from organizations where name regexp '` + re + `'`)
