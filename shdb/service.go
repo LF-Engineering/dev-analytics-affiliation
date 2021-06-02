@@ -108,7 +108,7 @@ type Service interface {
 	DeleteSlugMapping(string) (*models.TextStatusOutput, error)
 	DropSlugMapping(string, bool, *sql.Tx) error
 	EditSlugMapping(*models.SlugMapping, *models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
-	// Affiliations
+	// Affiliations (5-step algorithm)
 	GetAffiliations(string, string, time.Time, bool, *sql.Tx) []string
 	GetAffiliationsSingle(string, string, time.Time, *sql.Tx) string
 	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
@@ -849,6 +849,10 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 	// in single mode, if multiple companies are found, return the most recent
 	// in multiple mode this can return many different companies and this is ok
 	if pSlug != "" {
+		// Warning when running for foundation-f project slug.
+		if strings.HasSuffix(pSlug, "-f") && !strings.Contains(pSlug, "/") {
+			log.Warn(fmt.Sprintf("running on foundation-f level detected: project slug is %s, uuid %s, single %v, dt %v\n", pSlug, uuid, single, dt))
+		}
 		rows := s.QueryToStringArray(
 			sdb,
 			tx,
@@ -970,16 +974,19 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 		)
 		if single {
 			if len(rows) > 0 {
-				orgs = []string{rows[0]}
-				if pSlug != "" {
-					_, _ = s.Exec(
-						sdb,
-						tx,
-						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-						pSlug,
-						"Contributor",
-						ids[0],
-					)
+				ary := strings.Split(pSlug, "/")
+				if len(ary) > 1 {
+					orgs = []string{rows[0]}
+					if pSlug != "" {
+						_, _ = s.Exec(
+							sdb,
+							tx,
+							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+							pSlug,
+							"Contributor",
+							ids[0],
+						)
+					}
 				}
 				return
 			}
