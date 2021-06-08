@@ -2757,7 +2757,7 @@ func (s *service) GetIdentityByUser(key string, value string, missingFatal bool,
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find identity '%s' : '%s'", key, value)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetIdentityByUser")
+		err = errs.Wrap(errs.New(err, errs.ErrNotFound), "GetIdentityByUser")
 		return
 	}
 	if !fetched {
