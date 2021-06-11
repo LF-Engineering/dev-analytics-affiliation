@@ -14,7 +14,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"io/ioutil"
-	"os"
 
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
