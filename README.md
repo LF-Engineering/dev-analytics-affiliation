@@ -75,6 +75,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='Lukasz Gryglicki' email='lgryglicki@cncf.io' username='' uuid='xyz' ./sh/curl_post_add_identity.sh odpi/egeria git ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LukaszGryglicki' email='lgryglicki@cncf.io' username='Luki' uuid='' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LGryglicki' email='lukaszgryglicki@cncf.io' username='LukiG' uuid='784f77c8a68d149376094cbac8421539196206cf' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_post_add_identities.sh 'cncf/prometheus,lfn/onap' ``. See `sh/example_add_identities.json` file for a payload example.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_identity.sh odpi/egeria 5d53a9a4774a912e19fc7afe4a21bcc0ea8a63bb ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria aaa8024197795de9b90676592772633c5cfcb35a | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 ``.

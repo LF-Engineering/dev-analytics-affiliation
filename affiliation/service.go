@@ -72,6 +72,7 @@ type Service interface {
 	PostUnarchiveProfile(context.Context, *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddUniqueIdentity(context.Context, *affiliation.PostAddUniqueIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
 	PostAddIdentity(context.Context, *affiliation.PostAddIdentityParams) (*models.UniqueIdentityNestedDataOutput, error)
+	PostAddIdentities(context.Context, *affiliation.PostAddIdentitiesParams) (*models.TextStatusOutput, error)
 	DeleteIdentity(context.Context, *affiliation.DeleteIdentityParams) (*models.TextStatusOutput, error)
 	GetProfileEnrollments(context.Context, *affiliation.GetProfileEnrollmentsParams) (*models.GetProfileEnrollmentsDataOutput, error)
 	GetAffiliationSingle(context.Context, *affiliation.GetAffiliationSingleParams) (*models.OrgOutput, error)
@@ -375,6 +376,10 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
 		apiName = "PostAddIdentity"
+	case *affiliation.PostAddIdentitiesParams:
+		auth = params.Authorization
+		projectsStr = params.ProjectSlugs
+		apiName = "PostAddIdentities"
 	case *affiliation.DeleteIdentityParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -1011,6 +1016,33 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 		return
 	}
 	s.UUDA2SF(uid)
+	return
+}
+
+// PostAddIdentities: API params:
+// /v1/affiliation/{projectSlugs}/add_identities
+// {projectSlugs} - required path parameter: projects to get organizations ("," separated list of project slugs URL encoded, each can be prefixed with "/projects/", each one is a SFDC slug)
+// identities - required body JSON parameter - list of identities
+func (s *service) PostAddIdentities(ctx context.Context, params *affiliation.PostAddIdentitiesParams) (status *models.TextStatusOutput, err error) {
+	status = &models.TextStatusOutput{}
+	nIdentities := len(params.Identities.Identities)
+	log.Info(fmt.Sprintf("PostAddIdentities: %d identities", nIdentities))
+	// Check token and permission
+	apiName, projects, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(fmt.Sprintf("PostAddIdenties(exit): %d identities apiName:%s projects:%v username:%s err:%v", nIdentities, apiName, projects, username, err))
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	var txt string
+	txt, err = s.shDB.AddIdentities(params.Identities.Identities)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	status.Text = txt
 	return
 }
 

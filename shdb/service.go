@@ -152,6 +152,7 @@ type Service interface {
 	GetListProfiles(string, int64, int64, []string) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
+	AddIdentities([]*models.IdentityDataOutput) (string, error)
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, []string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
@@ -3783,6 +3784,11 @@ func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash st
 		return
 	}
 	idHash = hex.EncodeToString(hash.Sum(nil))
+	return
+}
+
+func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status string, err error) {
+	status = "OK"
 	return
 }
 
