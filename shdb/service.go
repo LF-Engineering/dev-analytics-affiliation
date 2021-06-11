@@ -2,6 +2,8 @@ package shdb
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -12,7 +14,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"io/ioutil"
-	"os"
 
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -3788,7 +3789,233 @@ func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash st
 }
 
 func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status string, err error) {
-	status = "OK"
+	for i, identity := range identities {
+		err = s.ValidateIdentity(identity, false)
+		if err != nil {
+			err = errs.Wrap(err, fmt.Sprintf("validate #%d identity: %v", i, s.ToLocalIdentity(identity)))
+			return
+		}
+		id := identity.ID
+		if id == "" {
+			id, err = s.IdentityIDHash(identity)
+			if err != nil {
+				err = errs.Wrap(err, fmt.Sprintf("generate id for #%d identity: %v", i, s.ToLocalIdentity(identity)))
+				return
+			}
+			identity.ID = id
+			log.Info(fmt.Sprintf("auto generated '%s' id for %v", id, s.ToLocalIdentity(identity)))
+		}
+		uuid := identity.UUID
+		if uuid == nil || (uuid != nil && *uuid == "") {
+			identity.UUID = &identity.ID
+		}
+	}
+	bulkSize := 166
+	nIdents := len(identities)
+	emailsCache := map[string]bool{}
+	isValidEmail := func(email string) (valid bool) {
+		l := len(email)
+		if l < 3 && l > 254 {
+			return
+		}
+		valid, ok := emailsCache[email]
+		if ok {
+			return
+		}
+		defer func() {
+			emailsCache[email] = valid
+		}()
+		if !shared.EmailRegex.MatchString(email) {
+			return
+		}
+		parts := strings.Split(email, "@")
+		mx, err := net.LookupMX(parts[1])
+		if err != nil || len(mx) == 0 {
+			return
+		}
+		valid = true
+		return
+	}
+	run := func() (err error) {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		runOneByOne := func() (err error) {
+			log.Warn(fmt.Sprintf("Bulk add identities: falling back to one-by-one mode for %d items\n", nIdents))
+			var (
+				er  error
+				ers []error
+			)
+			defer func() {
+				nErrs := len(ers)
+				if nErrs == 0 {
+					msg := fmt.Sprintf("Bulk add identities: one-by-one mode for %d items - all succeeded", nIdents)
+					log.Warn(msg)
+					status += msg + "\n"
+					return
+				}
+				s := fmt.Sprintf("%d errors: ", nErrs)
+				for _, er := range ers {
+					s += er.Error() + ", "
+				}
+				s = s[:len(s)-2]
+				err = fmt.Errorf("%s", s)
+				msg := fmt.Sprintf("Bulk add identities: one-by-one mode for %d items: %d errors: %v", nIdents, nErrs, err)
+				log.Warn(msg)
+				status += msg + "\n"
+			}()
+			for i := 0; i < nIdents; i++ {
+				ident := identities[i]
+				queryU := "insert ignore into uidentities(uuid,last_modified) values"
+				queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified) values"
+				queryP := "insert ignore into profiles(uuid,name,email) values"
+				argsU := []interface{}{}
+				argsI := []interface{}{}
+				argsP := []interface{}{}
+				id := ident.ID
+				uuid := ident.UUID
+				source := ident.Source
+				name := ident.Name
+				username := ident.Username
+				email := ident.Email
+				profname := name
+				if profname == nil && username != nil {
+					profname = username
+				}
+				// if username matches a real email and there is no email set, assume email=username
+				if email == nil && username != nil && isValidEmail(*username) {
+					email = username
+				}
+				// if name matches a real email and there is no email set, assume email=name
+				if email == nil && name != nil && isValidEmail(*name) {
+					email = name
+				}
+				queryU += fmt.Sprintf("(?,now())")
+				queryI += fmt.Sprintf("(?,?,?,?,?,?,now())")
+				queryP += fmt.Sprintf("(?,?,?)")
+				argsU = append(argsU, uuid)
+				argsI = append(argsI, id, source, name, email, username, uuid)
+				argsP = append(argsP, uuid, profname, email)
+				itx, e := s.db.Begin()
+				if e != nil {
+					err = e
+					return
+				}
+				_, er = s.Exec(s.db, itx, queryU, argsU...)
+				if er != nil {
+					er = errs.Wrap(er, fmt.Sprintf("one-by-one #%d identity: %v", i, s.ToLocalIdentity(ident)))
+					log.Warn(fmt.Sprintf("Bulk add identities: one-by-one(%d/%d): %s[%+v]: %v\n", i+1, nIdents, queryU, argsU, er))
+					_ = itx.Rollback()
+					ers = append(ers, er)
+					continue
+				}
+				_, er = s.Exec(s.db, itx, queryP, argsP...)
+				if er != nil {
+					er = errs.Wrap(er, fmt.Sprintf("one-by-one #%d identity: %v", i, s.ToLocalIdentity(ident)))
+					log.Warn(fmt.Sprintf("Bulk add identities: one-by-one(%d/%d): %s[%+v]: %v\n", i+1, nIdents, queryP, argsP, er))
+					_ = itx.Rollback()
+					ers = append(ers, er)
+					continue
+				}
+				_, er = s.Exec(s.db, itx, queryI, argsI...)
+				if er != nil {
+					er = errs.Wrap(er, fmt.Sprintf("one-by-one #%d identity: %v", i, s.ToLocalIdentity(ident)))
+					log.Warn(fmt.Sprintf("Bulk add identities: one-by-one(%d/%d): %s[%+v]: %v\n", i+1, nIdents, queryI, argsI, er))
+					_ = itx.Rollback()
+					ers = append(ers, er)
+					continue
+				}
+				err = itx.Commit()
+				if err != nil {
+					return
+				}
+				itx = nil
+			}
+			return
+		}
+		defer func() {
+			if tx != nil {
+				msg := fmt.Sprintf("Bulk insert identities failed, rolling back %d identities insert", nIdents)
+				log.Warn(msg)
+				status += msg + "\n"
+				tx.Rollback()
+				err = runOneByOne()
+			}
+		}()
+		nPacks := nIdents / bulkSize
+		if nIdents%bulkSize != 0 {
+			nPacks++
+		}
+		for i := 0; i < nPacks; i++ {
+			from := i * bulkSize
+			to := from + bulkSize
+			if to > nIdents {
+				to = nIdents
+			}
+			queryU := "insert ignore into uidentities(uuid,last_modified) values"
+			queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified) values"
+			queryP := "insert ignore into profiles(uuid,name,email) values"
+			argsU := []interface{}{}
+			argsI := []interface{}{}
+			argsP := []interface{}{}
+			for j := from; j < to; j++ {
+				ident := identities[j]
+				id := ident.ID
+				uuid := ident.UUID
+				source := ident.Source
+				name := ident.Name
+				username := ident.Username
+				email := ident.Email
+				profname := name
+				if profname == nil && username != nil {
+					profname = username
+				}
+				// if username matches a real email and there is no email set, assume email=username
+				if email == nil && username != nil && isValidEmail(*username) {
+					email = username
+				}
+				// if name matches a real email and there is no email set, assume email=name
+				if email == nil && name != nil && isValidEmail(*name) {
+					email = name
+				}
+				queryU += fmt.Sprintf("(?,now()),")
+				queryI += fmt.Sprintf("(?,?,?,?,?,?,now()),")
+				queryP += fmt.Sprintf("(?,?,?),")
+				argsU = append(argsU, uuid)
+				argsI = append(argsI, id, source, name, email, username, uuid)
+				argsP = append(argsP, uuid, profname, email)
+			}
+			queryU = queryU[:len(queryU)-1]
+			queryI = queryI[:len(queryI)-1]
+			queryP = queryP[:len(queryP)-1]
+			_, err = s.Exec(s.db, tx, queryU, argsU...)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, tx, queryP, argsP...)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, tx, queryI, argsI...)
+			if err != nil {
+				return
+			}
+		}
+		// Will not commit in dry-run mode, deferred function will rollback - so we can still test any errors
+		// but the final commit is replaced with rollback
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		return
+	}
+	err = run()
+	if err != nil {
+		return
+	}
+	status += fmt.Sprintf("Bulk added %d identities\n", nIdents)
 	return
 }
 
