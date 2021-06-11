@@ -368,6 +368,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewPostAddIdentityOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationPostAddIdentitiesHandler = affiliation.PostAddIdentitiesHandlerFunc(
+		func(params affiliation.PostAddIdentitiesParams) middleware.Responder {
+			log.Info("PostAddIdentitiesHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("PostAddIdentitiesHandlerFunc: " + info)
+
+			result, err := service.PostAddIdentities(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("PostAddIdentitiesHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("PostAddIdentitiesHandlerFunc(ok): " + info)
+
+			return affiliation.NewPostAddIdentitiesOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationDeleteIdentityHandler = affiliation.DeleteIdentityHandlerFunc(
 		func(params affiliation.DeleteIdentityParams) middleware.Responder {
 			log.Info("DeleteIdentityHandlerFunc")

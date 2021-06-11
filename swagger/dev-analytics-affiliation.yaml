@@ -967,6 +967,46 @@ paths:
           in: query
           type: string
           description: Identity UUID (uuid it belongs to), can be empty, new unique identity will be added then
+  /affiliation/{projectSlugs}/add_identities:
+    post:
+      summary: Bulk create identities
+      operationId: postAddIdentities
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/text-status-output"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - add_identities
+        - post
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/project-slugs'
+        - name: identities
+          in: body
+          required: true
+          description: arrays of identities to be added
+          schema:
+            $ref: "#/definitions/add-identities"
   /affiliation/{projectSlugs}/delete_identity/{id}:
     delete:
       summary: Delete identity with given ID (it will cascade delete all objects referring to that identity)
@@ -3167,6 +3207,15 @@ definitions:
         x-go-custom-tag: 'yaml:"R,omitempty"'
         items:
           $ref: "#/definitions/all-output"
+  add-identities:
+    title: Identities to be added in bulk
+    description: Identities to be added in bulk
+    type: object
+    properties:
+      identities:
+        type: array
+        items:
+          $ref: "#/definitions/identity-data-output"
   project-data-output:
     title: Project data
     description: project data (slug and name)
