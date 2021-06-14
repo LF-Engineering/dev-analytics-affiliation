@@ -61,7 +61,7 @@ do
       echo "drop status $sts"
       exit 7
     fi
-    echo "Dropped enrollments for ${uuid}"
+    echo "dropped enrollments for ${uuid}"
   fi
   for ((i = 3; i <= $#; i++ ))
   do
@@ -96,7 +96,6 @@ do
     fi
     cmd="$shacc \"select id from organizations where name = '${company}' limit 1\""
     cid=$(eval "${cmd}")
-    echo "$cid: ${arr[0]}: $from - $to"
     if [ "$pass" = "1" ]
     then
       cmd="$shacc \"insert into enrollments(start, end, uuid, organization_id, project_slug, role) select '${from}', '${to}', '${uuid}', ${cid}, 'finos-f', 'Contributor'\""
@@ -106,6 +105,7 @@ do
       then
         echo "insert status $sts"
       fi
+      echo "inserted ${uuid} enrollment"
       cmd="curl -s -XPOST -H 'Content-Type: application/json' '${esacc}/sds-finos-*,-*-raw/_update_by_query?wait_for_completion=true&conflicts=proceed&refresh=true' -d\"{\\\"script\\\":{\\\"inline\\\":\\\"ctx._source.author_org_name='${company}';\\\"},\\\"query\\\":{\\\"bool\\\":{\\\"must\\\":[{\\\"term\\\":{\\\"author_uuid\\\":\\\"${uuid}\\\"}},{\\\"range\\\":{\\\"metadata__updated_on\\\":{\\\"gte\\\":\\\"${efrom}\\\",\\\"lt\\\":\\\"${eto}\\\"}}}]}}}\""
       eval "${cmd}"
       sts=$?
@@ -117,6 +117,8 @@ do
       cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw\\\\\\\" where author_uuid = '${uuid}' and metadata__updated_on >= '${efrom}' and metadata__updated_on < '${eto}'  group by author_uuid, author_org_name limit 10000\\\"}\""
       echo "$cid: ${arr[0]}: $efrom - $eto"
       eval "$cmd"
+    else
+      echo "$cid: ${arr[0]}: $from - $to"
     fi
   done
   if [ "$pass" = "1" ]
