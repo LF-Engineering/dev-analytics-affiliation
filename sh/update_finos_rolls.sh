@@ -1,5 +1,7 @@
 #!/bin/bash
 # CHECK=1 - only check data
+# Example use: 
+# [CHECK=1] ./sh/update_finos_rolls.sh prod 7d25f805bcc1886acd05a50efdacd1c95dff8912 'Individual - No Account;;2007-09-01' 'Sourcesense;2007-09-01;2012-01-31' 'Individual - No Account;2012-01-31;2012-04-01' 'Alfresco;2012-04-01;2016-04-30' 'Finos;2016-04-30;2020-04-08' 'The Linux Foundation;2020-04-08;'
 if [ "$1" = "" ]
 then
   echo "$0: you need to specify env as a 1st arg: prod|test"
