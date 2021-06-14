@@ -60,3 +60,4 @@ dump.sql
 q*.json
 q*.txt
 .idea
+temp.sql

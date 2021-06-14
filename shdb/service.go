@@ -2,6 +2,8 @@ package shdb
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -107,7 +109,7 @@ type Service interface {
 	DeleteSlugMapping(string) (*models.TextStatusOutput, error)
 	DropSlugMapping(string, bool, *sql.Tx) error
 	EditSlugMapping(*models.SlugMapping, *models.SlugMapping, *sql.Tx) (*models.SlugMapping, error)
-	// Affiliations
+	// Affiliations (5-step algorithm)
 	GetAffiliations(string, string, time.Time, bool, *sql.Tx) []string
 	GetAffiliationsSingle(string, string, time.Time, *sql.Tx) string
 	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
@@ -151,6 +153,7 @@ type Service interface {
 	GetListProfiles(string, int64, int64, []string) (*models.GetListProfilesOutput, error)
 	AddNestedUniqueIdentity(string) (*models.UniqueIdentityNestedDataOutput, error)
 	AddNestedIdentity(*models.IdentityDataOutput) (*models.UniqueIdentityNestedDataOutput, error)
+	AddIdentities([]*models.IdentityDataOutput) (string, error)
 	FindEnrollmentsNested([]string, []interface{}, []bool, bool, []string, *sql.Tx) ([]*models.EnrollmentNestedDataOutput, error)
 	WithdrawEnrollment(*models.EnrollmentDataOutput, bool, *sql.Tx) error
 	PutOrgDomain(string, string, bool, bool, bool) (*models.PutOrgDomainOutput, error)
@@ -243,7 +246,7 @@ func (s *service) MakeLFXIdentityPrimary(ch chan []interface{}, email string) (m
 		return
 	}
 	if puuid == "" {
-		err = fmt.Errorf("Cannot find LFX profile for email %s\n", email)
+		err = fmt.Errorf("cannot find LFX profile for email %s", email)
 		fmt.Printf("MakeLFXIdentityPrimary: %v\n", err)
 		return
 	}
@@ -408,7 +411,7 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 			// We have an identity in SF with the same email, it should be on the update list
 			_, okU := update[email]
 			if !okU {
-				err = fmt.Errorf("DA LFX identity %=v with email %s should be on the update list", ident, email)
+				err = fmt.Errorf("DA LFX identity %+v with email %s should be on the update list", ident, email)
 				return
 			}
 			continue
@@ -585,14 +588,6 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 				errs = append(errs, e)
 			}
 		}
-	}
-	nErrs := len(errs)
-	if nErrs > 0 {
-		errStr := ""
-		for _, e := range errs {
-			errStr += e.Error() + ", "
-		}
-		err = fmt.Errorf("%d errors: %s", nErrs, errStr)
 	}
 	dropFunc := func(ch chan error, ident [3]string) (err error) {
 		defer func() {
@@ -810,6 +805,14 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 		}
 	}
 	stat += fmt.Sprintf("Merged %d identities, %d profiles\n", nIdents, nProfiles)
+	nErrs := len(errs)
+	if nErrs > 0 {
+		errStr := ""
+		for _, e := range errs {
+			errStr += e.Error() + ", "
+		}
+		stat += fmt.Sprintf(", %d warnings: %s", nErrs, errStr)
+	}
 	return
 }
 
@@ -848,6 +851,10 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 	// in single mode, if multiple companies are found, return the most recent
 	// in multiple mode this can return many different companies and this is ok
 	if pSlug != "" {
+		// Warning when running for foundation-f project slug.
+		if strings.HasSuffix(pSlug, "-f") && !strings.Contains(pSlug, "/") {
+			log.Warn(fmt.Sprintf("running on foundation-f level detected: project slug is %s, uuid %s, single %v, dt %v\n", pSlug, uuid, single, dt))
+		}
 		rows := s.QueryToStringArray(
 			sdb,
 			tx,
@@ -969,16 +976,19 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 		)
 		if single {
 			if len(rows) > 0 {
-				orgs = []string{rows[0]}
-				if pSlug != "" {
-					_, _ = s.Exec(
-						sdb,
-						tx,
-						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-						pSlug,
-						"Contributor",
-						ids[0],
-					)
+				ary := strings.Split(pSlug, "/")
+				if len(ary) > 1 {
+					orgs = []string{rows[0]}
+					if pSlug != "" {
+						_, _ = s.Exec(
+							sdb,
+							tx,
+							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+							pSlug,
+							"Contributor",
+							ids[0],
+						)
+					}
 				}
 				return
 			}
@@ -2749,7 +2759,7 @@ func (s *service) GetIdentityByUser(key string, value string, missingFatal bool,
 	}
 	if missingFatal && !fetched {
 		err = fmt.Errorf("cannot find identity '%s' : '%s'", key, value)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "GetIdentityByUser")
+		err = errs.Wrap(errs.New(err, errs.ErrNotFound), "GetIdentityByUser")
 		return
 	}
 	if !fetched {
@@ -3775,6 +3785,237 @@ func (s *service) IdentityIDHash(identity *models.IdentityDataOutput) (idHash st
 		return
 	}
 	idHash = hex.EncodeToString(hash.Sum(nil))
+	return
+}
+
+func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status string, err error) {
+	for i, identity := range identities {
+		err = s.ValidateIdentity(identity, false)
+		if err != nil {
+			err = errs.Wrap(err, fmt.Sprintf("validate #%d identity: %v", i, s.ToLocalIdentity(identity)))
+			return
+		}
+		id := identity.ID
+		if id == "" {
+			id, err = s.IdentityIDHash(identity)
+			if err != nil {
+				err = errs.Wrap(err, fmt.Sprintf("generate id for #%d identity: %v", i, s.ToLocalIdentity(identity)))
+				return
+			}
+			identity.ID = id
+			log.Info(fmt.Sprintf("auto generated '%s' id for %v", id, s.ToLocalIdentity(identity)))
+		}
+		uuid := identity.UUID
+		if uuid == nil || (uuid != nil && *uuid == "") {
+			identity.UUID = &identity.ID
+		}
+	}
+	bulkSize := 166
+	nIdents := len(identities)
+	emailsCache := map[string]bool{}
+	isValidEmail := func(email string) (valid bool) {
+		l := len(email)
+		if l < 3 && l > 254 {
+			return
+		}
+		valid, ok := emailsCache[email]
+		if ok {
+			return
+		}
+		defer func() {
+			emailsCache[email] = valid
+		}()
+		if !shared.EmailRegex.MatchString(email) {
+			return
+		}
+		parts := strings.Split(email, "@")
+		mx, err := net.LookupMX(parts[1])
+		if err != nil || len(mx) == 0 {
+			return
+		}
+		valid = true
+		return
+	}
+	run := func() (err error) {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return
+		}
+		runOneByOne := func() (err error) {
+			log.Warn(fmt.Sprintf("Bulk add identities: falling back to one-by-one mode for %d items\n", nIdents))
+			var (
+				er  error
+				ers []error
+			)
+			defer func() {
+				nErrs := len(ers)
+				if nErrs == 0 {
+					msg := fmt.Sprintf("Bulk add identities: one-by-one mode for %d items - all succeeded", nIdents)
+					log.Warn(msg)
+					status += msg + "\n"
+					return
+				}
+				s := fmt.Sprintf("%d errors: ", nErrs)
+				for _, er := range ers {
+					s += er.Error() + ", "
+				}
+				s = s[:len(s)-2]
+				err = fmt.Errorf("%s", s)
+				msg := fmt.Sprintf("Bulk add identities: one-by-one mode for %d items: %d errors: %v", nIdents, nErrs, err)
+				log.Warn(msg)
+				status += msg + "\n"
+			}()
+			for i := 0; i < nIdents; i++ {
+				ident := identities[i]
+				queryU := "insert ignore into uidentities(uuid,last_modified) values"
+				queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified) values"
+				queryP := "insert ignore into profiles(uuid,name,email) values"
+				argsU := []interface{}{}
+				argsI := []interface{}{}
+				argsP := []interface{}{}
+				id := ident.ID
+				uuid := ident.UUID
+				source := ident.Source
+				name := ident.Name
+				username := ident.Username
+				email := ident.Email
+				profname := name
+				if profname == nil && username != nil {
+					profname = username
+				}
+				// if username matches a real email and there is no email set, assume email=username
+				if email == nil && username != nil && isValidEmail(*username) {
+					email = username
+				}
+				// if name matches a real email and there is no email set, assume email=name
+				if email == nil && name != nil && isValidEmail(*name) {
+					email = name
+				}
+				queryU += fmt.Sprintf("(?,now())")
+				queryI += fmt.Sprintf("(?,?,?,?,?,?,now())")
+				queryP += fmt.Sprintf("(?,?,?)")
+				argsU = append(argsU, uuid)
+				argsI = append(argsI, id, source, name, email, username, uuid)
+				argsP = append(argsP, uuid, profname, email)
+				itx, e := s.db.Begin()
+				if e != nil {
+					err = e
+					return
+				}
+				_, er = s.Exec(s.db, itx, queryU, argsU...)
+				if er != nil {
+					er = errs.Wrap(er, fmt.Sprintf("one-by-one #%d identity: %v", i, s.ToLocalIdentity(ident)))
+					log.Warn(fmt.Sprintf("Bulk add identities: one-by-one(%d/%d): %s[%+v]: %v\n", i+1, nIdents, queryU, argsU, er))
+					_ = itx.Rollback()
+					ers = append(ers, er)
+					continue
+				}
+				_, er = s.Exec(s.db, itx, queryP, argsP...)
+				if er != nil {
+					er = errs.Wrap(er, fmt.Sprintf("one-by-one #%d identity: %v", i, s.ToLocalIdentity(ident)))
+					log.Warn(fmt.Sprintf("Bulk add identities: one-by-one(%d/%d): %s[%+v]: %v\n", i+1, nIdents, queryP, argsP, er))
+					_ = itx.Rollback()
+					ers = append(ers, er)
+					continue
+				}
+				_, er = s.Exec(s.db, itx, queryI, argsI...)
+				if er != nil {
+					er = errs.Wrap(er, fmt.Sprintf("one-by-one #%d identity: %v", i, s.ToLocalIdentity(ident)))
+					log.Warn(fmt.Sprintf("Bulk add identities: one-by-one(%d/%d): %s[%+v]: %v\n", i+1, nIdents, queryI, argsI, er))
+					_ = itx.Rollback()
+					ers = append(ers, er)
+					continue
+				}
+				err = itx.Commit()
+				if err != nil {
+					return
+				}
+				itx = nil
+			}
+			return
+		}
+		defer func() {
+			if tx != nil {
+				msg := fmt.Sprintf("Bulk insert identities failed, rolling back %d identities insert", nIdents)
+				log.Warn(msg)
+				status += msg + "\n"
+				tx.Rollback()
+				err = runOneByOne()
+			}
+		}()
+		nPacks := nIdents / bulkSize
+		if nIdents%bulkSize != 0 {
+			nPacks++
+		}
+		for i := 0; i < nPacks; i++ {
+			from := i * bulkSize
+			to := from + bulkSize
+			if to > nIdents {
+				to = nIdents
+			}
+			queryU := "insert ignore into uidentities(uuid,last_modified) values"
+			queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified) values"
+			queryP := "insert ignore into profiles(uuid,name,email) values"
+			argsU := []interface{}{}
+			argsI := []interface{}{}
+			argsP := []interface{}{}
+			for j := from; j < to; j++ {
+				ident := identities[j]
+				id := ident.ID
+				uuid := ident.UUID
+				source := ident.Source
+				name := ident.Name
+				username := ident.Username
+				email := ident.Email
+				profname := name
+				if profname == nil && username != nil {
+					profname = username
+				}
+				// if username matches a real email and there is no email set, assume email=username
+				if email == nil && username != nil && isValidEmail(*username) {
+					email = username
+				}
+				// if name matches a real email and there is no email set, assume email=name
+				if email == nil && name != nil && isValidEmail(*name) {
+					email = name
+				}
+				queryU += fmt.Sprintf("(?,now()),")
+				queryI += fmt.Sprintf("(?,?,?,?,?,?,now()),")
+				queryP += fmt.Sprintf("(?,?,?),")
+				argsU = append(argsU, uuid)
+				argsI = append(argsI, id, source, name, email, username, uuid)
+				argsP = append(argsP, uuid, profname, email)
+			}
+			queryU = queryU[:len(queryU)-1]
+			queryI = queryI[:len(queryI)-1]
+			queryP = queryP[:len(queryP)-1]
+			_, err = s.Exec(s.db, tx, queryU, argsU...)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, tx, queryP, argsP...)
+			if err != nil {
+				return
+			}
+			_, err = s.Exec(s.db, tx, queryI, argsI...)
+			if err != nil {
+				return
+			}
+		}
+		// Will not commit in dry-run mode, deferred function will rollback - so we can still test any errors
+		// but the final commit is replaced with rollback
+		err = tx.Commit()
+		if err != nil {
+			return
+		}
+		tx = nil
+		return
+	}
+	err = run()
+	if err != nil {
+		return
+	}
+	status += fmt.Sprintf("Bulk added %d identities\n", nIdents)
 	return
 }
 
@@ -5000,6 +5241,11 @@ func (s *service) DedupEnrollments() (err error) {
 
 func (s *service) MapOrgNames() (status string, err error) {
 	log.Info("MapOrgNames")
+	dbg := false
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "trace" || logLevel == "debug" {
+		dbg = true
+	}
 	// s.SetOrigin()
 	status = ""
 	defer func() {
@@ -5098,7 +5344,10 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		// Because sql.Query escapes \ --> \\ and mysql special characters regexp is '\\.'
 		re = strings.Replace(re, "\\\\", "\\", -1)
-		//fmt.Printf("RE: %s\n", re)
+		if dbg {
+			fmt.Printf("RE: %s\n", re)
+			log.Debug(fmt.Sprintf("RE: %s", re))
+		}
 		rows, err = s.Query(s.db, tx, "select id, name from organizations where name regexp ? and name != ?", re, to)
 		//rows, err = s.Query(s.db, tx, "select id, name from organizations where name = ?", re)
 		//rows, err = s.Query(s.db, tx, `select id, name from organizations where name regexp '` + re + `'`)

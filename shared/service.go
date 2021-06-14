@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -89,8 +90,8 @@ var (
 		"bugzillarest":        7,
 		"confluence":          8,
 	}
-	// TOPCON
 	// DataSourcesFields - predefined data for data source types
+	// TOPCON
 	DataSourcesFields = map[string]*models.ConfiguredDataSourcesFields{
 		"git": {
 			Key:  "git",
@@ -107,9 +108,10 @@ var (
 			Name: "Github Issues",
 			DataTypes: []*models.DataSourceTypeItems{
 				{Key: "github_issue_average_time_open_days", Name: "Issues Avg Days in Open"},
-				{Key: "github_issue_issues_created", Name: "Created"},
+				{Key: "github_issue_issues_created", Name: "Issues Created"},
 				{Key: "github_issue_issues_assigned", Name: "Issues Assigned"},
 				{Key: "github_issue_issues_closed", Name: "Issues Closed"},
+				{Key: "github_issue_issues_comments", Name: "Issues Comments"},
 			},
 		},
 		"github/pull_request": {
@@ -123,6 +125,7 @@ var (
 				{Key: "github_pull_request_prs_reviewed", Name: "PRs Reviewed"},
 				{Key: "github_pull_request_prs_approved", Name: "PRs Approved"},
 				{Key: "github_pull_request_prs_review_comments", Name: "PRs Review Comments"},
+				{Key: "github_pull_request_prs_comment_activity", Name: "PRs Comment Activity"},
 			},
 		},
 		"gerrit": {
@@ -180,6 +183,8 @@ var (
 			},
 		},
 	}
+	// EmailRegex - to match the email address
+	EmailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 )
 
 // ServiceInterface - Shared API interface
@@ -1015,21 +1020,25 @@ func (s *ServiceStruct) JSONEscape(str string) string {
 // QueryOut - display DB query
 func (s *ServiceStruct) QueryOut(query string, args ...interface{}) {
 	log.Warn(query)
+	str := ""
 	if len(args) > 0 {
-		s := ""
 		for vi, vv := range args {
 			switch v := vv.(type) {
 			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128, string, bool, time.Time:
-				s += fmt.Sprintf("%d:%+v ", vi+1, v)
+				str += fmt.Sprintf("%d:%+v ", vi+1, v)
 			case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64, *float32, *float64, *complex64, *complex128, *string, *bool, *time.Time:
-				s += fmt.Sprintf("%d:%+v ", vi+1, v)
+				str += fmt.Sprintf("%d:%+v ", vi+1, v)
 			case nil:
-				s += fmt.Sprintf("%d:(null) ", vi+1)
+				str += fmt.Sprintf("%d:(null) ", vi+1)
 			default:
-				s += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
+				str += fmt.Sprintf("%d:%+v ", vi+1, reflect.ValueOf(vv))
 			}
 		}
-		log.Warn("[" + s + "]")
+		log.Warn("[" + str + "]")
+	}
+	fmt.Printf("%s\n", query)
+	if str != "" {
+		fmt.Printf("[%s]\n", str)
 	}
 }
 

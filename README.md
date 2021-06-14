@@ -75,6 +75,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='Lukasz Gryglicki' email='lgryglicki@cncf.io' username='' uuid='xyz' ./sh/curl_post_add_identity.sh odpi/egeria git ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LukaszGryglicki' email='lgryglicki@cncf.io' username='Luki' uuid='' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` name='LGryglicki' email='lukaszgryglicki@cncf.io' username='LukiG' uuid='784f77c8a68d149376094cbac8421539196206cf' ./sh/curl_post_add_identity.sh odpi/egeria gitlab | jq ``.
+  - `` JWT_TOKEN="`cat secret/lgryglicki.prod.token`" ./sh/curl_post_add_identities.sh 'cncf/prometheus,lfn/onap' ``. See `sh/example_add_identities.json` file for a payload example.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_identity.sh odpi/egeria 5d53a9a4774a912e19fc7afe4a21bcc0ea8a63bb ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria aaa8024197795de9b90676592772633c5cfcb35a | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_enrollments.sh odpi/egeria 0000142135434a2b963c916185862168806fb1f5 ``.
@@ -110,6 +111,7 @@ Start API server using dockerized MariaDB and Postgres databases:
 
 To deploy to docker:
 
+- Build swagger, so build image will work: `LOG_LEVEL=debug ONLYRUN='' NOCHECKS='' ./sh/api.sh`.
 - Build docker image: `DOCKER_USER=... ./docker/build_image.sh [test|prod]`. If you specify `test` or `prod` - image name with that prefix will be created, can be used to build image only fr the `test` env, or only `prod`.
 - Run it: `DOCKER_USER=... [LOG_LEVEL=debug] [N_CPUS=16] ./docker/run.sh`. It will serve on 18080 instead of 8080 port. `N_CPUS` is optional, skipping will use auto-detecting, setting to 1 will enable singlethreaded mode.
 - Test any api call, `API_URL` must be provided to specify non-default 18080 port: `` API_URL='http://127.0.0.1:18080' JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_matching_blacklist.sh 'odpi/egeria' root 5 1 ``.

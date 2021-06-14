@@ -1,0 +1,26 @@
+{
+  "identities": [
+    {
+      "id": "",
+      "uuid": "",
+      "source": "LG",
+      "name": "LG Lukasz",
+      "username": "LG lukaszgryglicki",
+      "email": "LG lgryglicki@cncf.io"
+    },
+    {
+      "source": "LG",
+      "name": "LG2 Lukasz",
+      "username": "LG2 lukaszgryglicki",
+      "email": "LG2 lgryglicki@cncf.io"
+    },
+    {
+      "id": "ABC",
+      "uuid": "DEF",
+      "source": "LG",
+      "name": "LG3 Lukasz",
+      "username": "LG3 lukaszgryglicki",
+      "email": "LG3 lgryglicki@cncf.io"
+    }
+  ]
+}
