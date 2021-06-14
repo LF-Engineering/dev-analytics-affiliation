@@ -12,10 +12,16 @@ then
 fi
 shacc="`cat helm/da-affiliation/secrets/SH_DB_CMDLINE.$env.secret`"
 shacc="${shacc} -NBAe "
+if [ ! -f "helm/da-affiliation/secrets/ELASTIC_URL.$env.secret" ]
+then
+  echo "$0: helm/da-affiliation/secrets/ELASTIC_URL.$env.secret file"
+  exit 3
+fi
+esacc="`cat helm/da-affiliation/secrets/ELASTIC_URL.$env.secret`"
 if [ "$2" = "" ]
 then
   echo "$0: you need to specify UUID as a 2nd arg"
-  exit 3
+  exit 4
 fi
 uuid=$2
 cmd="$shacc \"select 1 from profiles where uuid = '${uuid}'\""
@@ -23,45 +29,78 @@ res=$(eval "${cmd}")
 if [ -z "$res" ]
 then
   echo "$0: UUID $uuid cannot be found"
-  exit 4
+  exit 5
 fi
 if [ "$3" = "" ]
 then
   echo "$0: you need to specify at least one affiliation like 'Company Name;YYYY-MM-DD;YYYY-MM-DD'"
-  exit 5
+  exit 6
 fi
-for ((i = 3; i <= $#; i++ ))
+for ((pass = 0; pass <= 1; pass++ ))
 do
-  data="${!i}"
-  IFS=';'
-  arr=($data)
-  unset IFS
-  company="${arr[0]}"
-  from="${arr[1]}"
-  to="${arr[2]}"
-  if [ -z "$from" ]
+  if [ "$pass" = "1" ]
   then
-    from="1900-01-01"
+    cmd="$shacc \"delete from enrollments where uuid = '${uuid}'\""
+    eval "${cmd}"
+    sts=$?
+    if [ ! "$sts" = "0" ]
+    then
+      echo "drop status $sts"
+      exit 7
+    fi
+    echo "Dropped enrollments for ${uuid}"
   fi
-  if [ -z "$to" ]
+  for ((i = 3; i <= $#; i++ ))
+  do
+    data="${!i}"
+    IFS=';'
+    arr=($data)
+    unset IFS
+    company="${arr[0]}"
+    from="${arr[1]}"
+    to="${arr[2]}"
+    if [ -z "$from" ]
+    then
+      from="1900-01-01"
+    fi
+    if [ -z "$to" ]
+    then
+      to="2100-01-01"
+    fi
+    efrom="${from}T00:00:00Z"
+    eto="${to}T00:00:00Z"
+    from="${from} 00:00:00"
+    to="${to} 00:00:00"
+    if [ "$pass" = "0" ]
+    then
+      cmd="$shacc \"select count(id) from organizations where name = '${company}'\""
+      res=$(eval "${cmd}")
+      if [ ! "$res" = "1" ]
+      then
+        echo "$0: company ${company} maps to ${res} results, there should be exactly 1 match, aborting"
+        exit 8
+      fi
+    fi
+    cmd="$shacc \"select id from organizations where name = '${company}' limit 1\""
+    cid=$(eval "${cmd}")
+    echo "$cid: ${arr[0]}: $from - $to"
+    if [ "$pass" = "1" ]
+    then
+      cmd="$shacc \"insert into enrollments(start, end, uuid, organization_id, project_slug, role) select '${from}', '${to}', '${uuid}', ${cid}, 'finos-f', 'Contributor'\""
+      eval "${cmd}"
+      sts=$?
+      if [ ! "$sts" = "0" ]
+      then
+        echo "insert status $sts"
+      fi
+      cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw\\\\\\\" where author_uuid = '${uuid}' and metadata__updated_on >= '${efrom}' and metadata__updated_on < '${eto}'  group by author_uuid, author_org_name limit 10000\\\"}\""
+      eval "$cmd"
+    fi
+  done
+  if [ "$pass" = "1" ]
   then
-    to="2100-01-01"
+    cmd="$shacc \"select e.project_slug, o.name, e.start, e.end from enrollments e, organizations o where e.organization_id = o.id and e.uuid = '${uuid}' order by e.project_slug, e.start\""
+    eval "${cmd}"
   fi
-  from="${from} 00:00:00"
-  to="${to} 00:00:00"
-  cmd="$shacc \"select count(id) from organizations where name = '${company}'\""
-  res=$(eval "${cmd}")
-  if [ ! "$res" = "1" ]
-  then
-    echo "$0: company ${company} maps to ${res} results, there should be exactly 1 match, aborting"
-    exit 6
-  fi
-  cmd="$shacc \"select id from organizations where name = '${company}' limit 1\""
-  cid=$(eval "${cmd}")
-  echo "$cid: ${arr[0]}: $from - $to"
 done
 
-#delete from enrollments where uuid = 'cbdf896ace2068132f2dc0423254065c5d031bbd';
-#insert into enrollments(start, end, uuid, organization_id, project_slug, role) select '1900-01-01 00:00:00', '2006-01-01 00:00:00', 'cbdf896ace2068132f2dc0423254065c5d031bbd', id, 'finos-f', 'Contributor' from organizations where name = 'Individual - No Account';
-#insert into enrollments(start, end, uuid, organization_id, project_slug, role) select '2006-01-01 00:00:00', '2100-01-01 00:00:00', 'cbdf896ace2068132f2dc0423254065c5d031bbd', id, 'finos-f', 'Contributor' from organizations where name = 'Scott Logic Ltd';
-#select e.project_slug, o.name, e.start, e.end from enrollments e, organizations o where e.organization_id = o.id and e.uuid = 'cbdf896ace2068132f2dc0423254065c5d031bbd' order by e.project_slug, e.start;
