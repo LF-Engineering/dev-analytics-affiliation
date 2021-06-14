@@ -13,6 +13,7 @@ const (
 	ErrForbidden    = "403"
 	ErrNotFound     = "404"
 	ErrServerError  = "500"
+	ErrConflict     = "409"
 )
 
 // AffsError is an error type that also holds a status code
