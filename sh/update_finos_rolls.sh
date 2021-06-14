@@ -1,4 +1,5 @@
 #!/bin/bash
+# CHECK=1 - only check data
 if [ "$1" = "" ]
 then
   echo "$0: you need to specify env as a 1st arg: prod|test"
@@ -30,6 +31,16 @@ if [ -z "$res" ]
 then
   echo "$0: UUID $uuid cannot be found"
   exit 5
+fi
+if [ ! -z "$CHECK" ]
+then
+  echo "SH enrollments:"
+  cmd="$shacc \"select e.project_slug, o.name, e.start, e.end from enrollments e, organizations o where e.organization_id = o.id and e.uuid = '${uuid}' order by e.project_slug, e.start\""
+  eval "${cmd}"
+  echo "ES data:"
+  cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select author_uuid, author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw\\\\\\\" where author_uuid = '${uuid}' group by author_uuid, author_org_name limit 10000\\\"}\""
+  eval "$cmd"
+  exit 0
 fi
 if [ "$3" = "" ]
 then
