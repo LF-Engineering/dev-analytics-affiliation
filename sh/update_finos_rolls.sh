@@ -93,14 +93,26 @@ do
       then
         echo "insert status $sts"
       fi
+      cmd="curl -s -XPOST -H 'Content-Type: application/json' '${esacc}/sds-finos-*,-*-raw/_update_by_query?wait_for_completion=true&conflicts=proceed&refresh=true' -d\"{\\\"script\\\":{\\\"inline\\\":\\\"ctx._source.author_org_name='${company}';\\\"},\\\"query\\\":{\\\"bool\\\":{\\\"must\\\":[{\\\"term\\\":{\\\"author_uuid\\\":\\\"${uuid}\\\"}},{\\\"range\\\":{\\\"metadata__updated_on\\\":{\\\"gte\\\":\\\"${efrom}\\\",\\\"lt\\\":\\\"${eto}\\\"}}}]}}}\""
+      eval "${cmd}"
+      sts=$?
+      echo ''
+      if [ ! "$sts" = "0" ]
+      then
+        echo "$0: failed to update ES, status: $sts"
+      fi
       cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw\\\\\\\" where author_uuid = '${uuid}' and metadata__updated_on >= '${efrom}' and metadata__updated_on < '${eto}'  group by author_uuid, author_org_name limit 10000\\\"}\""
+      echo "$cid: ${arr[0]}: $efrom - $eto"
       eval "$cmd"
     fi
   done
   if [ "$pass" = "1" ]
   then
+    echo "Final SH enrollments:"
     cmd="$shacc \"select e.project_slug, o.name, e.start, e.end from enrollments e, organizations o where e.organization_id = o.id and e.uuid = '${uuid}' order by e.project_slug, e.start\""
     eval "${cmd}"
+    echo "Final ES data:"
+    cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select author_uuid, author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw\\\\\\\" where author_uuid = '${uuid}' group by author_uuid, author_org_name limit 10000\\\"}\""
+    eval "$cmd"
   fi
 done
-
