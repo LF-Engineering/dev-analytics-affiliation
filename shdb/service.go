@@ -4071,7 +4071,7 @@ func (s *service) AddNestedIdentity(identity *models.IdentityDataOutput) (uid *m
 	}
 	if len(identities) > 0 {
 		err = fmt.Errorf("Identity (source, email, name, username) = (%s, %s, %s, %s) already exists", identity.Source, email, name, username)
-		err = errs.Wrap(errs.New(err, errs.ErrBadRequest), "AddNestedIdentity")
+		err = errs.Wrap(errs.New(err, errs.ErrConflict), "AddNestedIdentity")
 		uid = nil
 		return
 	}
