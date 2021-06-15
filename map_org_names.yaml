@@ -3853,7 +3853,7 @@ mappings:
   - ['^[[:space:]]*red[[:space:]]canary[[:space:]]*$','Red Canary Inc']
   - ['^[[:space:]]*(red|red[[:space:]]digital[[:space:]]cinema)[[:space:]]*$','RED Digital Cinema Camera Company']
   - ['^[[:space:]]*red[[:space:]]e[[:space:]]app[[:space:]]*$','Red e App, Inc.']
-  - ['^[[:space:]]*red[[:space:]]hat[[:space:]]*$','Red Hat, Inc.']
+  - ['^[[:space:]]*(red[[:space:]]hat|red[[:space:]]hat[[:space:]]inc\\.?)[[:space:]]*$','Red Hat, Inc.']
   - ['^[[:space:]]*red[[:space:]]kubes[[:space:]]b\\.\\?v.?[[:space:]]*$','Red Kubes BV']
   - ['^[[:space:]]*red[[:space:]]yak[[:space:]]*$','RED YAK']
   - ['^[[:space:]]*(sdn[[:space:]]essentials|sdn[[:space:]]ssentials)[[:space:]]*$','Redapt Inc.']
