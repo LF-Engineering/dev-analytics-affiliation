@@ -3698,7 +3698,6 @@ mappings:
   - ['^[[:space:]]*(postgresql[[:space:]]globa)[[:space:]]*$','PostgreSQL']
   - ['^[[:space:]]*poltloc[[:space:]]*$','Potloc Inc']
   - ['^[[:space:]]*powerhrg[[:space:]]*$','Power Home Remodeling Group']
-  - ['^[[:space:]]*power[[:space:]]home[[:space:]]remodeling[[:space:]]group[[:space:]]*$','Power Home Remodeling Group LLC']
   - ['^[[:space:]]*inbox[[:space:]]*$','PowerInbox']
   - ['^[[:space:]]*(powertech)[[:space:]]*$','Powertech Industrial Co., Ltd. / PEBU']
   - ['^[[:space:]]*ppg[[:space:]]industries[[:space:]]*$','PPG Industries, Inc.']
