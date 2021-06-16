@@ -46,6 +46,8 @@ func ErrorHandler(label string, err error) middleware.Responder {
 		return health.NewGetHealthForbidden().WithPayload(ErrorResponse(err))
 	case errs.ErrNotFound:
 		return health.NewGetHealthNotFound().WithPayload(ErrorResponse(err))
+	case errs.ErrConflict:
+		return health.NewGetHealthConflict().WithPayload(ErrorResponse(err))
 	default:
 		return health.NewGetHealthInternalServerError().WithPayload(ErrorResponse(err))
 	}
