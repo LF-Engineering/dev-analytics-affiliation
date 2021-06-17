@@ -1016,6 +1016,7 @@ func (s *service) PostAddIdentity(ctx context.Context, params *affiliation.PostA
 		return
 	}
 	s.UUDA2SF(uid)
+	s.shDB.SetIsLFX(uid)
 	return
 }
 
@@ -1186,6 +1187,7 @@ func (s *service) PostAddEnrollment(ctx context.Context, params *affiliation.Pos
 	}
 	uid = ary[0]
 	s.UUDA2SF(uid)
+	s.shDB.SetIsLFX(uid)
 	uidnd = s.toNoDates(uid)
 	return
 }
@@ -1342,6 +1344,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -1467,6 +1470,7 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -1563,6 +1567,7 @@ func (s *service) DeleteEnrollments(ctx context.Context, params *affiliation.Del
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -1640,6 +1645,7 @@ func (s *service) DeleteEnrollment(ctx context.Context, params *affiliation.Dele
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -1744,6 +1750,7 @@ func (s *service) PutMergeEnrollments(ctx context.Context, params *affiliation.P
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -1878,6 +1885,7 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -1956,6 +1964,7 @@ func (s *service) PostUnarchiveProfile(ctx context.Context, params *affiliation.
 		err = errs.Wrap(err, apiName)
 		return
 	}
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -2278,6 +2287,7 @@ func (s *service) GetProfile(ctx context.Context, params *affiliation.GetProfile
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
@@ -2321,6 +2331,7 @@ func (s *service) GetProfileByUsername(ctx context.Context, params *affiliation.
 	}
 	uids.Profiles = ary
 	for _, uid := range uids.Profiles {
+		s.shDB.SetIsLFX(uid)
 		s.UUDA2SF(uid)
 	}
 	return
@@ -2628,12 +2639,13 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 		return
 	}
 	uid = ary[0]
+	s.UUDA2SF(uid)
 	if esUUID != "" {
 		go func() {
 			s.es.UpdateByQuery("sds-*,-*-raw", "author_bot", esIsBot, "author_uuid", esUUID, true)
 		}()
 	}
-	s.UUDA2SF(uid)
+	s.shDB.SetIsLFX(uid)
 	return
 }
 
@@ -2718,6 +2730,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 		return
 	}
 	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
 	s.UUDA2SF(uid)
 	return
 }
