@@ -2320,6 +2320,9 @@ definitions:
         type: string
         x-nullable: true
         example: PL
+      is_lfx:
+        type: boolean
+        example: true
   country-data-output:
     title: Country data output
     description: Country data
