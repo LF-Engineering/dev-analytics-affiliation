@@ -114,6 +114,7 @@ type Service interface {
 	GetAffiliationsSingle(string, string, time.Time, *sql.Tx) string
 	GetAffiliationsMulti(string, string, time.Time, *sql.Tx) []string
 	// Other
+	SetIsLFX(*models.UniqueIdentityNestedDataOutput)
 	SyncSfProfiles(map[[3]string]struct{}) (string, error)
 	MakeLFXIdentityPrimary(chan []interface{}, string) (int, error)
 	MoveIdentityToUniqueIdentity(*models.IdentityDataOutput, *models.UniqueIdentityDataOutput, bool, *sql.Tx) error
@@ -199,6 +200,23 @@ const (
 // BeginTx - begin transaction on R/W connection
 func (s *service) BeginTx() (*sql.Tx, error) {
 	return s.db.Begin()
+}
+
+// SetIsLFX - set is_lfx flag depending on primary identity being source=lfx
+func (s *service) SetIsLFX(u *models.UniqueIdentityNestedDataOutput) {
+	if u.Profile == nil {
+		return
+	}
+	uuid := u.UUID
+	for _, identity := range u.Identities {
+		if identity == nil || identity.ID != uuid {
+			continue
+		}
+		if strings.ToLower(identity.Source) == "lfx" {
+			u.Profile.IsLfx = true
+		}
+		break
+	}
 }
 
 // MakeLFXIdentityPrimary - make a given email's identity a main profile's identity for identities with the same email address
