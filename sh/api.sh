@@ -44,6 +44,11 @@ else
   then
     make run
   else
-    make fastrun
+    if [ -z "$JUSTRUN" ]
+    then
+      make fastrun
+    else
+      make justrun
+    fi
   fi
 fi
