@@ -38,6 +38,9 @@ run: vet lint buildmain
 fastrun: buildmain
 	./main
 
+justrun:
+	./main
+
 clean:
 	cp gen/restapi/configure_dev_analytics_affiliation.go .
 	rm -rf ./bin ./gen
