@@ -5058,7 +5058,6 @@ mappings:
   - ['^[[:space:]]*untab[[:space:]]*$','Untab Inc.']
   - ['^[[:space:]]*unu[[:space:]]*$','UNU-MERIT']
   - ['^[[:space:]]*(uol)[[:space:]]*$','UOL DIVEO']
-  - ['^[[:space:]]*universitat[[:space:]]politècnica[[:space:]]de[[:space:]]catalunya[[:space:]]*$','UPC (Universitat Politècnica de Catalunya)']
   - ['^[[:space:]]*upcodes[[:space:]]*$','Upcodes, Inc']
   - ['^[[:space:]]*bridgevine[[:space:]]*$','Updater Inc.']
   - ['^[[:space:]]*upgrade[[:space:]]*$','Upgrade, Inc.']
