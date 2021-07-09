@@ -768,8 +768,10 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 			page = 1
 		}
 	}
+
 	getListOrganizations = &models.GetListOrganizationsServiceOutput{}
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
+
 	// Check token and permission
 	apiName, projects, username, err := s.checkTokenAndPermission(params)
 	defer func() {
@@ -794,9 +796,11 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 			),
 		)
 	}()
+
 	if err != nil {
 		return
 	}
+
 	// Do the actual API call
 	getListOrganizations, err = s.platform.GetListOrganizations(q, rows, page)
 	if err != nil {
@@ -806,6 +810,7 @@ func (s *service) GetListOrganizations(ctx context.Context, params *affiliation.
 
 	getListOrganizations.User = username
 	getListOrganizations.Scope = s.AryDA2SF(projects)
+
 	return
 }
 
