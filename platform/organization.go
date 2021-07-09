@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
-	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
 
 	log "github.com/LF-Engineering/dev-analytics-affiliation/logging"
 	"github.com/LF-Engineering/dev-analytics-libraries/orgs"
@@ -18,7 +17,6 @@ type Service interface {
 }
 
 type service struct {
-	shared.ServiceStruct
 	client *orgs.Org
 }
 
@@ -34,17 +32,34 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (*models.GetL
 	getListOrganizations := &models.GetListOrganizationsServiceOutput{}
 	nRows := int64(0)
 	var orgs []*models.OrganizationServiceDataOutput
+
+	// lookup for exact org name match first
+	sfdcOrg, err := s.client.LookupOrganization(q)
+	if err != nil {
+		return nil, err
+	}
+
+	// append if found in sfdc
+	if sfdcOrg.Name != "" && sfdcOrg.ID != "" {
+		orgs = append(orgs, &models.OrganizationServiceDataOutput{ID: (sfdcOrg.ID), Name: sfdcOrg.Name, Domains: []*models.DomainDataOutput{}})
+	}
+
+	// next, search for org name match.
 	response, err := s.client.SearchOrganization(q, strconv.FormatInt(rows, 10), strconv.FormatInt(page-1, 10))
 	if err != nil {
 		return nil, err
 	}
+
 	for _, org := range response.Data {
 		orgs = append(orgs, &models.OrganizationServiceDataOutput{ID: (org.ID), Name: org.Name, Domains: []*models.DomainDataOutput{}})
 	}
+
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
+
 	getListOrganizations.Organizations = orgs
 	getListOrganizations.NRecords = nRows
 	getListOrganizations.Rows = int64(len(orgs))
+
 	if rows == 0 {
 		getListOrganizations.NPages = 1
 	} else {
@@ -54,10 +69,12 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (*models.GetL
 		}
 		getListOrganizations.NPages = pages
 	}
+
 	getListOrganizations.Page = page
 	if q != "" {
 		getListOrganizations.Search = "q=" + q
 	}
+
 	return getListOrganizations, nil
 }
 
