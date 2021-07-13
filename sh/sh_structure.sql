@@ -52,6 +52,24 @@ CREATE TABLE `countries` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `datasources_settings`
+--
+
+DROP TABLE IF EXISTS `datasources_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `datasources_settings` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `datasource` varchar(40) COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `last_modified` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `src` varchar(40) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
+  `settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`settings`)),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `CONSTRAINT_1` CHECK (json_valid(`settings`))
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `domains_organizations`
 --
 
@@ -69,7 +87,7 @@ CREATE TABLE `domains_organizations` (
   UNIQUE KEY `_domain_unique` (`domain`),
   KEY `organization_id` (`organization_id`),
   CONSTRAINT `domains_organizations_ibfk_1` FOREIGN KEY (`organization_id`) REFERENCES `organizations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=8942 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9395 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -98,8 +116,67 @@ CREATE TABLE `enrollments` (
   KEY `enrollments_uuid_idx` (`uuid`),
   CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`uuid`) REFERENCES `uidentities` (`uuid`) ON DELETE CASCADE,
   CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`organization_id`) REFERENCES `organizations` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2789294 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2827636 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = utf8mb4 */ ;
+/*!50003 SET character_set_results = utf8mb4 */ ;
+/*!50003 SET collation_connection  = utf8mb4_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger enrollments_after_insert_trigger after insert on enrollments
+for each row begin
+  insert into changes_cache(ky, value, status) values('enrollment', convert(new.id, char), 'pending') on duplicate key update updated_at = now();
+end */;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = utf8mb4 */ ;
+/*!50003 SET character_set_results = utf8mb4 */ ;
+/*!50003 SET collation_connection  = utf8mb4_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger enrollments_after_update_trigger after update on enrollments
+for each row begin
+  if old.uuid != new.uuid or old.organization_id != new.organization_id or old.start != new.start or old.end != new.end then
+    insert into changes_cache(ky, value, status) values('enrollment', convert(new.id, char), 'pending') on duplicate key update updated_at = now();
+    if not(old.uuid <=> new.uuid) then
+      insert into changes_cache(ky, value, status) values('enrollment', convert(old.id, char), 'pending') on duplicate key update updated_at = now();
+    end if;
+  end if;
+end */;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = utf8mb4 */ ;
+/*!50003 SET character_set_results = utf8mb4 */ ;
+/*!50003 SET collation_connection  = utf8mb4_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger enrollments_after_delete_trigger after delete on enrollments
+for each row begin
+  insert into changes_cache(ky, value, status) values('enrollment', convert(old.id, char), 'pending') on duplicate key update updated_at = now();
+end */;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
 
 --
 -- Table structure for table `enrollments_archive`
@@ -122,6 +199,24 @@ CREATE TABLE `enrollments_archive` (
   KEY `enrollments_archive_uuid_idx` (`uuid`),
   KEY `enrollments_archive_organization_id_idx` (`organization_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `fields_settings`
+--
+
+DROP TABLE IF EXISTS `fields_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `fields_settings` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `field_name` varchar(40) COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `last_modified` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `src` varchar(40) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
+  `settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`settings`)),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `CONSTRAINT_1` CHECK (json_valid(`settings`))
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -163,6 +258,7 @@ DELIMITER ;;
 /*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger identities_after_insert_trigger after insert on identities
 for each row begin
   insert into changes_cache(ky, value, status) values('profile', new.uuid, 'pending') on duplicate key update updated_at = now();
+  insert into changes_cache(ky, value, status) values('identity', new.id, 'pending') on duplicate key update updated_at = now();
 end */;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
@@ -185,6 +281,7 @@ for each row begin
     if not(old.uuid <=> new.uuid) then
       insert into changes_cache(ky, value, status) values('profile', old.uuid, 'pending') on duplicate key update updated_at = now();
     end if;
+    insert into changes_cache(ky, value, status) values('identity', new.id, 'pending') on duplicate key update updated_at = now();
   end if;
 end */;;
 DELIMITER ;
@@ -204,6 +301,7 @@ DELIMITER ;;
 /*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger identities_after_delete_trigger after delete on identities
 for each row begin
   insert into changes_cache(ky, value, status) values('profile', old.uuid, 'pending') on duplicate key update updated_at = now();
+  insert into changes_cache(ky, value, status) values('identity', old.id, 'pending') on duplicate key update updated_at = now();
 end */;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
@@ -260,7 +358,7 @@ CREATE TABLE `organizations` (
   `op` varchar(1) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `_name_unique` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=75451 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=77740 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -427,4 +525,4 @@ CREATE TABLE `uidentities_archive` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-06-01  7:00:05
+-- Dump completed on 2021-07-13  5:22:55
