@@ -51,7 +51,9 @@ func (s *service) GetListOrganizations(q string, rows, page int64) (*models.GetL
 	}
 
 	for _, org := range response.Data {
-		orgs = append(orgs, &models.OrganizationServiceDataOutput{ID: (org.ID), Name: org.Name, Domains: []*models.DomainDataOutput{}})
+		if sfdcOrg.Name != org.Name {
+			orgs = append(orgs, &models.OrganizationServiceDataOutput{ID: (org.ID), Name: org.Name, Domains: []*models.DomainDataOutput{}})
+		}
 	}
 
 	log.Info(fmt.Sprintf("GetListOrganizations: q:%s rows:%d page:%d", q, rows, page))
