@@ -40,6 +40,8 @@ then
   cmd="$shacc \"select e.project_slug, o.name, e.start, e.end from enrollments e, organizations o where e.organization_id = o.id and e.uuid = '${uuid}' order by e.project_slug, e.start\""
   eval "${cmd}"
   echo "ES data:"
+  cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select origin, author_uuid, author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw,-*-temp\\\\\\\" where author_uuid = '${uuid}' and author_org_name = 'Unknown' group by origin, author_uuid, author_org_name limit 10000\\\"}\""
+  eval "$cmd"
   cmd="curl -s -XPOST -H 'Content-Type: application/json' \"${esacc}/_sql?format=txt\" -d\"{\\\"query\\\":\\\"select author_uuid, author_org_name, count(*) as cnt, min(metadata__updated_on) as first, max(metadata__updated_on) as last from \\\\\\\"sds-finos-*,-*-raw,-*-temp\\\\\\\" where author_uuid = '${uuid}' group by author_uuid, author_org_name limit 10000\\\"}\""
   eval "$cmd"
   exit 0
