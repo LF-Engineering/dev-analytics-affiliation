@@ -2816,8 +2816,6 @@ mappings:
   - ['^[[:space:]]*hq[[:space:]]trivia[[:space:]]*$','Intermedia Labs, Inc.']
   - ['^[[:space:]]*intermedia[[:space:]]*$','Intermedia.net Inc']
   - ['^[[:space:]]*intermedix[[:space:]]*$','Intermedix Corporation']
-  - ['^[[:space:]]*((account[[:space:]])?[[:space:]]*international[[:space:]]+business[[:space:]]+machines([[:space:]]+corporation)?([[:space:]]+\\(?ibm\\)?)?|ibm)[[:space:]]*$','International Business Machines Corporation']
-  - ['^[[:space:]]*international[[:space:]]business[[:space:]]machines[[:space:]]corporation[[:space:]](ibm)[[:space:]]*$','International Business Machines Corporation']
   - ['^[[:space:]]*(international[[:space:]]financial[[:space:]]data[[:space:]]services[[:space:]]\\(?ifds\\)?|international[[:space:]]financial[[:space:]]data[[:space:]]services)[[:space:]]*$','International Financial Data Services Canada']
   - ['^[[:space:]]*igt[[:space:]]*$','International Game Technology']
   - ['^[[:space:]]*the[[:space:]]international[[:space:]]model[[:space:]]united[[:space:]]nations[[:space:]]association[[:space:]]*$','International MUN']
