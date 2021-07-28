@@ -1432,15 +1432,8 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 		secsSinceEpoch,
 		secsSinceEpoch,
 	)
-	sel += " left join organizations o on e.organization_id = o.id where p.uuid in ("
 	uuids := []interface{}{}
-	data := make(map[string][3]string)
-	for _, contributor := range contributors {
-		uuid := contributor.UUID
-		uuids = append(uuids, uuid)
-		sel += "?,"
-	}
-	sel = sel[0:len(sel)-1] + ") and (e.project_slug is null"
+	sel += " and (e.project_slug is null"
 	if len(pSlugs) > 0 {
 		sel += " or e.project_slug in ("
 		for _, pSlug := range pSlugs {
@@ -1455,7 +1448,15 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			uuids = append(uuids, fLike)
 		}
 	}
-	sel += ") order by e.project_slug is null"
+	sel += ") left join organizations o on e.organization_id = o.id where p.uuid in ("
+	data := make(map[string][3]string)
+	for _, contributor := range contributors {
+		uuid := contributor.UUID
+		uuids = append(uuids, uuid)
+		sel += "?,"
+	}
+	sel = sel[0:len(sel)-1] + ")"
+	sel += " order by e.project_slug is null"
 	var rows *sql.Rows
 	// fmt.Printf("\n%+v\n%s\n\n", uuids, sel)
 	rows, err = s.Query(sdb, tx, sel, uuids...)
@@ -1507,14 +1508,8 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 			secsSinceEpoch,
 			secsSinceEpoch,
 		)
-		sel += " left join organizations o on e.organization_id = o.id where p.uuid in ("
 		uuids := []interface{}{}
-		data := make(map[string][3]string)
-		for _, uuid := range missUUIDs {
-			uuids = append(uuids, uuid)
-			sel += "?,"
-		}
-		sel = sel[0:len(sel)-1] + ") and (e.project_slug is null"
+		sel += " and (e.project_slug is null"
 		if len(pSlugs) > 0 {
 			sel += " or e.project_slug in ("
 			for _, pSlug := range pSlugs {
@@ -1529,7 +1524,14 @@ func (s *service) EnrichContributors(contributors []*models.ContributorFlatStats
 				uuids = append(uuids, fLike)
 			}
 		}
-		sel += ") order by e.project_slug is null, p.uuid asc, p.archived_at desc"
+		sel += ") left join organizations o on e.organization_id = o.id where p.uuid in ("
+		data := make(map[string][3]string)
+		for _, uuid := range missUUIDs {
+			uuids = append(uuids, uuid)
+			sel += "?,"
+		}
+		sel = sel[0:len(sel)-1] + ")"
+		sel += " order by e.project_slug is null, p.uuid asc, p.archived_at desc"
 		var rows *sql.Rows
 		rows, err = s.Query(sdb, tx, sel, uuids...)
 		if err != nil {
