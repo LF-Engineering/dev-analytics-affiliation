@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/go-openapi/strfmt"
 
 	"github.com/LF-Engineering/dev-analytics-affiliation/apidb"
@@ -111,7 +110,6 @@ type Service interface {
 	GetServiceRequestID() string
 
 	// Internal methods
-	getPemCert(*jwt.Token, string) (string, error)
 	checkToken(string) (string, bool, error)
 	checkTokenAndPermission(interface{}) (string, []string, string, error)
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
@@ -171,32 +169,6 @@ type JSONWebKeys struct {
 	E   string `json:"e"`
 	//X5t string   `json:"e"`
 	X5c []string `json:"x5c"`
-}
-
-func (s *service) getPemCert(token *jwt.Token, auth0Domain string) (string, error) {
-	cert := ""
-	resp, err := http.Get(auth0Domain + ".well-known/jwks.json")
-	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "getPemCert")
-		return cert, err
-	}
-	defer resp.Body.Close()
-	var jwks = Jwks{}
-	err = json.NewDecoder(resp.Body).Decode(&jwks)
-	if err != nil {
-		err = errs.Wrap(errs.New(err, errs.ErrServerError), "getPemCert")
-		return cert, err
-	}
-	for k := range jwks.Keys {
-		if token.Header["kid"] == jwks.Keys[k].Kid {
-			cert = "-----BEGIN CERTIFICATE-----\n" + jwks.Keys[k].X5c[0] + "\n-----END CERTIFICATE-----"
-		}
-	}
-	if cert == "" {
-		err := errs.Wrap(errs.New(fmt.Errorf("unable to find appropriate key"), errs.ErrServerError), "getPemCert")
-		return cert, err
-	}
-	return cert, nil
 }
 
 func (s *service) checkToken(tokenStr string) (username string, agw bool, err error) {
