@@ -7,7 +7,6 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/elastic/go-elasticsearch/v7 v7.10.0
 	github.com/go-openapi/errors v0.20.0
 	github.com/go-openapi/loads v0.20.2
