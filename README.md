@@ -67,6 +67,7 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_list_profiles.sh odpi/egeria gerrit 25 | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile.sh lfn 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_by_username.sh cncf-f lukaszgryglicki | jq . ``.
+  - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_profile_nested.sh 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_get_identity.sh 16fe424acecf8d614d102fc0ece919a22200481d | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_delete_profile.sh odpi/egeria xyz 1 | jq ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` ./sh/curl_unarchive_profile.sh odpi/egeria xyz | jq ``.
