@@ -857,6 +857,7 @@ func (s *service) GetAffiliationsMulti(pSlug, uuid string, dt time.Time, tx *sql
 }
 
 // GetAffiliations - returns enrollments for a given uuid in a given date, possibly multiple
+// 2021-07-29 note: starting from now 5-step algorithm will stop adding any enrollments
 func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool, tx *sql.Tx) (orgs []string) {
 	sdb := s.rodb
 	if tx != nil {
@@ -898,7 +899,7 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 		ary := strings.Split(pSlug, "/")
 		if len(ary) > 1 {
 			slugF := ary[0] + "-f"
-			rows, ids := s.QueryToStringIntArrays(
+			rows, _ := s.QueryToStringIntArrays(
 				sdb,
 				tx,
 				"select o.name, max(e.id) from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.project_slug = ? and e.start <= ? and e.end > ? group by o.name order by e.id desc",
@@ -910,14 +911,17 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 			if single {
 				if len(rows) > 0 {
 					orgs = []string{rows[0]}
-					_, _ = s.Exec(
-						sdb,
-						tx,
-						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-						pSlug,
-						"Contributor",
-						ids[0],
-					)
+					// 2021-07-29: do not insert rolls from 5-step algorithm.
+					/*
+						_, _ = s.Exec(
+							sdb,
+							tx,
+							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+							pSlug,
+							"Contributor",
+							ids[0],
+						)
+					*/
 					return
 				}
 			} else {
@@ -953,7 +957,7 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 		ary := strings.Split(pSlug, "/")
 		if len(ary) > 1 {
 			slugLike := ary[0] + "/%"
-			rows, ids := s.QueryToStringIntArrays(
+			rows, _ := s.QueryToStringIntArrays(
 				sdb,
 				tx,
 				"select o.name, max(e.id) from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.project_slug like ? and e.start <= ? and e.end > ? group by o.name order by e.id desc",
@@ -965,14 +969,17 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 			if single {
 				if len(rows) > 0 {
 					orgs = []string{rows[0]}
-					_, _ = s.Exec(
-						sdb,
-						tx,
-						"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-						pSlug,
-						"Contributor",
-						ids[0],
-					)
+					// 2021-07-29: do not insert rolls from 5-step algorithm.
+					/*
+						_, _ = s.Exec(
+							sdb,
+							tx,
+							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+							pSlug,
+							"Contributor",
+							ids[0],
+						)
+					*/
 					return
 				}
 			} else {
@@ -984,7 +991,7 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 	// in single mode, if multiple companies are found, return the most recent
 	// in multiple mode this can return many different companies and this is ok
 	if len(orgs) == 0 {
-		rows, ids := s.QueryToStringIntArrays(
+		rows, _ := s.QueryToStringIntArrays(
 			sdb,
 			tx,
 			"select o.name, max(e.id) from enrollments e, organizations o where e.organization_id = o.id and e.uuid = ? and e.start <= ? and e.end > ? group by o.name order by e.id desc",
@@ -997,16 +1004,19 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 				ary := strings.Split(pSlug, "/")
 				if len(ary) > 1 {
 					orgs = []string{rows[0]}
-					if pSlug != "" {
-						_, _ = s.Exec(
-							sdb,
-							tx,
-							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-							pSlug,
-							"Contributor",
-							ids[0],
-						)
-					}
+					// 2021-07-29: do not insert rolls from 5-step algorithm.
+					/*
+						if pSlug != "" {
+							_, _ = s.Exec(
+								sdb,
+								tx,
+								"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
+								pSlug,
+								"Contributor",
+								ids[0],
+							)
+						}
+					*/
 				}
 				return
 			}
