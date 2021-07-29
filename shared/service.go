@@ -208,6 +208,7 @@ type ServiceInterface interface {
 	ToLocalEnrollments([]*models.EnrollmentDataOutput) []interface{}
 	ToLocalTopContributorsFlatObj(*models.TopContributorsFlatOutput) []interface{}
 	ToLocalTopContributorsFlat([]*models.ContributorFlatStats) []interface{}
+	ToLocalProfileNestedRolls(*models.ProfileNestedRolls) interface{}
 	// shared DB functions
 	QueryOut(string, ...interface{})
 	QueryDB(*sqlx.DB, string, ...interface{}) (*sql.Rows, error)
@@ -243,6 +244,7 @@ type ServiceInterface interface {
 	ListProjectsDA2SF(*models.ListProjectsOutput)
 	AllDA2SF(*models.AllArrayOutput)
 	AllSF2DA([]*models.AllOutput)
+	ProfileNestedRollsDA2SF(*models.ProfileNestedRolls)
 }
 
 // ServiceStruct - Shared API Struct
@@ -636,6 +638,50 @@ func (s *ServiceStruct) ToLocalNestedUniqueIdentity(i *models.UniqueIdentityNest
 	m["Profile"] = s.ToLocalProfile(i.Profile)
 	m["Identities"] = s.ToLocalIdentities(i.Identities)
 	m["Enrollments"] = s.ToLocalNestedEnrollments(i.Enrollments)
+	return m
+}
+
+// ToLocalProfileNestedRolls - to display values inside pointers
+func (s *ServiceStruct) ToLocalProfileNestedRolls(i *models.ProfileNestedRolls) (o interface{}) {
+	if i == nil {
+		return i
+	}
+	m := map[string]interface{}{
+		"UUID": i.UUID,
+	}
+	if i.LastModified == nil {
+		m["LastModified"] = nil
+	} else {
+		m["LastModified"] = *(i.LastModified)
+	}
+	m["Profile"] = s.ToLocalProfile(i.Profile)
+	m["Identities"] = s.ToLocalIdentities(i.Identities)
+	if i.Enrollments == nil {
+		m["Enrollments"] = nil
+		return
+	}
+	m["Enrollments"] = map[string]interface{}{}
+	m["Enrollments"].(map[string]interface{})["Global"] = s.ToLocalNestedEnrollments(i.Enrollments.Global.Enrollments)
+	items := []map[string]interface{}{}
+	for _, item := range i.Enrollments.Groups {
+		it := map[string]interface{}{
+			"Name":        item.Name,
+			"HasAccess":   item.HasAccess,
+			"Enrollments": s.ToLocalNestedEnrollments(item.Enrollments),
+		}
+		items = append(items, it)
+	}
+	m["Enrollments"].(map[string]interface{})["Groups"] = items
+	items = []map[string]interface{}{}
+	for _, item := range i.Enrollments.Projects {
+		it := map[string]interface{}{
+			"Name":        item.Name,
+			"HasAccess":   item.HasAccess,
+			"Enrollments": s.ToLocalNestedEnrollments(item.Enrollments),
+		}
+		items = append(items, it)
+	}
+	m["Enrollments"].(map[string]interface{})["Projects"] = items
 	return m
 }
 
@@ -1203,6 +1249,35 @@ func (s *ServiceStruct) AryDA2SF(da []string) (sf string) {
 		ary = append(ary, s.DA2SF(d))
 	}
 	return strings.Join(ary, ",")
+}
+
+// ProfileNestedRollsDA2SF - map DA name to SF name
+func (s *ServiceStruct) ProfileNestedRollsDA2SF(profile *models.ProfileNestedRolls) {
+	if profile.Enrollments == nil {
+		return
+	}
+	for i, rol := range profile.Enrollments.Global.Enrollments {
+		if rol.ProjectSlug != nil {
+			project := s.DA2SF(*rol.ProjectSlug)
+			profile.Enrollments.Global.Enrollments[i].ProjectSlug = &project
+		}
+	}
+	for i, group := range profile.Enrollments.Groups {
+		for j, rol := range group.Enrollments {
+			if rol.ProjectSlug != nil {
+				project := s.DA2SF(*rol.ProjectSlug)
+				profile.Enrollments.Groups[i].Enrollments[j].ProjectSlug = &project
+			}
+		}
+	}
+	for i, proj := range profile.Enrollments.Projects {
+		for j, rol := range proj.Enrollments {
+			if rol.ProjectSlug != nil {
+				project := s.DA2SF(*rol.ProjectSlug)
+				profile.Enrollments.Projects[i].Enrollments[j].ProjectSlug = &project
+			}
+		}
+	}
 }
 
 // UUDA2SF - map DA name to SF name

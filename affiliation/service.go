@@ -66,6 +66,7 @@ type Service interface {
 	GetIdentityByUser(ctx context.Context, params *affiliation.GetIdentityByUserParams) (*models.IdentityDataOutput, error)
 	GetProfile(context.Context, *affiliation.GetProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	GetProfileByUsername(context.Context, *affiliation.GetProfileByUsernameParams) (*models.UniqueIdentitiesNestedDataOutput, error)
+	GetProfileNested(context.Context, *affiliation.GetProfileNestedParams) (*models.ProfileNestedRolls, error)
 	PutEditProfile(context.Context, *affiliation.PutEditProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
 	DeleteProfile(context.Context, *affiliation.DeleteProfileParams) (*models.TextStatusOutput, error)
 	PostUnarchiveProfile(context.Context, *affiliation.PostUnarchiveProfileParams) (*models.UniqueIdentityNestedDataOutput, error)
@@ -112,6 +113,7 @@ type Service interface {
 	// Internal methods
 	checkToken(string) (string, bool, error)
 	checkTokenAndPermission(interface{}) (string, []string, string, error)
+	checkAccess(string, map[string]bool) bool
 	toNoDates(*models.UniqueIdentityNestedDataOutput) *models.UniqueIdentityNestedDataOutputNoDates
 	getTopContributorsCache(string, []string) (*models.TopContributorsFlatOutput, bool)
 	setTopContributorsCache(string, []string, *models.TopContributorsFlatOutput)
@@ -169,6 +171,31 @@ type JSONWebKeys struct {
 	E   string `json:"e"`
 	//X5t string   `json:"e"`
 	X5c []string `json:"x5c"`
+}
+
+func (s *service) checkAccess(project string, projects map[string]bool) bool {
+	if strings.HasSuffix(project, "-f") {
+		f, ok := projects[project]
+		if ok && f {
+			return true
+		}
+		return false
+	}
+	_, ok := projects[project]
+	if ok {
+		return true
+	}
+	ary := strings.Split(project, "/")
+	if len(ary) == 1 {
+		project = "lf-f"
+	} else {
+		project = ary[0] + "-f"
+	}
+	f, ok := projects[project]
+	if ok && f {
+		return true
+	}
+	return false
 }
 
 func (s *service) checkToken(tokenStr string) (username string, agw bool, err error) {
@@ -309,6 +336,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
 		apiName = "GetProfileByUsername"
+	case *affiliation.GetProfileNestedParams:
+		auth = params.Authorization
+		apiName = "GetProfileNested"
 	case *affiliation.GetProfileEnrollmentsParams:
 		auth = params.Authorization
 		projectsStr = params.ProjectSlugs
@@ -479,6 +509,9 @@ func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, 
 			projects = projectsAry
 		}
 		err = errs.Wrap(errs.New(err, errs.ErrUnauthorized), apiName+": checkTokenAndPermission")
+		return
+	}
+	if apiName == "GetProfileNested" {
 		return
 	}
 	log.Debug(fmt.Sprintf("checkTokenAndPermission: auth projects (DA): %+v\n", projectsAry))
@@ -2311,6 +2344,112 @@ func (s *service) GetProfileByUsername(ctx context.Context, params *affiliation.
 		s.shDB.SetIsLFX(uid)
 		s.UUDA2SF(uid)
 	}
+	return
+}
+
+// GetProfileNested: API params:
+// /v1/affiliation/get_profile/{uuid}
+// {uuid} - required path parameter: UUID of the profile to get
+func (s *service) GetProfileNested(ctx context.Context, params *affiliation.GetProfileNestedParams) (profile *models.ProfileNestedRolls, err error) {
+	uuid := params.UUID
+	uid := &models.UniqueIdentityNestedDataOutput{}
+	profile = &models.ProfileNestedRolls{}
+	log.Info(fmt.Sprintf("GetProfileNested: uuid:%s", uuid))
+	// Check token and permission
+	apiName, _, username, err := s.checkTokenAndPermission(params)
+	defer func() {
+		log.Info(
+			fmt.Sprintf(
+				"GetProfileNested(exit): uuid:%s apiName:%s username:%s profile:%v err:%v",
+				uuid,
+				apiName,
+				username,
+				s.ToLocalProfileNestedRolls(profile),
+				err,
+			),
+		)
+	}()
+	if err != nil {
+		return
+	}
+	// Do the actual API call
+	var ary []*models.UniqueIdentityNestedDataOutput
+	ary, _, err = s.shDB.QueryUniqueIdentitiesNested("uuid="+uuid, 1, 1, false, []string{"all-projects"}, nil)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	if len(ary) == 0 {
+		err = errs.Wrap(fmt.Errorf("Profile with UUID '%s' not found", uuid), apiName)
+		return
+	}
+	// username = "lukaszgryglicki"
+	userProjects, err := s.apiDB.GetUserProjects(username)
+	if err != nil {
+		err = errs.Wrap(err, apiName)
+		return
+	}
+	uid = ary[0]
+	s.shDB.SetIsLFX(uid)
+	globalRolls := []*models.EnrollmentNestedDataOutput{}
+	groupRolls := map[string][]*models.EnrollmentNestedDataOutput{}
+	projectRolls := map[string][]*models.EnrollmentNestedDataOutput{}
+	for _, rol := range uid.Enrollments {
+		if rol.ProjectSlug == nil {
+			globalRolls = append(globalRolls, rol)
+			continue
+		}
+		slug := *rol.ProjectSlug
+		if strings.HasSuffix(slug, "-f") {
+			_, ok := groupRolls[slug]
+			if !ok {
+				groupRolls[slug] = []*models.EnrollmentNestedDataOutput{rol}
+				continue
+			}
+			groupRolls[slug] = append(groupRolls[slug], rol)
+			continue
+		}
+		_, ok := projectRolls[slug]
+		if !ok {
+			projectRolls[slug] = []*models.EnrollmentNestedDataOutput{rol}
+			continue
+		}
+		projectRolls[slug] = append(projectRolls[slug], rol)
+	}
+	groups := []*models.ProfileNestedRollsEnrollmentsGroupsItems0{}
+	for group, rols := range groupRolls {
+		sort.Slice(rols, func(i, j int) bool {
+			return time.Time(rols[i].Start).Before(time.Time(rols[j].Start))
+		})
+		groups = append(groups, &models.ProfileNestedRollsEnrollmentsGroupsItems0{
+			Name:        group,
+			Enrollments: rols,
+			HasAccess:   s.checkAccess(group, userProjects),
+		})
+	}
+	projects := []*models.ProfileNestedRollsEnrollmentsProjectsItems0{}
+	for project, rols := range projectRolls {
+		sort.Slice(rols, func(i, j int) bool {
+			return time.Time(rols[i].Start).Before(time.Time(rols[j].Start))
+		})
+		projects = append(projects, &models.ProfileNestedRollsEnrollmentsProjectsItems0{
+			Name:        project,
+			Enrollments: rols,
+			HasAccess:   s.checkAccess(project, userProjects),
+		})
+	}
+	profile.Identities = uid.Identities
+	profile.LastModified = uid.LastModified
+	profile.Profile = uid.Profile
+	profile.UUID = uid.UUID
+	profile.Enrollments = &models.ProfileNestedRollsEnrollments{
+		Global: &models.ProfileNestedRollsEnrollmentsGlobal{
+			Enrollments: globalRolls,
+		},
+		Groups:   groups,
+		Projects: projects,
+	}
+	s.ProfileNestedRollsDA2SF(profile)
 	return
 }
 
