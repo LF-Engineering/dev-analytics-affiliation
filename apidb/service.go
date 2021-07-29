@@ -25,6 +25,7 @@ type Service interface {
 	CheckIdentityManagePermission(string, string, *sql.Tx) (bool, error)
 	GetDataSourceTypes([]string) ([]string, error)
 	GetListProjects(string) (*models.ListProjectsOutput, error)
+	GetUserProjects(string) (map[string]bool, error)
 	GetAllProjects() ([]string, error)
 }
 
@@ -66,6 +67,56 @@ func (s *service) GetAllProjects() (projects []string, err error) {
 	err = rows.Close()
 	if err != nil {
 		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetAllProjects")
+		return
+	}
+	return
+}
+
+func (s *service) GetUserProjects(user string) (projects map[string]bool, err error) {
+	log.Info(fmt.Sprintf("GetUserProjects: user:%s", user))
+	projects = map[string]bool{}
+	defer func() {
+		log.Info(fmt.Sprintf("GetUserProjects(exit): user:%s projects:%+v", user, projects))
+	}()
+	var rows *sql.Rows
+	if user == "internal-api-user" {
+		rows, err = s.Query(s.db, nil, "select distinct slug, project_type from projects")
+	} else {
+		rows, err = s.Query(
+			s.db,
+			nil,
+			"select distinct p.slug, p.project_type from access_control_entries ace, projects p where "+
+				"(ace.scope = '/projects/' || p.slug or ace.scope = p.slug) and "+
+				"ace.subject = $1 and ace.resource = $2 and ace.action = $3",
+			user,
+			"identity",
+			"manage",
+		)
+	}
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetUserProjects")
+		return
+	}
+	projectSlug := ""
+	projectType := 0
+	for rows.Next() {
+		err = rows.Scan(&projectSlug, &projectType)
+		if err != nil {
+			return
+		}
+		if projectType == 1 {
+			projectSlug += "-f"
+		}
+		projects[projectSlug] = projectType == 1
+	}
+	err = rows.Err()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetUserProjects.2")
+		return
+	}
+	err = rows.Close()
+	if err != nil {
+		err = errs.Wrap(errs.New(err, errs.ErrServerError), "GetUserProjects.3")
 		return
 	}
 	return

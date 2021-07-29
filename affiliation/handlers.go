@@ -530,6 +530,33 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			return affiliation.NewGetProfileByUsernameOK().WithXREQUESTID(requestID).WithPayload(result)
 		},
 	)
+	api.AffiliationGetProfileNestedHandler = affiliation.GetProfileNestedHandlerFunc(
+		func(params affiliation.GetProfileNestedParams) middleware.Responder {
+			log.Info("GetProfileNestedHandlerFunc")
+			ctx := params.HTTPRequest.Context()
+
+			var nilRequestID *string
+			requestID := log.GetRequestID(nilRequestID)
+			service.SetServiceRequestID(requestID)
+
+			info := requestInfo(params.HTTPRequest)
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+			}).Info("GetProfileNestedHandlerFunc: " + info)
+
+			result, err := service.GetProfileNested(ctx, &params)
+			if err != nil {
+				return swagger.ErrorHandler("GetProfileNestedHandlerFunc(error): "+info, err)
+			}
+
+			log.WithFields(logrus.Fields{
+				"X-REQUEST-ID": requestID,
+				"Payload":      logPayload(result),
+			}).Info("GetProfileNestedHandlerFunc(ok): " + info)
+
+			return affiliation.NewGetProfileNestedOK().WithXREQUESTID(requestID).WithPayload(result)
+		},
+	)
 	api.AffiliationPostAddOrganizationHandler = affiliation.PostAddOrganizationHandlerFunc(
 		func(params affiliation.PostAddOrganizationParams) middleware.Responder {
 			log.Info("PostAddOrganizationHandlerFunc")
