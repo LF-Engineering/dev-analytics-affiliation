@@ -6342,4 +6342,5 @@ mappings:
   - ['^[[:space:]]*åhléns[[:space:]]ab[[:space:]]*$','Ã…hlÃ©ns AB']
   - ['^[[:space:]]*dronolab[[:space:]]-?[[:space:]]éts[[:space:]]*$','École de technologie supérieure (ÉTS)']
   - ['^[[:space:]]*obb[[:space:]]*$','ÖBB - Austrian Federal Railways']
+  - ['^[[:space:]]*minbildinbil[[:space:]]*$','Øresund Startup News']
   - ['^[[:space:]]*žp[[:space:]]informatika[[:space:]]*$','ŽP Informatika']

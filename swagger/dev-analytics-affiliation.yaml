@@ -761,6 +761,38 @@ paths:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slugs'
         - $ref: '#/parameters/username'
+  /affiliation/get_profile/{uuid}:
+    get:
+      summary: Get profile with given UUID - version without projectSlugs returning enrollments nested by type (project specific, group level, global)
+      operationId: getProfileNested
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: "Success"
+          headers:
+            X-REQUEST-ID:
+              type: string
+              description: Request ID
+          schema:
+            $ref: "#/definitions/profile-nested-rolls"
+        "400":
+          $ref: "#/responses/bad-request"
+        "401":
+          $ref: "#/responses/unauthorized"
+        "403":
+          $ref: "#/responses/forbidden"
+        "404":
+          $ref: "#/responses/not-found"
+        "500":
+          $ref: "#/responses/internal-server-error"
+      tags:
+        - affiliation
+        - get_profile_nested
+        - get
+      parameters:
+        - $ref: '#/parameters/auth'
+        - $ref: '#/parameters/uuid'
   /affiliation/{projectSlugs}/delete_profile/{uuid}:
     delete:
       summary: Delete profile with given UUID (it will cascade delete all objects referring to that uuid)
@@ -3010,6 +3042,66 @@ definitions:
         type: array
         items:
           $ref: "#/definitions/enrollment-nested-data-output"
+  profile-nested-rolls:
+    title: Profile with nested rolls
+    description: Profile with nested rolls
+    type: object
+    properties:
+      uuid:
+        type: string
+        example: 00024380e0d8d854b42bf505333f245de77bd71d
+      last_modified:
+        type: string
+        format: date-time
+        x-nullable: true
+        example: '2019-09-02 03:00:33.000000'
+      profile:
+        type: object
+        $ref: "#/definitions/profile-data-output"
+      identities:
+        type: array
+        items:
+          $ref: "#/definitions/identity-data-output"
+      enrollments:
+        type: object
+        properties:
+          global:
+            type: object
+            properties:
+              enrollments:
+                type: array
+                items:
+                  $ref: "#/definitions/enrollment-nested-data-output"
+          groups:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: finos-f
+                has_access:
+                  type: boolean
+                  x-omitempty: false
+                enrollments:
+                  type: array
+                  items:
+                    $ref: "#/definitions/enrollment-nested-data-output"
+          projects:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: finos-f
+                has_access:
+                  type: boolean
+                  x-omitempty: false
+                enrollments:
+                  type: array
+                  items:
+                    $ref: "#/definitions/enrollment-nested-data-output"
   unique-identity-nested-data-output-no-dates:
     title: Unique identity nested data output (only tu support hiding default start/end dates)
     description: Unique indentity nested data
