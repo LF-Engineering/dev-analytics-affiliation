@@ -1366,6 +1366,7 @@ func (s *service) PutEditEnrollment(ctx context.Context, params *affiliation.Put
 // new_start - optional query parameter: new enrollment start date, 1900-01-01 if not set
 // new_end - optional query parameter: new enrollment end date, 2100-01-01 if not set
 // new_role - optional query parameter: new enrollment role
+// new_org  - optional query parameter: new enrollment organization (API will search for such org by name and it must exist, it will update organization_id field for a gien roll)
 // merge - optional query parameter: if set it will merge enrollment dates for organization edited
 // new_is_project_specific - ooptional query parameter, if set - will update is_project_specific value
 //   you can only set new_is_project_specific when {projectSlugs} contain only one project
@@ -1417,6 +1418,15 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 			return
 		}
 	}
+	organization := &models.OrganizationDataOutput{}
+	if params.NewOrg != nil {
+		organization, err = s.shDB.GetOrganizationByName(*params.NewOrg, true, nil)
+		if err != nil {
+			err = errs.Wrap(err, apiName)
+			return
+		}
+		enrollment.OrganizationID = organization.ID
+	}
 	if params.NewStart != nil {
 		enrollment.Start = *(params.NewStart)
 	} else {
@@ -1457,11 +1467,12 @@ func (s *service) PutEditEnrollmentByID(ctx context.Context, params *affiliation
 			err = errs.Wrap(err, apiName)
 			return
 		}
-		organization := &models.OrganizationDataOutput{}
-		organization, err = s.shDB.GetOrganization(enrollment.OrganizationID, true, nil)
-		if err != nil {
-			err = errs.Wrap(err, apiName)
-			return
+		if params.NewOrg == nil {
+			organization, err = s.shDB.GetOrganization(enrollment.OrganizationID, true, nil)
+			if err != nil {
+				err = errs.Wrap(err, apiName)
+				return
+			}
 		}
 		err = s.shDB.MergeEnrollments(uniqueIdentity, organization, enrollment.ProjectSlug, false, true, nil)
 		if err != nil {
