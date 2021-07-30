@@ -2497,7 +2497,6 @@ mappings:
   - ['^[[:space:]]*hootsuite[[:space:]]*media[[:space:]]*$','Hootsuite']
   - ['^[[:space:]]*地平线｜边缘人工智能芯片全球领导者[[:space:]]*$','Horizon Robotics']
   - ['^[[:space:]]*horizon[[:space:]]*$','Horizon Therapeutics plc']
-  - ['^[[:space:]]*hortonworks[[:space:]]*$','Hortonworks, Inc. ( acquired by Cloudera)']
   - ['^[[:space:]]*horyou[[:space:]]*$','HORYOU SA']
   - ['^[[:space:]]*tekhost\\.?de[[:space:]]webhosting[[:space:]]*$','Host-Tek Web Hosting Solutions']
   - ['^[[:space:]]*(hostdime|hostdime\\.?com)[[:space:]]*$','HostDime.com, Inc.']
