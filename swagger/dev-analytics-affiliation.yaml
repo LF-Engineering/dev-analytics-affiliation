@@ -1417,6 +1417,10 @@ paths:
           in: query
           type: string
           description: 'Role: Contributor, Maintainer, ...'
+        - name: new_org
+          in: query
+          type: string
+          description: 'New organization name - must exist in DB'
   /affiliation/{projectSlugs}/delete_enrollment/{id}:
     delete:
       summary: Delete enrollment from profile
