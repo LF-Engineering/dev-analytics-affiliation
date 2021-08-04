@@ -1,6 +1,6 @@
 -- MySQL dump 10.16  Distrib 10.1.48-MariaDB, for debian-linux-gnu (x86_64)
 --
--- Host: lfinsights-db.clctyzfo4svp.us-west-2.rds.amazonaws.com    Database: lfinsights_test
+-- Host: lfinsights-db.cxuotfgkgdmj.us-west-2.rds.amazonaws.com    Database: lfinsights_prod
 -- ------------------------------------------------------
 -- Server version	10.4.13-MariaDB-log
 
@@ -66,7 +66,7 @@ CREATE TABLE `datasources_settings` (
   `settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`settings`)),
   PRIMARY KEY (`id`),
   CONSTRAINT `CONSTRAINT_1` CHECK (json_valid(`settings`))
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -87,7 +87,7 @@ CREATE TABLE `domains_organizations` (
   UNIQUE KEY `_domain_unique` (`domain`),
   KEY `organization_id` (`organization_id`),
   CONSTRAINT `domains_organizations_ibfk_1` FOREIGN KEY (`organization_id`) REFERENCES `organizations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=9395 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9918 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -116,7 +116,7 @@ CREATE TABLE `enrollments` (
   KEY `enrollments_uuid_idx` (`uuid`),
   CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`uuid`) REFERENCES `uidentities` (`uuid`) ON DELETE CASCADE,
   CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`organization_id`) REFERENCES `organizations` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2827636 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2760467 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
@@ -127,7 +127,7 @@ CREATE TABLE `enrollments` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger enrollments_after_insert_trigger after insert on enrollments
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger enrollments_after_insert_trigger after insert on enrollments
 for each row begin
   insert into changes_cache(ky, value, status) values('enrollment', convert(new.id, char), 'pending') on duplicate key update updated_at = now();
 end */;;
@@ -145,7 +145,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger enrollments_after_update_trigger after update on enrollments
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger enrollments_after_update_trigger after update on enrollments
 for each row begin
   if old.uuid != new.uuid or old.organization_id != new.organization_id or old.start != new.start or old.end != new.end then
     insert into changes_cache(ky, value, status) values('enrollment', convert(new.id, char), 'pending') on duplicate key update updated_at = now();
@@ -168,7 +168,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger enrollments_after_delete_trigger after delete on enrollments
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger enrollments_after_delete_trigger after delete on enrollments
 for each row begin
   insert into changes_cache(ky, value, status) values('enrollment', convert(old.id, char), 'pending') on duplicate key update updated_at = now();
 end */;;
@@ -255,7 +255,7 @@ CREATE TABLE `identities` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger identities_after_insert_trigger after insert on identities
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger identities_after_insert_trigger after insert on identities
 for each row begin
   insert into changes_cache(ky, value, status) values('profile', new.uuid, 'pending') on duplicate key update updated_at = now();
   insert into changes_cache(ky, value, status) values('identity', new.id, 'pending') on duplicate key update updated_at = now();
@@ -274,7 +274,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger identities_after_update_trigger after update on identities
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger identities_after_update_trigger after update on identities
 for each row begin
   if old.source != new.source or not(old.name <=> new.name) or not(old.email <=> new.email) or not(old.username <=> new.username) or not(old.uuid <=> new.uuid) then
     insert into changes_cache(ky, value, status) values('profile', new.uuid, 'pending') on duplicate key update updated_at = now();
@@ -298,7 +298,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger identities_after_delete_trigger after delete on identities
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger identities_after_delete_trigger after delete on identities
 for each row begin
   insert into changes_cache(ky, value, status) values('profile', old.uuid, 'pending') on duplicate key update updated_at = now();
   insert into changes_cache(ky, value, status) values('identity', old.id, 'pending') on duplicate key update updated_at = now();
@@ -358,7 +358,7 @@ CREATE TABLE `organizations` (
   `op` varchar(1) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `_name_unique` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=77740 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=76900 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -378,6 +378,7 @@ CREATE TABLE `profiles` (
   `country_code` varchar(2) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
   `src` varchar(32) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
   `op` varchar(1) COLLATE utf8mb4_unicode_520_ci DEFAULT NULL,
+  `last_modified` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`uuid`),
   KEY `country_code` (`country_code`),
   KEY `profiles_name_idx` (`name`),
@@ -396,7 +397,7 @@ CREATE TABLE `profiles` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger profiles_after_insert_trigger after insert on profiles
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger profiles_after_insert_trigger after insert on profiles
 for each row begin
   insert into changes_cache(ky, value, status) values('profile', new.uuid, 'pending') on duplicate key update updated_at = now();
 end */;;
@@ -414,7 +415,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger profiles_after_update_trigger after update on profiles
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger profiles_after_update_trigger after update on profiles
 for each row begin
   if not(old.name <=> new.name) or not(old.email <=> new.email) or not(old.gender <=> new.gender) or not(old.gender_acc <=> new.gender_acc) or not(old.is_bot <=> new.is_bot) or not(old.country_code <=> new.country_code) then 
     insert into changes_cache(ky, value, status) values('profile', new.uuid, 'pending') on duplicate key update updated_at = now();
@@ -434,7 +435,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_test`@`%`*/ /*!50003 trigger profiles_after_delete_trigger after delete on profiles
+/*!50003 CREATE*/ /*!50017 DEFINER=`lfinsights_prod`@`%`*/ /*!50003 trigger profiles_after_delete_trigger after delete on profiles
 for each row begin
   insert into changes_cache(ky, value, status) values('profile', old.uuid, 'pending') on duplicate key update updated_at = now();
 end */;;
@@ -525,4 +526,4 @@ CREATE TABLE `uidentities_archive` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-07-13  5:22:55
+-- Dump completed on 2021-08-04  5:50:30
