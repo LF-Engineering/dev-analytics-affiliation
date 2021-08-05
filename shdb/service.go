@@ -5723,6 +5723,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 		query := fmt.Sprintf(
 			"select k, cnt from (select %s as k, count(distinct uuid) as cnt from %s "+
 				"where name is not null and email is not null and email regexp ? "+
+				"and name not like '%-MISSING-NAME' and name not like '%-REDACTED-EMAIL' "+
 				"group by k) sub where sub.cnt > 1",
 			reStr,
 			table,
@@ -5732,6 +5733,9 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			fmt.Printf("main query[%s, %s]: %s\n", reVal, emailRE, query)
 		}
 		// Only RW connection is used - this API mass updates data
+		// select k, cnt from (select regexp_replace(lower(concat(trim(email), '@@@', trim(name))), '[]["“”・·,;!#$%^&*()_+{}:|\/?.,><~£§ -]', '') as k,
+		// count(distinct uuid) as cnt from identities where name is not null and email is not null and email regexp '^[^@]+@[^@]+$'
+		// group by k) sub where sub.cnt > 1;
 		rows, err = s.Query(s.db, nil, query, reVal, emailRE)
 		if err != nil {
 			return
@@ -5807,7 +5811,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					ch <- err
 				}
 			}()
-			query := fmt.Sprintf("select %s, uuid from %s where name is not null and email is not null and %s in (", reStr, table, reStr)
+			query := fmt.Sprintf("select %s, uuid from %s where name is not null and name not like '%-MISSING-NAME' and name not like '%-REDACTED-EMAIL' and email is not null and %s in (", reStr, table, reStr)
 			args := []interface{}{reVal, reVal}
 			for _, key := range keys {
 				query += "?,"
@@ -6105,6 +6109,12 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				if e != nil {
 					err = e
 					return
+				}
+				if from != nil && from.Name != nil && (strings.HasSuffix(*from.Name, "-MISSING-NAME") || strings.HasSuffix(*from.Name, "-REDACTED-EMAIL")) {
+					continue
+				}
+				if to != nil && to.Name != nil && (strings.HasSuffix(*to.Name, "-MISSING-NAME") || strings.HasSuffix(*to.Name, "-REDACTED-EMAIL")) {
+					continue
 				}
 				archivedDate := time.Now()
 				_, e = s.ArchiveUUID(fromUUID, &archivedDate, tx)

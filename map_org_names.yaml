@@ -4979,7 +4979,7 @@ mappings:
   - ['^[[:space:]]*software[[:space:]]synergy,?[[:space:]]inc[[:space:]]*$','Software Synergy Inc.']
   - ['^[[:space:]]*software[[:space:]]&[[:space:]]things[[:space:]]*$','software-things']
   - ['^[[:space:]]*softwareone[[:space:]]usa[[:space:]]*$','SoftwareONE AG']
-  - ['^[[:space:]]*solace[[:space:]]*$','Solace']
+  - ['^[[:space:]]*solace[[:space:]]systems[[:space:]]*$','Solace']
   - ['^[[:space:]]*solactive[[:space:]]*$','Solactive AG.']
   - ['^[[:space:]]*(solarflare|solarflare[[:space:]]*communications)[[:space:]]*$','Solarflare Communications, Inc.']
   - ['^[[:space:]]*solarwinds[[:space:]]*$','SolarWinds Worldwide, LLC']
