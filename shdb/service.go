@@ -5723,7 +5723,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 		query := fmt.Sprintf(
 			"select k, cnt from (select %s as k, count(distinct uuid) as cnt from %s "+
 				"where name is not null and email is not null and email regexp ? "+
-				"and name not like '%-MISSING-NAME' and name not like '%-REDACTED-EMAIL' "+
+				"and name not like '%%-MISSING-NAME' and name not like '%%-REDACTED-EMAIL' "+
 				"group by k) sub where sub.cnt > 1",
 			reStr,
 			table,
@@ -5811,7 +5811,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 					ch <- err
 				}
 			}()
-			query := fmt.Sprintf("select %s, uuid from %s where name is not null and name not like '%-MISSING-NAME' and name not like '%-REDACTED-EMAIL' and email is not null and %s in (", reStr, table, reStr)
+			query := fmt.Sprintf("select %s, uuid from %s where name is not null and name not like '%%-MISSING-NAME' and name not like '%%-REDACTED-EMAIL' and email is not null and %s in (", reStr, table, reStr)
 			args := []interface{}{reVal, reVal}
 			for _, key := range keys {
 				query += "?,"
