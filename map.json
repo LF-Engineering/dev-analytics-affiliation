@@ -1,0 +1,659 @@
+{
+    "mappings": {
+      "dynamic": "true",
+      "dynamic_templates": [
+        {
+          "notanalyzed": {
+            "match": "*",
+            "unmatch": "body",
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword"
+            }
+          }
+        },
+        {
+          "formatdate": {
+            "match": "*",
+            "match_mapping_type": "date",
+            "mapping": {
+              "format": "strict_date_optional_time||epoch_millis",
+              "type": "date"
+            }
+          }
+        }
+      ],
+      "properties": {
+        "actor_avatar_url": {
+          "type": "keyword"
+        },
+        "actor_bot": {
+          "type": "boolean"
+        },
+        "actor_domain": {
+          "type": "keyword"
+        },
+        "actor_id": {
+          "type": "keyword"
+        },
+        "actor_location": {
+          "type": "keyword"
+        },
+        "actor_login": {
+          "type": "keyword"
+        },
+        "actor_multi_org_names": {
+          "type": "keyword"
+        },
+        "actor_name": {
+          "type": "keyword"
+        },
+        "actor_org": {
+          "type": "keyword"
+        },
+        "actor_org_name": {
+          "type": "keyword"
+        },
+        "actor_user_name": {
+          "type": "keyword"
+        },
+        "actor_uuid": {
+          "type": "keyword"
+        },
+        "assignee_avatar_url": {
+          "type": "keyword"
+        },
+        "assignee_bot": {
+          "type": "boolean"
+        },
+        "assignee_data_bot": {
+          "type": "boolean"
+        },
+        "assignee_data_domain": {
+          "type": "keyword"
+        },
+        "assignee_data_id": {
+          "type": "keyword"
+        },
+        "assignee_data_multi_org_names": {
+          "type": "keyword"
+        },
+        "assignee_data_name": {
+          "type": "keyword"
+        },
+        "assignee_data_org_name": {
+          "type": "keyword"
+        },
+        "assignee_data_user_name": {
+          "type": "keyword"
+        },
+        "assignee_data_uuid": {
+          "type": "keyword"
+        },
+        "assignee_domain": {
+          "type": "keyword"
+        },
+        "assignee_geolocation": {
+          "type": "geo_point"
+        },
+        "assignee_id": {
+          "type": "keyword"
+        },
+        "assignee_location": {
+          "type": "keyword"
+        },
+        "assignee_login": {
+          "type": "keyword"
+        },
+        "assignee_multi_org_names": {
+          "type": "keyword"
+        },
+        "assignee_name": {
+          "type": "keyword"
+        },
+        "assignee_org": {
+          "type": "keyword"
+        },
+        "assignee_org_name": {
+          "type": "keyword"
+        },
+        "assignee_user_name": {
+          "type": "keyword"
+        },
+        "assignee_uuid": {
+          "type": "keyword"
+        },
+        "assignees_data": {
+          "type": "keyword"
+        },
+        "author_association": {
+          "type": "keyword"
+        },
+        "author_avatar_url": {
+          "type": "keyword"
+        },
+        "author_bot": {
+          "type": "boolean"
+        },
+        "author_domain": {
+          "type": "keyword"
+        },
+        "author_id": {
+          "type": "keyword"
+        },
+        "author_login": {
+          "type": "keyword"
+        },
+        "author_multi_org_names": {
+          "type": "keyword"
+        },
+        "author_name": {
+          "type": "keyword"
+        },
+        "author_org_name": {
+          "type": "keyword"
+        },
+        "author_user_name": {
+          "type": "keyword"
+        },
+        "author_uuid": {
+          "type": "keyword"
+        },
+        "body": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "body_analyzed": {
+          "type": "text"
+        },
+        "category": {
+          "type": "keyword"
+        },
+        "closed_at": {
+          "type": "date"
+        },
+        "code_merge_duration": {
+          "type": "float"
+        },
+        "commenter_association": {
+          "type": "keyword"
+        },
+        "commenter_avatar_url": {
+          "type": "keyword"
+        },
+        "commenter_bot": {
+          "type": "boolean"
+        },
+        "commenter_domain": {
+          "type": "keyword"
+        },
+        "commenter_id": {
+          "type": "keyword"
+        },
+        "commenter_location": {
+          "type": "keyword"
+        },
+        "commenter_login": {
+          "type": "keyword"
+        },
+        "commenter_multi_org_names": {
+          "type": "keyword"
+        },
+        "commenter_name": {
+          "type": "keyword"
+        },
+        "commenter_org": {
+          "type": "keyword"
+        },
+        "commenter_org_name": {
+          "type": "keyword"
+        },
+        "commenter_user_name": {
+          "type": "keyword"
+        },
+        "commenter_uuid": {
+          "type": "keyword"
+        },
+        "commenters": {
+          "type": "keyword"
+        },
+        "commit_id": {
+          "type": "keyword"
+        },
+        "content": {
+          "type": "keyword"
+        },
+        "created_at": {
+          "type": "date"
+        },
+        "forks": {
+          "type": "long"
+        },
+        "github_repo": {
+          "type": "keyword"
+        },
+        "grimoire_creation_date": {
+          "type": "date"
+        },
+        "groups": {
+          "type": "keyword"
+        },
+        "html_url": {
+          "type": "keyword"
+        },
+        "id": {
+          "type": "keyword"
+        },
+        "id_in_repo": {
+          "type": "long"
+        },
+        "is_approved": {
+          "type": "boolean"
+        },
+        "is_first_approval": {
+          "type": "boolean"
+        },
+        "is_first_review": {
+          "type": "boolean"
+        },
+        "is_github_issue": {
+          "type": "long"
+        },
+        "is_github_issue_assignee": {
+          "type": "long"
+        },
+        "is_github_issue_comment": {
+          "type": "long"
+        },
+        "is_github_issue_comment_reaction": {
+          "type": "long"
+        },
+        "is_github_issue_reaction": {
+          "type": "long"
+        },
+        "is_github_pull_request": {
+          "type": "long"
+        },
+        "is_github_pull_request_assignee": {
+          "type": "long"
+        },
+        "is_github_pull_request_comment": {
+          "type": "long"
+        },
+        "is_github_pull_request_comment_reaction": {
+          "type": "long"
+        },
+        "is_github_pull_request_requested_reviewer": {
+          "type": "long"
+        },
+        "is_github_pull_request_review": {
+          "type": "long"
+        },
+        "issue_assignee": {
+          "type": "boolean"
+        },
+        "issue_assignee_login": {
+          "type": "keyword"
+        },
+        "issue_comment": {
+          "type": "boolean"
+        },
+        "issue_comment_id": {
+          "type": "long"
+        },
+        "issue_comment_reaction": {
+          "type": "boolean"
+        },
+        "issue_comment_reaction_id": {
+          "type": "long"
+        },
+        "issue_created_at": {
+          "type": "date"
+        },
+        "issue_id": {
+          "type": "long"
+        },
+        "issue_number": {
+          "type": "long"
+        },
+        "issue_reaction": {
+          "type": "boolean"
+        },
+        "issue_reaction_id": {
+          "type": "long"
+        },
+        "item_type": {
+          "type": "keyword"
+        },
+        "labels": {
+          "type": "keyword"
+        },
+        "merge_author_avatar_url": {
+          "type": "keyword"
+        },
+        "merge_author_domain": {
+          "type": "keyword"
+        },
+        "merge_author_geolocation": {
+          "type": "geo_point"
+        },
+        "merge_author_location": {
+          "type": "keyword"
+        },
+        "merge_author_login": {
+          "type": "keyword"
+        },
+        "merge_author_name": {
+          "type": "keyword"
+        },
+        "merge_author_org": {
+          "type": "keyword"
+        },
+        "merged": {
+          "type": "boolean"
+        },
+        "merged_at": {
+          "type": "date"
+        },
+        "merged_by_data_bot": {
+          "type": "boolean"
+        },
+        "merged_by_data_domain": {
+          "type": "keyword"
+        },
+        "merged_by_data_id": {
+          "type": "keyword"
+        },
+        "merged_by_data_multi_org_names": {
+          "type": "keyword"
+        },
+        "merged_by_data_name": {
+          "type": "keyword"
+        },
+        "merged_by_data_org_name": {
+          "type": "keyword"
+        },
+        "merged_by_data_user_name": {
+          "type": "keyword"
+        },
+        "merged_by_data_uuid": {
+          "type": "keyword"
+        },
+        "metadata__enriched_on": {
+          "type": "date"
+        },
+        "metadata__timestamp": {
+          "type": "date"
+        },
+        "metadata__updated_on": {
+          "type": "date"
+        },
+        "n_assignees": {
+          "type": "long"
+        },
+        "n_commenters": {
+          "type": "long"
+        },
+        "n_comments": {
+          "type": "long"
+        },
+        "n_reactions": {
+          "type": "long"
+        },
+        "n_requested_reviewers": {
+          "type": "long"
+        },
+        "n_review_commenters": {
+          "type": "long"
+        },
+        "n_review_comments": {
+          "type": "long"
+        },
+        "n_total_comments": {
+          "type": "long"
+        },
+        "num_review_comments": {
+          "type": "long"
+        },
+        "origin": {
+          "type": "keyword"
+        },
+        "project": {
+          "type": "keyword"
+        },
+        "project_slug": {
+          "type": "keyword"
+        },
+        "project_ts": {
+          "type": "long"
+        },
+        "pull_request": {
+          "type": "boolean"
+        },
+        "pull_request_assignee": {
+          "type": "boolean"
+        },
+        "pull_request_assignee_login": {
+          "type": "keyword"
+        },
+        "pull_request_comment": {
+          "type": "boolean"
+        },
+        "pull_request_comment_id": {
+          "type": "long"
+        },
+        "pull_request_comment_reaction": {
+          "type": "boolean"
+        },
+        "pull_request_comment_reaction_id": {
+          "type": "long"
+        },
+        "pull_request_created_at": {
+          "type": "date"
+        },
+        "pull_request_id": {
+          "type": "long"
+        },
+        "pull_request_number": {
+          "type": "long"
+        },
+        "pull_request_requested_reviewer": {
+          "type": "boolean"
+        },
+        "pull_request_requested_reviewer_login": {
+          "type": "keyword"
+        },
+        "pull_request_review": {
+          "type": "boolean"
+        },
+        "pull_request_review_id": {
+          "type": "long"
+        },
+        "pull_request_url": {
+          "type": "keyword"
+        },
+        "repo_name": {
+          "type": "keyword"
+        },
+        "repo_short_name": {
+          "type": "keyword"
+        },
+        "repository": {
+          "type": "keyword"
+        },
+        "requested_reviewer_avatar_url": {
+          "type": "keyword"
+        },
+        "requested_reviewer_bot": {
+          "type": "boolean"
+        },
+        "requested_reviewer_domain": {
+          "type": "keyword"
+        },
+        "requested_reviewer_id": {
+          "type": "keyword"
+        },
+        "requested_reviewer_location": {
+          "type": "keyword"
+        },
+        "requested_reviewer_login": {
+          "type": "keyword"
+        },
+        "requested_reviewer_multi_org_names": {
+          "type": "keyword"
+        },
+        "requested_reviewer_name": {
+          "type": "keyword"
+        },
+        "requested_reviewer_org": {
+          "type": "keyword"
+        },
+        "requested_reviewer_org_name": {
+          "type": "keyword"
+        },
+        "requested_reviewer_user_name": {
+          "type": "keyword"
+        },
+        "requested_reviewer_uuid": {
+          "type": "keyword"
+        },
+        "requested_reviewers_data": {
+          "type": "keyword"
+        },
+        "review_commenters": {
+          "type": "keyword"
+        },
+        "reviewer_association": {
+          "type": "keyword"
+        },
+        "reviewer_avatar_url": {
+          "type": "keyword"
+        },
+        "reviewer_bot": {
+          "type": "boolean"
+        },
+        "reviewer_domain": {
+          "type": "keyword"
+        },
+        "reviewer_id": {
+          "type": "keyword"
+        },
+        "reviewer_location": {
+          "type": "keyword"
+        },
+        "reviewer_login": {
+          "type": "keyword"
+        },
+        "reviewer_multi_org_names": {
+          "type": "keyword"
+        },
+        "reviewer_name": {
+          "type": "keyword"
+        },
+        "reviewer_org": {
+          "type": "keyword"
+        },
+        "reviewer_org_name": {
+          "type": "keyword"
+        },
+        "reviewer_user_name": {
+          "type": "keyword"
+        },
+        "reviewer_uuid": {
+          "type": "keyword"
+        },
+        "state": {
+          "type": "keyword"
+        },
+        "submitted_at": {
+          "type": "date"
+        },
+        "tag": {
+          "type": "keyword"
+        },
+        "time_open_days": {
+          "type": "float"
+        },
+        "time_to_close_days": {
+          "type": "float"
+        },
+        "time_to_first_attention": {
+          "type": "float"
+        },
+        "time_to_merge_request_response": {
+          "type": "float"
+        },
+        "title": {
+          "type": "keyword"
+        },
+        "title_analyzed": {
+          "type": "text"
+        },
+        "type": {
+          "type": "keyword"
+        },
+        "updated_at": {
+          "type": "date"
+        },
+        "url": {
+          "type": "keyword"
+        },
+        "url_id": {
+          "type": "keyword"
+        },
+        "user_avatar_url": {
+          "type": "keyword"
+        },
+        "user_data_bot": {
+          "type": "boolean"
+        },
+        "user_data_domain": {
+          "type": "keyword"
+        },
+        "user_data_id": {
+          "type": "keyword"
+        },
+        "user_data_multi_org_names": {
+          "type": "keyword"
+        },
+        "user_data_name": {
+          "type": "keyword"
+        },
+        "user_data_org_name": {
+          "type": "keyword"
+        },
+        "user_data_user_name": {
+          "type": "keyword"
+        },
+        "user_data_uuid": {
+          "type": "keyword"
+        },
+        "user_domain": {
+          "type": "keyword"
+        },
+        "user_geolocation": {
+          "type": "geo_point"
+        },
+        "user_location": {
+          "type": "keyword"
+        },
+        "user_login": {
+          "type": "keyword"
+        },
+        "user_name": {
+          "type": "keyword"
+        },
+        "user_org": {
+          "type": "keyword"
+        },
+        "uuid": {
+          "type": "keyword"
+        }
+      }
+    }
+}
