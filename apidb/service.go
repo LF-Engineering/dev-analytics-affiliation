@@ -104,9 +104,15 @@ func (s *service) GetUserProjects(user string) (projects map[string]bool, err er
 		if err != nil {
 			return
 		}
+		// https://jira.linuxfoundation.org/browse/DA-4191?focusedCommentId=584171&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-584171
 		if projectType == 1 {
-			projectSlug += "-f"
+			continue
 		}
+		/*
+			if projectType == 1 {
+				projectSlug += "-f"
+			}
+		*/
 		projects[projectSlug] = projectType == 1
 	}
 	err = rows.Err()

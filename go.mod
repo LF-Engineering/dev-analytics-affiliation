@@ -16,7 +16,6 @@ require (
 	github.com/go-openapi/swag v0.19.15
 	github.com/go-openapi/validate v0.20.2
 	github.com/go-sql-driver/mysql v1.5.0
-	github.com/go-swagger/go-swagger v0.27.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/jessevdk/go-flags v1.5.0

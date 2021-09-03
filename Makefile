@@ -51,7 +51,7 @@ clean:
 setup: setup_dev setup_deploy
 
 setup_dev:
-	go get github.com/go-swagger/go-swagger/cmd/swagger
+	go install github.com/go-swagger/go-swagger/cmd/swagger
 
 setup_deploy:
 	npm install serverless
