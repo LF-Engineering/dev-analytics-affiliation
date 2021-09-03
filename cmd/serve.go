@@ -1,3 +1,4 @@
+//go:build !aws_lambda
 // +build !aws_lambda
 
 package cmd
