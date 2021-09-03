@@ -3842,27 +3842,72 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 	}
 	bulkSize := 166
 	nIdents := len(identities)
-	emailsCache := map[string]bool{}
-	isValidEmail := func(email string) (valid bool) {
-		l := len(email)
-		if l < 3 && l > 254 {
+	emailsCache := map[string]string{}
+	emailReplacer := strings.NewReplacer(" at ", "@", " AT ", "@", " At ", "@", " dot ", ".", " DOT ", ".", " Dot ", ".", "<", "", ">", "", "`", "")
+	isValidDomain := func(domain string) (valid bool) {
+		l := len(domain)
+		if l < 4 && l > 254 {
 			return
 		}
-		valid, ok := emailsCache[email]
+		dom, ok := emailsCache[domain]
+		valid = dom != ""
 		if ok {
+			// fmt.Printf("domain cache hit: '%s' -> %v\n", domain, valid)
 			return
 		}
 		defer func() {
-			emailsCache[email] = valid
+			var dom string
+			if valid {
+				dom = domain
+			}
+			emailsCache[domain] = dom
 		}()
+		for i := 0; i < 10; i++ {
+			mx, err := net.LookupMX(domain)
+			if err == nil && len(mx) > 0 {
+				valid = true
+				return
+			}
+		}
+		for i := 1; i <= 3; i++ {
+			mx, err := net.LookupMX(domain)
+			if err == nil && len(mx) > 0 {
+				valid = true
+				return
+			}
+			time.Sleep(time.Duration(i) * time.Second)
+		}
+		return
+	}
+	isValidEmail := func(email string, validateDomain, guess bool) (valid bool, newEmail string) {
+		l := len(email)
+		if l < 6 && l > 254 {
+			return
+		}
+		nEmail, ok := emailsCache[email]
+		if ok {
+			newEmail = nEmail
+			valid = newEmail != ""
+			return
+		}
+		defer func() {
+			emailsCache[email] = newEmail
+		}()
+		if guess {
+			email = shared.WhiteSpace.ReplaceAllString(email, " ")
+			email = strings.TrimSpace(emailReplacer.Replace(email))
+			email = strings.Split(email, " ")[0]
+		}
 		if !shared.EmailRegex.MatchString(email) {
 			return
 		}
-		parts := strings.Split(email, "@")
-		mx, err := net.LookupMX(parts[1])
-		if err != nil || len(mx) == 0 {
-			return
+		if validateDomain {
+			parts := strings.Split(email, "@")
+			if len(parts) <= 1 || !isValidDomain(parts[1]) {
+				return
+			}
 		}
+		newEmail = email
 		valid = true
 		return
 	}
@@ -3909,17 +3954,30 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 				name := ident.Name
 				username := ident.Username
 				email := ident.Email
+				if name == nil && email == nil && username == nil {
+					continue
+				}
 				profname := name
+				if email != nil {
+					_, semail := isValidEmail(*email, true, true)
+					email = &semail
+				}
 				if profname == nil && username != nil {
 					profname = username
 				}
 				// if username matches a real email and there is no email set, assume email=username
-				if email == nil && username != nil && isValidEmail(*username) {
-					email = username
+				if email == nil && username != nil {
+					valid, em := isValidEmail(*username, true, true)
+					if valid {
+						email = &em
+					}
 				}
 				// if name matches a real email and there is no email set, assume email=name
-				if email == nil && name != nil && isValidEmail(*name) {
-					email = name
+				if email == nil && name != nil {
+					valid, em := isValidEmail(*name, true, true)
+					if valid {
+						email = &em
+					}
 				}
 				queryU += fmt.Sprintf("(?,now())")
 				queryI += fmt.Sprintf("(?,?,?,?,?,?,now())")
@@ -3997,17 +4055,32 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 				name := ident.Name
 				username := ident.Username
 				email := ident.Email
+				if name == nil && email == nil && username == nil {
+					continue
+				}
 				profname := name
 				if profname == nil && username != nil {
 					profname = username
 				}
+				if email != nil {
+					_, semail := isValidEmail(*email, true, true)
+					email = &semail
+				}
 				// if username matches a real email and there is no email set, assume email=username
-				if email == nil && username != nil && isValidEmail(*username) {
-					email = username
+				//if email == nil && username != nil && isValidEmail(*username) {
+				if email == nil && username != nil {
+					valid, em := isValidEmail(*username, true, true)
+					if valid {
+						email = &em
+					}
 				}
 				// if name matches a real email and there is no email set, assume email=name
-				if email == nil && name != nil && isValidEmail(*name) {
-					email = name
+				//if email == nil && name != nil && isValidEmail(*name) {
+				if email == nil && name != nil {
+					valid, em := isValidEmail(*name, true, true)
+					if valid {
+						email = &em
+					}
 				}
 				queryU += fmt.Sprintf("(?,now()),")
 				queryI += fmt.Sprintf("(?,?,?,?,?,?,now()),")
