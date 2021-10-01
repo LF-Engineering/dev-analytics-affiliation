@@ -1267,7 +1267,7 @@ func (s *service) dataSourceTypeFields(dataSourceType string) (fields map[string
 			"confluence_comments":         "sum(is_comment) as confluence_comments",
 			"confluence_blog_posts":       "sum(is_blogpost) as confluence_blog_posts",
 			"confluence_attachments":      "sum(is_attachment) as confluence_attachments",
-			"confluence_last_action_date": "max(grimoire_creation_date) as confluence_last_action_date",
+			"confluence_last_action_date": "max(metadata__updated_on) as confluence_last_action_date",
 		}
 	case "github/issue":
 		fields = map[string]string{
@@ -1396,7 +1396,7 @@ func (s *service) additionalWhere(dataSourceType, sortField string) (cond string
 			cond = `and \"is_attachment\" is not null`
 			return
 		case "confluence_last_action_date":
-			cond = `and \"grimoire_creation_date\" is not null`
+			cond = `and \"metadata__updated_on\" is not null`
 			return
 		case "cnt":
 			return
@@ -1689,8 +1689,8 @@ func (s *service) contributorStatsMergeQuery(
 			\"author_uuid\" is not null
 			and length(\"author_uuid\") = 40
 			and not (\"author_bot\" = true)
-			and cast(\"grimoire_creation_date\" as long) >= %d
-			and cast(\"grimoire_creation_date\" as long) < %d
+			and cast(\"metadata__updated_on\" as long) >= %d
+			and cast(\"metadata__updated_on\" as long) < %d
 			%s
 			%s
 			%s
@@ -1764,8 +1764,8 @@ func (s *service) contributorStatsMainQuery(
 			\"author_uuid\" is not null
 			and length(\"author_uuid\") = 40
 			and not (\"author_bot\" = true)
-			and cast(\"grimoire_creation_date\" as long) >= %d
-			and cast(\"grimoire_creation_date\" as long) < %d
+			and cast(\"metadata__updated_on\" as long) >= %d
+			and cast(\"metadata__updated_on\" as long) < %d
 			%s
 			%s
 		group by
@@ -2002,7 +2002,7 @@ func (s *service) GetTopContributors(projectSlugs []string, dataSourceTypes []st
 	}
 	// Add from, to filter
 	searchCondAll += fmt.Sprintf(
-		` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"grimoire_creation_date\" as long) >= %d and cast(\"grimoire_creation_date\" as long) < %d`,
+		` and \"author_uuid\" is not null and length(\"author_uuid\") = 40 and not (\"author_bot\" = true) and cast(\"metadata__updated_on\" as long) >= %d and cast(\"metadata__updated_on\" as long) < %d`,
 		from,
 		to,
 	)
