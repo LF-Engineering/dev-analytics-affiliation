@@ -897,7 +897,7 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 	// in multiple mode this can return many different companies and this is ok
 	if pSlug != "" && len(orgs) == 0 {
 		ary := strings.Split(pSlug, "/")
-		if len(ary) > 1 {
+		if len(ary) > 0 {
 			slugF := ary[0] + "-f"
 			rows, _ := s.QueryToStringIntArrays(
 				sdb,
@@ -955,7 +955,7 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 	// in multiple mode this can return many different companies and this is ok
 	if pSlug != "" && len(orgs) == 0 {
 		ary := strings.Split(pSlug, "/")
-		if len(ary) > 1 {
+		if len(ary) > 0 {
 			slugLike := ary[0] + "/%"
 			rows, _ := s.QueryToStringIntArrays(
 				sdb,
@@ -1002,7 +1002,7 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 		if single {
 			if len(rows) > 0 {
 				ary := strings.Split(pSlug, "/")
-				if len(ary) > 1 {
+				if len(ary) > 0 {
 					orgs = []string{rows[0]}
 					// 2021-07-29: do not insert rolls from 5-step algorithm.
 					/*
