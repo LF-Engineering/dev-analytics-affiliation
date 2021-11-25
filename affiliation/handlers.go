@@ -58,6 +58,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetTopContributorsHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetTopContributorsForbidden().WithPayload(nil)
+			}
 			result, err := service.GetTopContributors(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetTopContributorsHandlerFunc(error): "+info, err)
@@ -85,6 +88,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetTopContributorsCSVHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetTopContributorsCSVForbidden().WithPayload(nil)
+			}
 			result, err := service.GetTopContributorsCSV(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetTopContributorsCSVHandlerFunc(error): "+info, err)
@@ -112,6 +118,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetUnaffiliatedHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetUnaffiliatedForbidden().WithPayload(nil)
+			}
 			result, err := service.GetUnaffiliated(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetUnaffiliatedHandlerFunc(error): "+info, err)
@@ -139,6 +148,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListOrganizationsHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetListOrganizationsForbidden().WithPayload(nil)
+			}
 			result, err := service.GetListOrganizations(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetListOrganizationsHandlerFunc(error): "+info, err)
@@ -166,6 +178,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListOrganizationsDomainsHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetListOrganizationsDomainsForbidden().WithPayload(nil)
+			}
 			result, err := service.GetListOrganizationsDomains(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetListOrganizationsDomainsHandlerFunc(error): "+info, err)
@@ -188,6 +203,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			requestID := log.GetRequestID(nilRequestID)
 			service.SetServiceRequestID(requestID)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetFindOrganizationByIDForbidden().WithPayload(nil)
+			}
 			info := requestInfo(params.HTTPRequest)
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
@@ -220,6 +238,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetFindOrganizationByNameHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetFindOrganizationByNameForbidden().WithPayload(nil)
+			}
 			result, err := service.GetFindOrganizationByName(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetFindOrganizationByNameHandlerFunc(error): "+info, err)
@@ -247,6 +268,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteOrganizationHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteOrganizationForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteOrganization(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteOrganizationHandlerFunc(error): "+info, err)
@@ -274,6 +298,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteProfileHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteProfileForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteProfile(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteProfileHandlerFunc(error): "+info, err)
@@ -301,6 +328,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostUnarchiveProfileHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostUnarchiveProfileForbidden().WithPayload(nil)
+			}
 			result, err := service.PostUnarchiveProfile(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostUnarchiveProfileHandlerFunc(error): "+info, err)
@@ -328,6 +358,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddUniqueIdentityHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostAddUniqueIdentityForbidden().WithPayload(nil)
+			}
 			result, err := service.PostAddUniqueIdentity(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostAddUniqueIdentityHandlerFunc(error): "+info, err)
@@ -355,6 +388,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddIdentityHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostAddIdentityForbidden().WithPayload(nil)
+			}
 			result, err := service.PostAddIdentity(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostAddIdentityHandlerFunc(error): "+info, err)
@@ -382,6 +418,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddIdentitiesHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostAddIdentitiesForbidden().WithPayload(nil)
+			}
 			result, err := service.PostAddIdentities(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostAddIdentitiesHandlerFunc(error): "+info, err)
@@ -409,6 +448,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteIdentityHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteIdentityForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteIdentity(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteIdentityHandlerFunc(error): "+info, err)
@@ -517,6 +559,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetProfileByUsernameHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetProfileByUsernameForbidden().WithPayload(nil)
+			}
 			result, err := service.GetProfileByUsername(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetProfileByUsernameHandlerFunc(error): "+info, err)
@@ -571,6 +616,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddOrganizationHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostAddOrganizationForbidden().WithPayload(nil)
+			}
 			result, err := service.PostAddOrganization(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostAddOrganizationHandlerFunc(error): "+info, err)
@@ -598,6 +646,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditOrganizationHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutEditOrganizationForbidden().WithPayload(nil)
+			}
 			result, err := service.PutEditOrganization(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutEditOrganizationHandlerFunc(error): "+info, err)
@@ -625,6 +676,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditProfileHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutEditProfileForbidden().WithPayload(nil)
+			}
 			result, err := service.PutEditProfile(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutEditProfileHandlerFunc(error): "+info, err)
@@ -651,6 +705,10 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			log.WithFields(logrus.Fields{
 				"X-REQUEST-ID": requestID,
 			}).Info("GetMatchingBlacklistHandlerFunc: " + info)
+
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetMatchingBlacklistForbidden().WithPayload(nil)
+			}
 
 			result, err := service.GetMatchingBlacklist(ctx, &params)
 			if err != nil {
@@ -679,6 +737,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostMatchingBlacklistHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostMatchingBlacklistForbidden().WithPayload(nil)
+			}
 			result, err := service.PostMatchingBlacklist(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostMatchingBlacklistHandlerFunc(error): "+info, err)
@@ -706,6 +767,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteMatchingBlacklistHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteMatchingBlacklistForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteMatchingBlacklist(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteMatchingBlacklistHandlerFunc(error): "+info, err)
@@ -733,6 +797,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutOrgDomainHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutOrgDomainForbidden().WithPayload(nil)
+			}
 			result, err := service.PutOrgDomain(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutOrgDomainHandlerFunc(error): "+info, err)
@@ -760,6 +827,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteOrgDomainHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteOrgDomainForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteOrgDomain(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteOrgDomainHandlerFunc(error): "+info, err)
@@ -787,6 +857,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListProfilesHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetListProfilesForbidden().WithPayload(nil)
+			}
 			result, err := service.GetListProfiles(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetListProfilesHandlerFunc(error): "+info, err)
@@ -814,6 +887,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMergeUniqueIdentitiesHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutMergeUniqueIdentitiesForbidden().WithPayload(nil)
+			}
 			result, err := service.PutMergeUniqueIdentities(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutMergeUniqueIdentitiesHandlerFunc(error): "+info, err)
@@ -841,6 +917,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMoveIdentityHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutMoveIdentityForbidden().WithPayload(nil)
+			}
 			result, err := service.PutMoveIdentity(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutMoveIdentityHandlerFunc(error): "+info, err)
@@ -868,6 +947,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetProfileEnrollmentsHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewGetProfileEnrollmentsForbidden().WithPayload(nil)
+			}
 			result, err := service.GetProfileEnrollments(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetProfileEnrollmentsHandlerFunc(error): "+info, err)
@@ -895,6 +977,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddEnrollmentHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPostAddEnrollmentForbidden().WithPayload(nil)
+			}
 			result, err := service.PostAddEnrollment(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PostAddEnrollmentHandlerFunc(error): "+info, err)
@@ -922,6 +1007,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditEnrollmentHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+			}
 			result, err := service.PutEditEnrollment(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutEditEnrollmentHandlerFunc(error): "+info, err)
@@ -949,6 +1037,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditEnrollmentByIDHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutEditEnrollmentByIDForbidden().WithPayload(nil)
+			}
 			result, err := service.PutEditEnrollmentByID(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutEditEnrollmentByIDHandlerFunc(error): "+info, err)
@@ -976,6 +1067,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteEnrollmentsHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteEnrollmentsForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteEnrollments(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteEnrollmentsHandlerFunc(error): "+info, err)
@@ -1003,6 +1097,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteEnrollmentHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewDeleteEnrollmentForbidden().WithPayload(nil)
+			}
 			result, err := service.DeleteEnrollment(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("DeleteEnrollmentHandlerFunc(error): "+info, err)
@@ -1030,6 +1127,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMergeEnrollmentsHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlugs) {
+				return affiliation.NewPutMergeEnrollmentsForbidden().WithPayload(nil)
+			}
 			result, err := service.PutMergeEnrollments(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("PutMergeEnrollmentsHandlerFunc(error): "+info, err)
@@ -1435,6 +1535,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetAffiliationSingleHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlug) {
+				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+			}
 			result, err := service.GetAffiliationSingle(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetAffiliationSingleHandlerFunc(error): "+info, err)
@@ -1462,6 +1565,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetAffiliationMultipleHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlug) {
+				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+			}
 			result, err := service.GetAffiliationMultiple(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetAffiliationMultipleHandlerFunc(error): "+info, err)
@@ -1489,6 +1595,9 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetAffiliationBothHandlerFunc: " + info)
 
+			if service.IsProjectSkipped(params.ProjectSlug) {
+				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+			}
 			result, err := service.GetAffiliationBoth(ctx, &params)
 			if err != nil {
 				return swagger.ErrorHandler("GetAffiliationBothHandlerFunc(error): "+info, err)
