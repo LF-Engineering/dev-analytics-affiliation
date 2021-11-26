@@ -103,6 +103,7 @@ type Service interface {
 	DropMatchingBlacklist(string, bool, *sql.Tx) error
 	// Slug Mappings
 	GetSlugMappings(bool) error
+	GetSkippedProjects() (map[string]bool, error)
 	IsProjectSkipped(project string) (isSkipped bool, err error)
 	GetListSlugMappings() (*models.ListSlugMappings, error)
 	FindSlugMappings([]string, []interface{}, bool, *sql.Tx) ([]*models.SlugMapping, error)
@@ -9510,6 +9511,23 @@ func (s *service) IsProjectSkipped(project string) (isSkipped bool, err error) {
 		return
 	}
 	isSkipped = true
+	return
+}
+
+func (s *service) GetSkippedProjects() (res map[string]bool, err error) {
+	res = make(map[string]bool)
+	log.Info("IsProjectSkipped")
+	defer func() {
+		log.Info(fmt.Sprintf("IsProjectSkipped(exit): res:%+v err:%v", res, err))
+	}()
+	var ary []*models.SlugMapping
+	ary, err = s.FindSlugMappings([]string{"is_disabled"}, []interface{}{1}, false, nil)
+	if err != nil {
+		return
+	}
+	for _, item := range ary {
+		res[item.DaName] = true
+	}
 	return
 }
 

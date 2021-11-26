@@ -58,7 +58,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetTopContributorsHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetTopContributorsForbidden().WithPayload(nil)
 			}
 			result, err := service.GetTopContributors(ctx, &params)
@@ -88,7 +89,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetTopContributorsCSVHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetTopContributorsCSVForbidden().WithPayload(nil)
 			}
 			result, err := service.GetTopContributorsCSV(ctx, &params)
@@ -118,7 +120,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetUnaffiliatedHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetUnaffiliatedForbidden().WithPayload(nil)
 			}
 			result, err := service.GetUnaffiliated(ctx, &params)
@@ -148,7 +151,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListOrganizationsHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetListOrganizationsForbidden().WithPayload(nil)
 			}
 			result, err := service.GetListOrganizations(ctx, &params)
@@ -178,7 +182,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListOrganizationsDomainsHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetListOrganizationsDomainsForbidden().WithPayload(nil)
 			}
 			result, err := service.GetListOrganizationsDomains(ctx, &params)
@@ -203,7 +208,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			requestID := log.GetRequestID(nilRequestID)
 			service.SetServiceRequestID(requestID)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetFindOrganizationByIDForbidden().WithPayload(nil)
 			}
 			info := requestInfo(params.HTTPRequest)
@@ -238,7 +244,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetFindOrganizationByNameHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetFindOrganizationByNameForbidden().WithPayload(nil)
 			}
 			result, err := service.GetFindOrganizationByName(ctx, &params)
@@ -268,7 +275,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteOrganizationHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteOrganizationForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteOrganization(ctx, &params)
@@ -298,7 +306,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteProfileHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteProfileForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteProfile(ctx, &params)
@@ -328,7 +337,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostUnarchiveProfileHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostUnarchiveProfileForbidden().WithPayload(nil)
 			}
 			result, err := service.PostUnarchiveProfile(ctx, &params)
@@ -358,7 +368,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddUniqueIdentityHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostAddUniqueIdentityForbidden().WithPayload(nil)
 			}
 			result, err := service.PostAddUniqueIdentity(ctx, &params)
@@ -388,7 +399,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddIdentityHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostAddIdentityForbidden().WithPayload(nil)
 			}
 			result, err := service.PostAddIdentity(ctx, &params)
@@ -418,7 +430,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddIdentitiesHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostAddIdentitiesForbidden().WithPayload(nil)
 			}
 			result, err := service.PostAddIdentities(ctx, &params)
@@ -448,7 +461,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteIdentityHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteIdentityForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteIdentity(ctx, &params)
@@ -559,7 +573,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetProfileByUsernameHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetProfileByUsernameForbidden().WithPayload(nil)
 			}
 			result, err := service.GetProfileByUsername(ctx, &params)
@@ -616,7 +631,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddOrganizationHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostAddOrganizationForbidden().WithPayload(nil)
 			}
 			result, err := service.PostAddOrganization(ctx, &params)
@@ -646,7 +662,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditOrganizationHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutEditOrganizationForbidden().WithPayload(nil)
 			}
 			result, err := service.PutEditOrganization(ctx, &params)
@@ -676,7 +693,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditProfileHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutEditProfileForbidden().WithPayload(nil)
 			}
 			result, err := service.PutEditProfile(ctx, &params)
@@ -706,7 +724,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetMatchingBlacklistHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetMatchingBlacklistForbidden().WithPayload(nil)
 			}
 
@@ -737,7 +756,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostMatchingBlacklistHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostMatchingBlacklistForbidden().WithPayload(nil)
 			}
 			result, err := service.PostMatchingBlacklist(ctx, &params)
@@ -767,7 +787,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteMatchingBlacklistHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteMatchingBlacklistForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteMatchingBlacklist(ctx, &params)
@@ -797,7 +818,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutOrgDomainHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutOrgDomainForbidden().WithPayload(nil)
 			}
 			result, err := service.PutOrgDomain(ctx, &params)
@@ -827,7 +849,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteOrgDomainHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteOrgDomainForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteOrgDomain(ctx, &params)
@@ -857,7 +880,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListProfilesHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetListProfilesForbidden().WithPayload(nil)
 			}
 			result, err := service.GetListProfiles(ctx, &params)
@@ -887,7 +911,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMergeUniqueIdentitiesHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutMergeUniqueIdentitiesForbidden().WithPayload(nil)
 			}
 			result, err := service.PutMergeUniqueIdentities(ctx, &params)
@@ -917,7 +942,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMoveIdentityHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutMoveIdentityForbidden().WithPayload(nil)
 			}
 			result, err := service.PutMoveIdentity(ctx, &params)
@@ -947,7 +973,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetProfileEnrollmentsHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewGetProfileEnrollmentsForbidden().WithPayload(nil)
 			}
 			result, err := service.GetProfileEnrollments(ctx, &params)
@@ -977,7 +1004,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddEnrollmentHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPostAddEnrollmentForbidden().WithPayload(nil)
 			}
 			result, err := service.PostAddEnrollment(ctx, &params)
@@ -1007,7 +1035,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditEnrollmentHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
 			}
 			result, err := service.PutEditEnrollment(ctx, &params)
@@ -1037,7 +1066,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditEnrollmentByIDHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutEditEnrollmentByIDForbidden().WithPayload(nil)
 			}
 			result, err := service.PutEditEnrollmentByID(ctx, &params)
@@ -1067,7 +1097,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteEnrollmentsHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteEnrollmentsForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteEnrollments(ctx, &params)
@@ -1097,7 +1128,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteEnrollmentHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewDeleteEnrollmentForbidden().WithPayload(nil)
 			}
 			result, err := service.DeleteEnrollment(ctx, &params)
@@ -1127,7 +1159,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMergeEnrollmentsHandlerFunc: " + info)
 
-			if service.IsProjectSkipped(params.ProjectSlugs) {
+			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
+			if len(params.ProjectSlugs) == 0 {
 				return affiliation.NewPutMergeEnrollmentsForbidden().WithPayload(nil)
 			}
 			result, err := service.PutMergeEnrollments(ctx, &params)
