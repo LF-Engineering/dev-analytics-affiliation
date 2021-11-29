@@ -9526,6 +9526,7 @@ func (s *service) GetSkippedProjects() (res map[string]bool, err error) {
 		return
 	}
 	for _, item := range ary {
+		item.DaName = strings.ReplaceAll(item.DaName, "/", "-")
 		res[item.DaName] = true
 	}
 	return
