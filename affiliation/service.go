@@ -123,6 +123,8 @@ type Service interface {
 	isPrecacheRunning() bool
 	setPrecacheRunning()
 	clearPrecacheRunning()
+	IsProjectSkipped(string) bool
+	SkipDisabledProjects(project string) string
 }
 
 func (s *service) SetServiceRequestID(requestID string) {
@@ -596,6 +598,32 @@ func (s *service) setPrecacheRunning() {
 
 func (s *service) ClearPrecacheRunning() {
 	s.clearPrecacheRunning()
+}
+
+func (s *service) IsProjectSkipped(project string) bool {
+	result, err := s.shDB.IsProjectSkipped(project)
+	if err != nil {
+		log.Error("IsProjectSkipped: failed ", err)
+		return false
+	}
+	return result
+}
+
+func (s *service) SkipDisabledProjects(project string) string {
+	projects := strings.Split(project, ",")
+	skippedProjects, err := s.shDB.GetSkippedProjects()
+	if err != nil {
+		log.Error("SkipDisabledProjects: failed ", err)
+		return project
+	}
+	finalProjects := make([]string, 0)
+	for _, project := range projects {
+		if _, ok := skippedProjects[project]; ok {
+			continue
+		}
+		finalProjects = append(finalProjects, project)
+	}
+	return strings.Join(finalProjects, ",")
 }
 
 func (s *service) clearPrecacheRunning() {
