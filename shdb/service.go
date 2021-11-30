@@ -9516,9 +9516,9 @@ func (s *service) IsProjectSkipped(project string) (isSkipped bool, err error) {
 
 func (s *service) GetSkippedProjects() (res map[string]bool, err error) {
 	res = make(map[string]bool)
-	log.Info("IsProjectSkipped")
+	log.Info("GetSkippedProjects")
 	defer func() {
-		log.Info(fmt.Sprintf("IsProjectSkipped(exit): res:%+v err:%v", res, err))
+		log.Info(fmt.Sprintf("GetSkippedProjects(exit): res:%+v err:%v", res, err))
 	}()
 	var ary []*models.SlugMapping
 	ary, err = s.FindSlugMappings([]string{"is_disabled"}, []interface{}{1}, false, nil)
@@ -9526,7 +9526,6 @@ func (s *service) GetSkippedProjects() (res map[string]bool, err error) {
 		return
 	}
 	for _, item := range ary {
-		item.DaName = strings.ReplaceAll(item.DaName, "/", "-")
 		res[item.DaName] = true
 	}
 	return

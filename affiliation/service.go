@@ -618,7 +618,7 @@ func (s *service) SkipDisabledProjects(project string) string {
 	}
 	finalProjects := make([]string, 0)
 	for _, project := range projects {
-		if _, ok := skippedProjects[strings.ReplaceAll(project, "/", "-")]; ok {
+		if _, ok := skippedProjects[project]; ok {
 			continue
 		}
 		finalProjects = append(finalProjects, project)
