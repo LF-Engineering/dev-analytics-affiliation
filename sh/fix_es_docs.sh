@@ -1,5 +1,5 @@
 #!/bin/bash
-# Example run: INDICES='idx1 idx2 ... idxN' UUIDS='uuid1 uuid2 ... uuidN' ORG='OrgName' ESURL='https://...' ./sh/fix_es_docs.sh 
+# Example run: INDICES='idx1 idx2 ... idxN' UUIDS='uuid1 uuid2 ... uuidN' ORG='OrgName' [FROM=2011-01-01 TO=2012-07-01] [DBG=1] ESURL='https://...' ./sh/fix_es_docs.sh 
 if [ -z "$ESURL" ]
 then
   echo "$0: you need to specify ESURL=..."
@@ -22,13 +22,29 @@ then
 fi
 for idx in $INDICES
 do
-  q="{\"script\":\"ctx._source.author_org_name='${ORG}'\",\"query\":{\"terms\":{\"author_uuid\":["
-  for uuid in $UUIDS
-  do
-    q="${q}\"${uuid}\","
-  done
-  q="${q::-1}]}}}"
+  q="{\"script\":\"ctx._source.author_org_name='${ORG}'\","
+  if [ -z "${FROM}" ]
+  then
+    q="${q}\"query\":{\"terms\":{\"author_uuid\":["
+    for uuid in $UUIDS
+    do
+      q="${q}\"${uuid}\","
+    done
+    q="${q::-1}]}}}"
+  else
+    q="${q}\"query\":{\"bool\":{\"must\":[{\"terms\":{\"author_uuid\":["
+    for uuid in $UUIDS
+    do
+      q="${q}\"${uuid}\","
+    done
+    q="${q::-1}]}},{\"range\":{\"metadata__updated_on\":{\"gte\":\"${FROM}\",\"lt\":\"${TO}\"}}}]}}}"
+  fi
   echo $q > q.json.secret
+  if [ ! -z "${DBG}" ]
+  then
+    cat q.json.secret
+    cat q.json.secret | jq -rS .
+  fi
   echo -n "${idx}: "
   curl -s -XPOST -H 'Content-Type: application/json' "${ESURL}/${idx}/_update_by_query?conflicts=proceed" -d@q.json.secret | jq -rS .
 done
