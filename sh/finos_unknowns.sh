@@ -1,5 +1,5 @@
 #!/bin/bash
-# Example run: ESURL="https://[redacted]" CONDITION="author_name in ('ryanpetersonOF', 'pjbroadbent', 'Li Cui', 'Michael M. Coates', 'Harsimran Singh', 'Luis Espinola', 'Michael Coates', 'Daniel Kocielinski', 'nisse', 'brybailey', 'David H', 'deadbeef', 'brandtr', 'James Leftley', 'kjellander', 'Nicholas Goodman', 'David Hamberlin', 'Sergio Garcia Murillo', 'magjed', 'Sami Kalliomäki', 'malaysf', 'Aziz Yokubjonov', 'Danil Chapovalov', 'Mark Josling', 'Aziem Chawdhary', 'michaelt', 'Aaron Griswold')" ./sh/finos_unknowns.sh
+# Example run: [NO_BITERGIA=1] ESURL="https://[redacted]" CONDITION="author_name in ('ryanpetersonOF', 'pjbroadbent', 'Li Cui', 'Michael M. Coates', 'Harsimran Singh', 'Luis Espinola', 'Michael Coates', 'Daniel Kocielinski', 'nisse', 'brybailey', 'David H', 'deadbeef', 'brandtr', 'James Leftley', 'kjellander', 'Nicholas Goodman', 'David Hamberlin', 'Sergio Garcia Murillo', 'magjed', 'Sami Kalliomäki', 'malaysf', 'Aziz Yokubjonov', 'Danil Chapovalov', 'Mark Josling', 'Aziem Chawdhary', 'michaelt', 'Aaron Griswold')" ./sh/finos_unknowns.sh
 if [ -z "$ESURL" ]
 then
   echo "$0: you need to specify ESURL=..."
@@ -18,6 +18,10 @@ echo $querymin > finos-querymin.json.secret
 > finos.log.secret
 for idx in $(curl -s "${ESURL}/_cat/indices?format=json" | jq -rS '.[].index' | grep -E '^(bitergia.+(finos|symphonyoss)|sds-finos-)' | grep -Ev '(-repository(-for-merge)?|-raw|-googlegroups|-slack|-dockerhub|-last-action-date-cache|-social_media|finosmeetings)$' | grep -Ev '\-onion_')
 do
+  if ( [ ! -z "${NO_BITERGIA}" ] && [[ $idx == *"bitergia"* ]] )
+  then
+    continue
+  fi
   data=`cat finos-query.json.secret`
   data=${data/IDXNAME/$idx}
   echo $data > q.json.secret
