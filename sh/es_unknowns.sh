@@ -21,7 +21,7 @@ fi
 echo $query > unknowns-query.json.secret
 echo $querymin > unknowns-querymin.json.secret
 > unknowns.log.secret
-for idx in $(curl -s "${ESURL}/_cat/indices?format=json" | jq -rS '.[].index' | grep -E "^(bitergia.+|sds-.*)${PROJ}" | grep -Ev '(-repository(-for-merge)?|-raw|-googlegroups|-slack|-dockerhub|-last-action-date-cache|-social_media|finosmeetings)$' | grep -Ev '\-onion_')
+for idx in $(curl -s "${ESURL}/_cat/indices?format=json" | jq -rS '.[].index' | grep -E "^(bitergia.+|sds-.*)${PROJ}" | grep -Ev '(-repository|-raw|-googlegroups|-slack|-dockerhub|-jenkins|-last-action-date-cache|-social_media|-earned_media|finosmeetings)(-for-merge)?$' | grep -Ev '\-onion_')
 do
   data=`cat unknowns-query.json.secret`
   data=${data/IDXNAME/$idx}
