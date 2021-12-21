@@ -3,7 +3,7 @@ module github.com/LF-Engineering/dev-analytics-affiliation
 go 1.15
 
 require (
-	github.com/LF-Engineering/dev-analytics-libraries v1.1.7
+	github.com/LF-Engineering/dev-analytics-libraries v1.1.26
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-lambda-go v1.22.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.9.0
