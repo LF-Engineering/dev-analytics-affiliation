@@ -53,7 +53,7 @@ type Service interface {
 	TopContributorsCacheDelete(string)
 	TopContributorsCacheDeleteExpired()
 	// Log to ES
-	Log(string) error
+	Log(string, string, string) error
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
