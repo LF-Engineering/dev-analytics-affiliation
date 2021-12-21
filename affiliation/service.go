@@ -144,10 +144,11 @@ type service struct {
 	es        elastic.Service
 	platform  platform.Service
 	usersvc   usersvc.Service
+	esLog     elastic.Service
 }
 
 // New is a simple helper function to create a service instance
-func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service, platformAPI platform.Service, userAPI usersvc.Service) Service {
+func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Service, platformAPI platform.Service, userAPI usersvc.Service, esLog elastic.Service) Service {
 	return &service{
 		apiDB:     apiDB,
 		shDB:      shDBAPI,
@@ -155,6 +156,7 @@ func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Servic
 		es:        es,
 		platform:  platformAPI,
 		usersvc:   userAPI,
+		esLog:     esLog,
 	}
 }
 
@@ -2752,6 +2754,9 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 				err,
 			),
 		)
+		if err == nil {
+			s.esLog.Log(fmt.Sprintf("User '%s' merged profile uuid '%s' into profile uuid '%s' (API: '%s', project slug: '%s')", username, fromUUID, toUUID, apiName, projects))
+		}
 	}()
 	if err != nil {
 		return
@@ -2845,6 +2850,9 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 				err,
 			),
 		)
+		if err == nil {
+			s.esLog.Log(fmt.Sprintf("User '%s' unmerged/moved identity id '%s' into profile uuid '%s' (API: '%s', project slug: '%s')", username, fromID, toUUID, apiName, projects))
+		}
 	}()
 	if err != nil {
 		return

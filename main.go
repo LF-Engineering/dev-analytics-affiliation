@@ -141,6 +141,31 @@ func initES() (*elasticsearch.Client, string) {
 	return client, esURL
 }
 
+func initLogES() (*elasticsearch.Client, string) {
+	esURL := os.Getenv("ELASTIC_LOG_URL")
+	esUsername := os.Getenv("ELASTIC_LOG_USERNAME")
+	esPassword := os.Getenv("ELASTIC_LOG_PASSWORD")
+	shared.GRedacted[esURL] = struct{}{}
+	shared.GRedacted[esUsername] = struct{}{}
+	shared.GRedacted[esPassword] = struct{}{}
+	config := elasticsearch.Config{
+		Addresses: []string{esURL},
+		Username:  esUsername,
+		Password:  esPassword,
+	}
+	client, err := elasticsearch.NewClient(config)
+	if err != nil {
+		log.Panicf("unable to connect to cache ElasticSearch: %v", err)
+	}
+	info, err := client.Info()
+	if err != nil {
+		log.Panicf("unable to get elasticsearch client info: %v", err)
+	}
+	log.Println(fmt.Sprintf("%+v", info))
+	log.Println("Initialized", "ElasticSearch", host)
+	return client, esURL
+}
+
 func initOrg() *orgservice.Org {
 	slackProvider := slack.New(os.Getenv("SLACK_WEBHOOK_URL"))
 
@@ -234,9 +259,10 @@ func main() {
 	shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
 	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
 	esService := elastic.New(initES())
+	esLogService := elastic.New(initLogES())
 	organizationServiceAPI := platform.New(initOrg())
 	userServiceAPI := usersvc.New(initUser())
-	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI, userServiceAPI)
+	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI, userServiceAPI, esLogService)
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)

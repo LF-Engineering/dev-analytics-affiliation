@@ -52,6 +52,8 @@ type Service interface {
 	TopContributorsCacheSet(string, *TopContributorsCacheEntry)
 	TopContributorsCacheDelete(string)
 	TopContributorsCacheDeleteExpired()
+	// Log to ES
+	Log(string) error
 	// Internal methods
 	projectSlugToIndexPattern(string) string
 	projectSlugToIndexPatterns(string, []string) []string
@@ -87,6 +89,51 @@ type aggsUnaffiliatedResult struct {
 			} `json:"unaffiliated"`
 		} `json:"unaffiliated"`
 	} `json:"aggregations"`
+}
+
+// ssLogPayload - ES log single document
+type esLogPayload struct {
+	Msg string    `json:"msg"`
+	Dt  time.Time `json:"dt"`
+}
+
+// Log - log data into ES
+func (s *service) Log(msg string) error {
+	data := esLogPayload{Msg: os.Getenv("STAGE") + ": " + msg, Dt: time.Now()}
+	index := "affiliations-api-log"
+	payloadBytes, err := jsoniter.Marshal(data)
+	if err != nil {
+		log.Warn(fmt.Sprintf("JSON marshall error: %+v for index: %s, data: %+v\n", err, index, data))
+		return err
+	}
+	payloadBody := bytes.NewReader(payloadBytes)
+	method := "POST"
+	url := fmt.Sprintf("%s/%s/_doc", s.url, index)
+	rurl := fmt.Sprintf("/%s/_doc", index)
+	req, err := http.NewRequest(method, os.ExpandEnv(url), payloadBody)
+	if err != nil {
+		log.Warn(fmt.Sprintf("elastic.Log: new request error: %+v for %s url: %s, data: %+v\n", err, method, rurl, data))
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Warn(fmt.Sprintf("elastic.Log: do request error: %+v for %s url: %s, data: %+v\n", err, method, rurl, data))
+		return err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != 201 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Warn(fmt.Sprintf("elastic.Log: ReadAll request error: %+v for %s url: %s, data: %+v\n", err, method, rurl, data))
+			return err
+		}
+		log.Warn(fmt.Sprintf("elastic.Log: Method:%s url:%s status:%d, data:%+v\n%s\n", method, rurl, resp.StatusCode, data, body))
+		return err
+	}
+	return nil
 }
 
 func (s *service) TopContributorsCacheGet(key string) (entry *TopContributorsCacheEntry, ok bool) {
