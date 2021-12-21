@@ -162,7 +162,7 @@ func initLogES() (*elasticsearch.Client, string) {
 		log.Panicf("unable to get elasticsearch client info: %v", err)
 	}
 	log.Println(fmt.Sprintf("%+v", info))
-	log.Println("Initialized", "ElasticSearch", host)
+	log.Println("Initialized", "ElasticSearchLog", host)
 	return client, esURL
 }
 

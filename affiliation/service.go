@@ -2755,7 +2755,7 @@ func (s *service) PutMergeUniqueIdentities(ctx context.Context, params *affiliat
 			),
 		)
 		if err == nil {
-			s.esLog.Log(fmt.Sprintf("User '%s' merged profile uuid '%s' into profile uuid '%s' (API: '%s', project slug: '%s')", username, fromUUID, toUUID, apiName, projects))
+			s.esLog.Log(fmt.Sprintf("User '%s' merged profile uuid '%s' into profile uuid '%s' (API: '%s', project slug: '%s')", username, fromUUID, toUUID, apiName, projects), username, apiName)
 		}
 	}()
 	if err != nil {
@@ -2851,7 +2851,7 @@ func (s *service) PutMoveIdentity(ctx context.Context, params *affiliation.PutMo
 			),
 		)
 		if err == nil {
-			s.esLog.Log(fmt.Sprintf("User '%s' unmerged/moved identity id '%s' into profile uuid '%s' (API: '%s', project slug: '%s')", username, fromID, toUUID, apiName, projects))
+			s.esLog.Log(fmt.Sprintf("User '%s' unmerged/moved identity id '%s' into profile uuid '%s' (API: '%s', project slug: '%s')", username, fromID, toUUID, apiName, projects), username, apiName)
 		}
 	}()
 	if err != nil {

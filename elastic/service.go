@@ -93,13 +93,17 @@ type aggsUnaffiliatedResult struct {
 
 // ssLogPayload - ES log single document
 type esLogPayload struct {
-	Msg string    `json:"msg"`
-	Dt  time.Time `json:"dt"`
+	Msg  string    `json:"msg"`
+	Dt   time.Time `json:"dt"`
+	Env  string    `json:"env"`
+	User string    `json:"user"`
+	API  string    `json:"api"`
 }
 
 // Log - log data into ES
-func (s *service) Log(msg string) error {
-	data := esLogPayload{Msg: os.Getenv("STAGE") + ": " + msg, Dt: time.Now()}
+func (s *service) Log(msg, user, api string) error {
+	stage := os.Getenv("STAGE")
+	data := esLogPayload{Msg: msg, Dt: time.Now(), Env: stage, User: user, API: api}
 	index := "affiliations-api-log"
 	payloadBytes, err := jsoniter.Marshal(data)
 	if err != nil {
