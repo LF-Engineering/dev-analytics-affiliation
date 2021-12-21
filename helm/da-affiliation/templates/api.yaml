@@ -153,6 +153,21 @@ spec:
             secretKeyRef:
               name: {{ .Values.apiSecret }}
               key: ELASTIC_CACHE_PASSWORD.secret
+        - name: ELASTIC_LOG_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_LOG_URL.secret
+        - name: ELASTIC_LOG_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_LOG_USERNAME.secret
+        - name: ELASTIC_LOG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.apiSecret }}
+              key: ELASTIC_LOG_PASSWORD.secret
         - name: STAGE
           valueFrom:
             secretKeyRef:
