@@ -1914,6 +1914,9 @@ func (s *service) PutEditProfile(ctx context.Context, params *affiliation.PutEdi
 				err,
 			),
 		)
+		if err == nil {
+			s.esLog.Log(fmt.Sprintf("User '%s' edited profile uuid '%s' (API: '%s', project slug: '%s')", username, uuid, apiName, projects), username, apiName)
+		}
 	}()
 	if err != nil {
 		return
@@ -3727,7 +3730,7 @@ func (s *service) PutMergeAll(ctx context.Context, params *affiliation.PutMergeA
 	// defer func() { s.shDB.NotifySSAW() }()
 	// Do the actual API call
 	stat := ""
-	stat, err = s.shDB.MergeAll(debug, dry)
+	stat, err = s.shDB.MergeAll(debug, dry, username, s.esLog)
 	if err != nil {
 		err = errs.Wrap(err, apiName)
 		return
