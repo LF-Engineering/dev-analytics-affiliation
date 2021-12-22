@@ -21,6 +21,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/LF-Engineering/dev-analytics-affiliation/elastic"
 	"github.com/LF-Engineering/dev-analytics-affiliation/errs"
 	"github.com/LF-Engineering/dev-analytics-affiliation/gen/models"
 	"github.com/LF-Engineering/dev-analytics-affiliation/shared"
@@ -164,7 +165,7 @@ type Service interface {
 	MoveIdentity(string, string, bool, *sql.Tx) error
 	GetAllAffiliations() (*models.AllArrayOutput, error)
 	BulkUpdate([]*models.AllOutput, []*models.AllOutput) (int, int, int, error)
-	MergeAll(int, bool) (string, error)
+	MergeAll(int, bool, string, elastic.Service) (string, error)
 	HideEmails() (string, error)
 	MapOrgNames() (string, error)
 }
@@ -5781,7 +5782,7 @@ func (s *service) HideEmails() (status string, err error) {
 	return
 }
 
-func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
+func (s *service) MergeAll(debug int, dry bool, username string, esLog elastic.Service) (status string, err error) {
 	log.Info(fmt.Sprintf("MergeAll: debug:%d dry:%v", debug, dry))
 	// s.SetOrigin()
 	defer func() {
@@ -6161,6 +6162,7 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 			}()
 			didMerges := 0
 			nUUIDs := len(uuids)
+			froms, tos := []string{}, []string{}
 			for idx, fromUUID := range uuids {
 				if fromUUID == toUUID {
 					continue
@@ -6289,6 +6291,8 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				if debug > 0 {
 					fmt.Printf("merged %d/%d %s --> %s\n", idx+1, nUUIDs, fromUUID, toUUID)
 				}
+				froms = append(froms, fromUUID)
+				tos = append(tos, toUUID)
 			}
 			err = tx.Commit()
 			if err != nil {
@@ -6310,6 +6314,11 @@ func (s *service) MergeAll(debug int, dry bool) (status string, err error) {
 				log.Info(fmt.Sprintf("merged %d %+v\n", nUUIDs, uuids))
 			}
 			log.Info(fmt.Sprintf("%d/%d merges (%s, %d profiles, %d merges so far)\n", i, nMergeOps, key, nUUIDs, soFar))
+			for ui := range froms {
+				fromUUID := froms[ui]
+				toUUID := tos[ui]
+				esLog.Log(fmt.Sprintf("User '%s' auto merged profile uuid '%s' into profile uuid '%s' (API: 'MergeAll')", username, fromUUID, toUUID), username, "MergeAll")
+			}
 			return
 		}
 		nErrs := 0
