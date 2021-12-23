@@ -7,7 +7,7 @@ fi
 
 if ( [ -z "${SKIP_PROJECT}" ] && [ -z "$1" ] )
 then
-  echo "$0: please specify project slug(s) as a 1st arg, example 'onap,opnfv,burrow,aries"
+  echo "$0: please specify project slug(s) as a 1st arg, example 'onap,opnfv,burrow,aries'"
   exit 2
 fi
 

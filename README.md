@@ -107,6 +107,10 @@ Start API server using dockerized MariaDB and Postgres databases:
   - `` ES_URL="`cat helm/da-affiliation/secrets/API_URL.prod.secret`" ./sh/curl_es_unaffiliated.sh lfn/onap ``.
   - `` ES_URL="`cat helm/da-affiliation/secrets/ELASTIC_URL.prod.secret`" SEARCH=john SIZE=1 ./sh/curl_get_top_contributors_query.sh lfn ``.
   - `` JWT_TOKEN=`cat secret/lgryglicki.prod.token` da_name='cncf/kubernetes' sf_name='Kubernetes' sf_id=1004 new_da_name='new_cncf/kubernetes' new_sf_name='new_Kubernetes' new_sf_id=new_1004 ./sh/curl_put_edit_slug_mapping.sh ``.
+- Getting affiliations for a profile, project(s) an dgiven date:
+  - `` API_URL=test JWT_TOKEN=`cat secret/lgryglicki.test.token` ./sh/curl_get_affiliation_both.sh kubernetes 4723857eaee48bc0dbd4c70c6848729866f5a98e 2019-01-11T14:30 ``.
+  - `` API_URL=test JWT_TOKEN=`cat secret/lgryglicki.test.token` ./sh/curl_get_affiliation_single.sh kubernetes 4723857eaee48bc0dbd4c70c6848729866f5a98e 2019-01-11T14:30 ``.
+  - `` API_URL=test JWT_TOKEN=`cat secret/lgryglicki.test.token` ./sh/curl_get_affiliation_multi.sh kubernetes 4723857eaee48bc0dbd4c70c6848729866f5a98e 2019-01-11T14:30 ``.
 
 # Docker
 
