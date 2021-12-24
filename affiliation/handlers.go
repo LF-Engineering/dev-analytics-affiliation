@@ -58,9 +58,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetTopContributorsHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetTopContributorsForbidden().WithPayload(nil)
+				log.Info("AffiliationGetTopContributorsHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetTopContributorsNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetTopContributors(ctx, &params)
 			if err != nil {
@@ -89,9 +91,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetTopContributorsCSVHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetTopContributorsCSVForbidden().WithPayload(nil)
+				log.Info("AffiliationGetTopContributorsCSVHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetTopContributorsCSVNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetTopContributorsCSV(ctx, &params)
 			if err != nil {
@@ -120,9 +124,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetUnaffiliatedHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetUnaffiliatedForbidden().WithPayload(nil)
+				log.Info("AffiliationGetUnaffiliatedHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetUnaffiliatedNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetUnaffiliated(ctx, &params)
 			if err != nil {
@@ -151,9 +157,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListOrganizationsHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetListOrganizationsForbidden().WithPayload(nil)
+				log.Info("AffiliationGetListOrganizationsHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetListOrganizationsNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetListOrganizations(ctx, &params)
 			if err != nil {
@@ -182,9 +190,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListOrganizationsDomainsHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetListOrganizationsDomainsForbidden().WithPayload(nil)
+				log.Info("AffiliationGetListOrganizationsDomainsHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetListOrganizationsDomainsNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetListOrganizationsDomains(ctx, &params)
 			if err != nil {
@@ -208,9 +218,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			requestID := log.GetRequestID(nilRequestID)
 			service.SetServiceRequestID(requestID)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetFindOrganizationByIDForbidden().WithPayload(nil)
+				log.Info("AffiliationGetFindOrganizationByIDHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetFindOrganizationByIDNotAcceptable().WithPayload(nil)
 			}
 			info := requestInfo(params.HTTPRequest)
 			log.WithFields(logrus.Fields{
@@ -244,9 +256,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetFindOrganizationByNameHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetFindOrganizationByNameForbidden().WithPayload(nil)
+				log.Info("AffiliationGetFindOrganizationByNameHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetFindOrganizationByNameNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetFindOrganizationByName(ctx, &params)
 			if err != nil {
@@ -275,9 +289,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteOrganizationHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteOrganizationForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteOrganizationHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteOrganizationNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteOrganization(ctx, &params)
 			if err != nil {
@@ -306,9 +322,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteProfileHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteProfileForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteProfileHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteProfileNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteProfile(ctx, &params)
 			if err != nil {
@@ -337,9 +355,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostUnarchiveProfileHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostUnarchiveProfileForbidden().WithPayload(nil)
+				log.Info("AffiliationPostUnarchiveProfileHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostUnarchiveProfileNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostUnarchiveProfile(ctx, &params)
 			if err != nil {
@@ -368,9 +388,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddUniqueIdentityHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostAddUniqueIdentityForbidden().WithPayload(nil)
+				log.Info("AffiliationPostAddUniqueIdentityHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostAddUniqueIdentityNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostAddUniqueIdentity(ctx, &params)
 			if err != nil {
@@ -399,9 +421,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddIdentityHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostAddIdentityForbidden().WithPayload(nil)
+				log.Info("AffiliationPostAddIdentityHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostAddIdentityNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostAddIdentity(ctx, &params)
 			if err != nil {
@@ -430,9 +454,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddIdentitiesHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostAddIdentitiesForbidden().WithPayload(nil)
+				log.Info("AffiliationPostAddIdentitiesHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostAddIdentitiesNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostAddIdentities(ctx, &params)
 			if err != nil {
@@ -461,9 +487,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteIdentityHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteIdentityForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteIdentityHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteIdentityNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteIdentity(ctx, &params)
 			if err != nil {
@@ -573,9 +601,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetProfileByUsernameHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetProfileByUsernameForbidden().WithPayload(nil)
+				log.Info("AffiliationGetProfileByUsernameHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetProfileByUsernameNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetProfileByUsername(ctx, &params)
 			if err != nil {
@@ -631,9 +661,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddOrganizationHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostAddOrganizationForbidden().WithPayload(nil)
+				log.Info("AffiliationPostAddOrganizationHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostAddOrganizationNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostAddOrganization(ctx, &params)
 			if err != nil {
@@ -662,9 +694,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditOrganizationHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutEditOrganizationForbidden().WithPayload(nil)
+				log.Info("AffiliationPutEditOrganizationHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutEditOrganizationNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutEditOrganization(ctx, &params)
 			if err != nil {
@@ -693,9 +727,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditProfileHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutEditProfileForbidden().WithPayload(nil)
+				log.Info("AffiliationPutEditProfileHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutEditProfileNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutEditProfile(ctx, &params)
 			if err != nil {
@@ -724,9 +760,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetMatchingBlacklistHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetMatchingBlacklistForbidden().WithPayload(nil)
+				log.Info("AffiliationGetMatchingBlacklistHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetMatchingBlacklistNotAcceptable().WithPayload(nil)
 			}
 
 			result, err := service.GetMatchingBlacklist(ctx, &params)
@@ -756,9 +794,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostMatchingBlacklistHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostMatchingBlacklistForbidden().WithPayload(nil)
+				log.Info("AffiliationPostMatchingBlacklistHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostMatchingBlacklistNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostMatchingBlacklist(ctx, &params)
 			if err != nil {
@@ -787,9 +827,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteMatchingBlacklistHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteMatchingBlacklistForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteMatchingBlacklistHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteMatchingBlacklistNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteMatchingBlacklist(ctx, &params)
 			if err != nil {
@@ -818,9 +860,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutOrgDomainHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutOrgDomainForbidden().WithPayload(nil)
+				log.Info("AffiliationPutOrgDomainHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutOrgDomainNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutOrgDomain(ctx, &params)
 			if err != nil {
@@ -849,9 +893,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteOrgDomainHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteOrgDomainForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteOrgDomainHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteOrgDomainNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteOrgDomain(ctx, &params)
 			if err != nil {
@@ -880,9 +926,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetListProfilesHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetListProfilesForbidden().WithPayload(nil)
+				log.Info("AffiliationGetListProfilesHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetListProfilesNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetListProfiles(ctx, &params)
 			if err != nil {
@@ -911,9 +959,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMergeUniqueIdentitiesHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutMergeUniqueIdentitiesForbidden().WithPayload(nil)
+				log.Info("AffiliationPutMergeUniqueIdentitiesHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutMergeUniqueIdentitiesNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutMergeUniqueIdentities(ctx, &params)
 			if err != nil {
@@ -942,9 +992,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMoveIdentityHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutMoveIdentityForbidden().WithPayload(nil)
+				log.Info("AffiliationPutMoveIdentityHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutMoveIdentityNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutMoveIdentity(ctx, &params)
 			if err != nil {
@@ -973,9 +1025,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("GetProfileEnrollmentsHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewGetProfileEnrollmentsForbidden().WithPayload(nil)
+				log.Info("AffiliationGetProfileEnrollmentsHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewGetProfileEnrollmentsNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetProfileEnrollments(ctx, &params)
 			if err != nil {
@@ -1004,9 +1058,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PostAddEnrollmentHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPostAddEnrollmentForbidden().WithPayload(nil)
+				log.Info("AffiliationPostAddEnrollmentHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPostAddEnrollmentNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PostAddEnrollment(ctx, &params)
 			if err != nil {
@@ -1035,9 +1091,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditEnrollmentHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+				log.Info("AffiliationPutEditEnrollmentHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutEditEnrollmentNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutEditEnrollment(ctx, &params)
 			if err != nil {
@@ -1066,9 +1124,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutEditEnrollmentByIDHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutEditEnrollmentByIDForbidden().WithPayload(nil)
+				log.Info("AffiliationPutEditEnrollmentByIDHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutEditEnrollmentByIDNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutEditEnrollmentByID(ctx, &params)
 			if err != nil {
@@ -1097,9 +1157,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteEnrollmentsHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteEnrollmentsForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteEnrollmentsHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteEnrollmentsNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteEnrollments(ctx, &params)
 			if err != nil {
@@ -1128,9 +1190,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("DeleteEnrollmentHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewDeleteEnrollmentForbidden().WithPayload(nil)
+				log.Info("AffiliationDeleteEnrollmentHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewDeleteEnrollmentNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.DeleteEnrollment(ctx, &params)
 			if err != nil {
@@ -1159,9 +1223,11 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 				"X-REQUEST-ID": requestID,
 			}).Info("PutMergeEnrollmentsHandlerFunc: " + info)
 
+			projectSlugs := params.ProjectSlugs
 			params.ProjectSlugs = service.SkipDisabledProjects(params.ProjectSlugs)
 			if len(params.ProjectSlugs) == 0 {
-				return affiliation.NewPutMergeEnrollmentsForbidden().WithPayload(nil)
+				log.Info("AffiliationPutMergeEnrollmentsHandler: all projects " + projectSlugs + " are disabled")
+				return affiliation.NewPutMergeEnrollmentsNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.PutMergeEnrollments(ctx, &params)
 			if err != nil {
@@ -1569,7 +1635,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			}).Info("GetAffiliationSingleHandlerFunc: " + info)
 
 			if service.IsProjectSkipped(params.ProjectSlug) {
-				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+				log.Info("AffiliationGetAffiliationSingleHandler: project " + params.ProjectSlug + " is disabled")
+				return affiliation.NewGetAffiliationSingleNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetAffiliationSingle(ctx, &params)
 			if err != nil {
@@ -1599,7 +1666,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			}).Info("GetAffiliationMultipleHandlerFunc: " + info)
 
 			if service.IsProjectSkipped(params.ProjectSlug) {
-				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+				log.Info("AffiliationGetAffiliationMultipleHandler: project " + params.ProjectSlug + " is disabled")
+				return affiliation.NewGetAffiliationMultipleNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetAffiliationMultiple(ctx, &params)
 			if err != nil {
@@ -1629,7 +1697,8 @@ func Configure(api *operations.DevAnalyticsAffiliationAPI, service Service) {
 			}).Info("GetAffiliationBothHandlerFunc: " + info)
 
 			if service.IsProjectSkipped(params.ProjectSlug) {
-				return affiliation.NewPutEditEnrollmentForbidden().WithPayload(nil)
+				log.Info("AffiliationGetAffiliationBothHandler: project " + params.ProjectSlug + " is disabled")
+				return affiliation.NewGetAffiliationBothNotAcceptable().WithPayload(nil)
 			}
 			result, err := service.GetAffiliationBoth(ctx, &params)
 			if err != nil {
