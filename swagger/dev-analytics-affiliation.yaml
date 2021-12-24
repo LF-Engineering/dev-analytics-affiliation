@@ -75,6 +75,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -117,6 +119,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -158,6 +162,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -192,6 +198,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -227,6 +235,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -259,6 +269,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -292,6 +304,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -327,6 +341,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -360,6 +376,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -394,6 +412,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -427,6 +447,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -460,6 +482,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -493,6 +517,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -533,6 +559,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -583,6 +611,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -618,6 +648,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -718,6 +750,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -751,6 +785,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -784,6 +820,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -816,6 +854,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -854,12 +894,14 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
-        - delete_profile
-        - delete
+        - unarchive_profile
+        - unarchive
       parameters:
         - $ref: '#/parameters/auth'
         - $ref: '#/parameters/project-slugs'
@@ -887,6 +929,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -941,6 +985,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -974,13 +1020,15 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "409":
           $ref: "#/responses/conflict"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
         - affiliation
-        - add_unique_identity
+        - add_identity
         - post
       parameters:
         - $ref: '#/parameters/auth'
@@ -1028,6 +1076,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1066,6 +1116,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1167,6 +1219,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1213,6 +1267,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1259,6 +1315,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1292,6 +1350,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1331,6 +1391,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1388,6 +1450,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1444,6 +1508,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1481,6 +1547,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1519,6 +1587,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1558,6 +1628,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1592,6 +1664,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -1626,6 +1700,8 @@ paths:
           $ref: "#/responses/forbidden"
         "404":
           $ref: "#/responses/not-found"
+        "406":
+          $ref: "#/responses/not-acceptable"
         "500":
           $ref: "#/responses/internal-server-error"
       tags:
@@ -3447,6 +3523,10 @@ responses:
       $ref: "#/definitions/error-response"
   not-found:
     description: Not Found.
+    schema:
+      $ref: "#/definitions/error-response"
+  not-acceptable:
+    description: Returned for get affiliations API when called on a disabled project
     schema:
       $ref: "#/definitions/error-response"
   conflict:
