@@ -5749,7 +5749,7 @@ mappings:
   - ['^[[:space:]]*uhoo[[:space:]]*$','uHoo Limited']
   - ['^[[:space:]]*uhuru[[:space:]]software,?[[:space:]]inc\\.?[[:space:]]*$','Uhuru Software']
   - ['^[[:space:]]*uit[[:space:]]*$','uitgroupindia']
-  - ['^[[:space:]]*ultimaker[[:space:]]*$','Ultimaker ']
+  - ['^[[:space:]]*ultimaker[[:space:]]*$','Ultimaker']
   - ['^[[:space:]]*ultimate[[:space:]]internet[[:space:]]access[[:space:]]*$','Ultimate Internet Access, Inc.']
   - ['^[[:space:]]*ultrareach[[:space:]]internet[[:space:]]*$','Ultrareach Internet Corp. U.S.A']
   - ['^[[:space:]]*ulyssis[[:space:]]vzw[[:space:]]*$','ULYSSIS']
