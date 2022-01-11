@@ -160,23 +160,6 @@ func New(apiDB apidb.Service, shDBAPI, shDBGitdm shdb.Service, es elastic.Servic
 	}
 }
 
-// Jwks - keys to get certificate data
-type Jwks struct {
-	Keys []JSONWebKeys `json:"keys"`
-}
-
-// JSONWebKeys keys to get certificate data
-type JSONWebKeys struct {
-	Alg string `json:"alg"`
-	Kty string `json:"kty"`
-	Kid string `json:"kid"`
-	Use string `json:"use"`
-	N   string `json:"n"`
-	E   string `json:"e"`
-	//X5t string   `json:"e"`
-	X5c []string `json:"x5c"`
-}
-
 func (s *service) checkAccess(project string, projects map[string]bool) bool {
 	if strings.HasSuffix(project, "-f") {
 		f, ok := projects[project]
@@ -282,6 +265,9 @@ func (s *service) checkToken(tokenStr string) (username string, agw bool, err er
 // and then check if authorized use can manage affiliations in given project
 func (s *service) checkTokenAndPermission(iParams interface{}) (apiName string, projects []string, username string, err error) {
 	// Extract params depending on API type
+	defer func() {
+		s.shDB.SetLFID(username)
+	}()
 	auth := ""
 	projectsStr := ""
 	noUpdate := false
@@ -3611,6 +3597,7 @@ func (s *service) GetAllAffiliations(ctx context.Context, params *affiliation.Ge
 	if err != nil {
 		return
 	}
+	s.shDBGitdm.SetLFID(username)
 	all, err = s.shDBGitdm.GetAllAffiliations()
 	if err != nil {
 		return
@@ -3653,6 +3640,7 @@ func (s *service) PostBulkUpdate(ctx context.Context, params *affiliation.PostBu
 	// SF->DA
 	s.AllSF2DA(params.Body.Add)
 	s.AllSF2DA(params.Body.Del)
+	s.shDBGitdm.SetLFID(username)
 	nAdded, nDeleted, nUpdated, err = s.shDBGitdm.BulkUpdate(params.Body.Add, params.Body.Del)
 	if err != nil {
 		return
