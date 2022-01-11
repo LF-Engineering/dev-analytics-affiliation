@@ -140,6 +140,7 @@ type Service interface {
 	UpdateProjectSlugs(map[string][]string) (string, error)
 	DedupEnrollments() error
 	BeginTx() (*sql.Tx, error)
+	SetLFID(string)
 	// SSAW related
 	// NotifySSAW()
 	// SetOrigin()
@@ -182,6 +183,7 @@ type service struct {
 	mtx              *sync.RWMutex
 	orgNamesMappings allMappings
 	mappingsLoaded   bool
+	lfid             string
 }
 
 // New creates new db service instance with given db
@@ -199,6 +201,11 @@ const (
 	DateTimeFormat  = "%Y-%m-%dT%H:%i:%s.%fZ"
 	MapOrgNamesFile = "map_org_names.yaml"
 )
+
+// SetLFID - set Linux Foundation user ID, for example "lgryglicki"
+func (s *service) SetLFID(lfid string) {
+	s.lfid = lfid
+}
 
 // BeginTx - begin transaction on R/W connection
 func (s *service) BeginTx() (*sql.Tx, error) {
@@ -467,15 +474,15 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 				tx.Rollback()
 			}
 		}()
-		_, err = s.Exec(s.db, tx, "insert into uidentities(uuid,last_modified) values(?,now())", uuid)
+		_, err = s.Exec(s.db, tx, "insert into uidentities(uuid,last_modified,last_modified_by) values(?,now(),?)", uuid, s.lfid)
 		if err != nil {
 			return
 		}
-		_, err = s.Exec(s.db, tx, "insert into identities(id,source,email,name,username,uuid,last_modified) values(?,?,?,?,?,?,now())", uuid, lfxStr, ident[0], ident[1], ident[2], uuid)
+		_, err = s.Exec(s.db, tx, "insert into identities(id,source,email,name,username,uuid,last_modified,last_modified_by) values(?,?,?,?,?,?,now(),?)", uuid, lfxStr, ident[0], ident[1], ident[2], uuid, s.lfid)
 		if err != nil {
 			return
 		}
-		_, err = s.Exec(s.db, tx, "insert into profiles(uuid,email,name) values(?,?,?)", uuid, ident[0], ident[1])
+		_, err = s.Exec(s.db, tx, "insert into profiles(uuid,email,name,last_modified_by) values(?,?,?,?)", uuid, ident[0], ident[1], s.lfid)
 		if err != nil {
 			return
 		}
@@ -561,15 +568,15 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 				tx.Rollback()
 			}
 		}()
-		_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now() where uuid = ?", uuid)
+		_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now(), last_modified_by = ? where uuid = ?", s.lfid, uuid)
 		if err != nil {
 			return
 		}
-		_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now() where id = ?", ident[1], ident[2], id)
+		_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now(), last_modified_by = ? where id = ?", ident[1], ident[2], s.lfid, id)
 		if err != nil {
 			return
 		}
-		_, err = s.Exec(s.db, tx, "update profiles set name = ? where uuid = ?", ident[1], uuid)
+		_, err = s.Exec(s.db, tx, "update profiles set name = ?, last_modified_by = ? where uuid = ?", ident[1], s.lfid, uuid)
 		if err != nil {
 			return
 		}
@@ -915,16 +922,15 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 				if len(rows) > 0 {
 					orgs = []string{rows[0]}
 					// 2021-07-29: do not insert rolls from 5-step algorithm.
-					/*
-						_, _ = s.Exec(
-							sdb,
-							tx,
-							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-							pSlug,
-							"Contributor",
-							ids[0],
-						)
-					*/
+					//_, _ = s.Exec(
+					//	sdb,
+					//	tx,
+					//	"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role, last_modified_by) select start, end, uuid, organization_id, ?, ?, ? from enrollments where id = ?",
+					//	pSlug,
+					//	"Contributor",
+					//	s.lfid,
+					//	ids[0],
+					//)
 					return
 				}
 			} else {
@@ -973,16 +979,15 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 				if len(rows) > 0 {
 					orgs = []string{rows[0]}
 					// 2021-07-29: do not insert rolls from 5-step algorithm.
-					/*
-						_, _ = s.Exec(
-							sdb,
-							tx,
-							"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-							pSlug,
-							"Contributor",
-							ids[0],
-						)
-					*/
+					//_, _ = s.Exec(
+					//	sdb,
+					//	tx,
+					//	"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role, last_modified_by) select start, end, uuid, organization_id, ?, ?, ? from enrollments where id = ?",
+					//	pSlug,
+					//	"Contributor",
+					//	s.lfid,
+					//	ids[0],
+					//)
 					return
 				}
 			} else {
@@ -1008,18 +1013,17 @@ func (s *service) GetAffiliations(pSlug, uuid string, dt time.Time, single bool,
 				if len(ary) > 0 {
 					orgs = []string{rows[0]}
 					// 2021-07-29: do not insert rolls from 5-step algorithm.
-					/*
-						if pSlug != "" {
-							_, _ = s.Exec(
-								sdb,
-								tx,
-								"insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role) select start, end, uuid, organization_id, ?, ? from enrollments where id = ?",
-								pSlug,
-								"Contributor",
-								ids[0],
-							)
-						}
-					*/
+					//if pSlug != "" {
+					//	  _, _ = s.Exec(
+					//	  sdb,
+					//	  tx,
+					//	  "insert ignore into enrollments(start, end, uuid, organization_id, project_slug, role, last_modified_by) select start, end, uuid, organization_id, ?, ?, ? from enrollments where id = ?",
+					//	  pSlug,
+					//	  "Contributor",
+					//	  s.lfid,
+					//	  ids[0],
+					//	)
+					//}
 				}
 				return
 			}
@@ -1378,8 +1382,9 @@ func (s *service) AddMatchingBlacklist(inMatchingBlacklist *models.MatchingBlack
 	_, err = s.Exec(
 		s.db,
 		tx,
-		"insert into matching_blacklist(excluded) select ?",
+		"insert into matching_blacklist(excluded, last_modified_by) select ?, ?",
 		matchingBlacklist.Excluded,
+		s.lfid,
 	)
 	if err != nil {
 		matchingBlacklist = nil
@@ -1698,8 +1703,9 @@ func (s *service) AddOrganization(inOrganization *models.OrganizationDataOutput,
 	_, err = s.Exec(
 		s.db,
 		tx,
-		"insert into organizations(name) select ?",
+		"insert into organizations(name,last_modified_by) select ?,?",
 		organization.Name,
+		s.lfid,
 	)
 	if err != nil {
 		organization = nil
@@ -1738,11 +1744,14 @@ func (s *service) AddUniqueIdentity(inUniqueIdentity *models.UniqueIdentityDataO
 		}
 	}
 	// s.SetOrigin()
-	q := fmt.Sprintf("INSERT INTO uidentities (uuid, last_modified) select '%+v', str_to_date('%+v', '%+v');", uniqueIdentity.UUID, uniqueIdentity.LastModified, DateTimeFormat)
 	_, err = s.Exec(
 		s.db,
 		tx,
-		q,
+		"insert into uidentities(uuid, last_modified, last_modified_by) select ?, str_to_date(?, ?), ?",
+		uniqueIdentity.UUID,
+		uniqueIdentity.LastModified,
+		DateTimeFormat,
+		s.lfid,
 	)
 	if err != nil {
 		uniqueIdentity = nil
@@ -2871,7 +2880,7 @@ func (s *service) TouchIdentity(id string, tx *sql.Tx) (affected int64, err erro
 		log.Info(fmt.Sprintf("TouchIdentity(exit): id:%s tx:%v affected:%d err:%v", id, tx != nil, affected, err))
 	}()
 	// s.SetOrigin()
-	res, err := s.Exec(s.db, tx, "update identities set last_modified = ? where id = ?", time.Now(), id)
+	res, err := s.Exec(s.db, tx, "update identities set last_modified = ?, last_modified_by = ? where id = ?", time.Now(), s.lfid, id)
 	if err != nil {
 		return
 	}
@@ -2885,7 +2894,7 @@ func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, 
 		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%v", uuid, tx != nil, affected, err))
 	}()
 	// s.SetOrigin()
-	res, err := s.Exec(s.db, tx, "update uidentities set last_modified = ? where uuid = ?", time.Now(), uuid)
+	res, err := s.Exec(s.db, tx, "update uidentities set last_modified = ?, last_modified_by = ? where uuid = ?", time.Now(), s.lfid, uuid)
 	if err != nil {
 		return
 	}
@@ -2942,15 +2951,15 @@ func (s *service) UnarchiveUniqueIdentity(uuid string, replace bool, tm *time.Ti
 	var res sql.Result
 	// s.SetOrigin()
 	if tm != nil {
-		insert := "insert into uidentities(uuid, last_modified) " +
-			"select uuid, now() from uidentities_archive " +
+		insert := "insert into uidentities(uuid, last_modified, last_modified_by) " +
+			"select uuid, now(), ? from uidentities_archive " +
 			"where uuid = ? and archived_at = ?"
-		res, err = s.Exec(s.db, tx, insert, uuid, tm)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, uuid, tm)
 	} else {
-		insert := "insert into uidentities(uuid, last_modified) " +
-			"select uuid, now() from uidentities_archive " +
+		insert := "insert into uidentities(uuid, last_modified, last_modified_by) " +
+			"select uuid, now(), ? from uidentities_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
-		res, err = s.Exec(s.db, tx, insert, uuid)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, uuid)
 	}
 	if err != nil {
 		return
@@ -2981,9 +2990,9 @@ func (s *service) ArchiveUniqueIdentity(uuid string, tm *time.Time, tx *sql.Tx) 
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into uidentities_archive(uuid, last_modified, archived_at) " +
-		"select uuid, last_modified, ? from uidentities where uuid = ? limit 1"
-	res, err := s.Exec(s.db, tx, insert, tm, uuid)
+	insert := "insert into uidentities_archive(uuid, last_modified, archived_at, last_modified_by) " +
+		"select uuid, last_modified, ?, ? from uidentities where uuid = ? limit 1"
+	res, err := s.Exec(s.db, tx, insert, tm, s.lfid, uuid)
 	if err != nil {
 		return
 	}
@@ -3145,15 +3154,15 @@ func (s *service) UnarchiveEnrollment(id int64, replace bool, tm *time.Time, tx 
 	var res sql.Result
 	// s.SetOrigin()
 	if tm != nil {
-		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role) " +
-			"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive " +
+		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role, last_modified_by) " +
+			"select id, uuid, organization_id, start, end, project_slug, role, ? from enrollments_archive " +
 			"where id = ? and archived_at = ?"
-		res, err = s.Exec(s.db, tx, insert, id, tm)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, id, tm)
 	} else {
-		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role) " +
-			"select id, uuid, organization_id, start, end, project_slug, role from enrollments_archive " +
+		insert := "insert into enrollments(id, uuid, organization_id, start, end, project_slug, role, last_modified_by) " +
+			"select id, uuid, organization_id, start, end, project_slug, role, ? from enrollments_archive " +
 			"where id = ? order by archived_at desc limit 1"
-		res, err = s.Exec(s.db, tx, insert, id)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, id)
 	}
 	if err != nil {
 		return
@@ -3183,9 +3192,9 @@ func (s *service) ArchiveEnrollment(id int64, tm *time.Time, tx *sql.Tx) (err er
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, project_slug, role, archived_at) " +
-		"select id, uuid, organization_id, start, end, project_slug, role, ? from enrollments where id = ? limit 1"
-	res, err := s.Exec(s.db, tx, insert, tm, id)
+	insert := "insert into enrollments_archive(id, uuid, organization_id, start, end, project_slug, role, archived_at, last_modified_by) " +
+		"select id, uuid, organization_id, start, end, project_slug, role, ?, ? from enrollments where id = ? limit 1"
+	res, err := s.Exec(s.db, tx, insert, tm, s.lfid, id)
 	if err != nil {
 		return
 	}
@@ -3331,15 +3340,15 @@ func (s *service) UnarchiveIdentity(id string, replace bool, tm *time.Time, tx *
 	var res sql.Result
 	// s.SetOrigin()
 	if tm != nil {
-		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
-			"select id, uuid, source, name, email, username, now() from identities_archive " +
+		insert := "insert into identities(id, uuid, source, name, email, username, last_modified, last_modified_by) " +
+			"select id, uuid, source, name, email, username, now(), ? from identities_archive " +
 			"where id = ? and archived_at = ?"
-		res, err = s.Exec(s.db, tx, insert, id, tm)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, id, tm)
 	} else {
-		insert := "insert into identities(id, uuid, source, name, email, username, last_modified) " +
-			"select id, uuid, source, name, email, username, now() from identities_archive " +
+		insert := "insert into identities(id, uuid, source, name, email, username, last_modified, last_modified_by) " +
+			"select id, uuid, source, name, email, username, now(), ? from identities_archive " +
 			"where id = ? order by archived_at desc limit 1"
-		res, err = s.Exec(s.db, tx, insert, id)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, id)
 	}
 	if err != nil {
 		return
@@ -3369,9 +3378,9 @@ func (s *service) ArchiveIdentity(id string, tm *time.Time, tx *sql.Tx) (err err
 		t := time.Now()
 		tm = &t
 	}
-	insert := "insert into identities_archive(id, uuid, source, name, email, username, last_modified, archived_at) " +
-		"select id, uuid, source, name, email, username, last_modified, ? from identities where id = ? limit 1"
-	res, err := s.Exec(s.db, tx, insert, tm, id)
+	insert := "insert into identities_archive(id, uuid, source, name, email, username, last_modified, archived_at, last_modified_by) " +
+		"select id, uuid, source, name, email, username, last_modified, ?, ? from identities where id = ? limit 1"
+	res, err := s.Exec(s.db, tx, insert, tm, s.lfid, id)
 	if err != nil {
 		return
 	}
@@ -3465,21 +3474,15 @@ func (s *service) UnarchiveProfile(uuid string, replace bool, tm *time.Time, tx 
 	var res sql.Result
 	// s.SetOrigin()
 	if tm != nil {
-		//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-		//	"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
-		//	"where uuid = ? and archived_at = ?"
-		insert := "insert into profiles(uuid, name, email, is_bot, country_code) " +
-			"select uuid, name, email, is_bot, country_code from profiles_archive " +
+		insert := "insert into profiles(uuid, name, email, is_bot, country_code, last_modified_by) " +
+			"select uuid, name, email, is_bot, country_code, ? from profiles_archive " +
 			"where uuid = ? and archived_at = ?"
-		res, err = s.Exec(s.db, tx, insert, uuid, tm)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, uuid, tm)
 	} else {
-		//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) " +
-		//	"select uuid, name, email, gender, gender_acc, is_bot, country_code from profiles_archive " +
-		//	"where uuid = ? order by archived_at desc limit 1"
-		insert := "insert into profiles(uuid, name, email, is_bot, country_code) " +
-			"select uuid, name, email, is_bot, country_code from profiles_archive " +
+		insert := "insert into profiles(uuid, name, email, is_bot, country_code, last_modified_by) " +
+			"select uuid, name, email, is_bot, country_code, ? from profiles_archive " +
 			"where uuid = ? order by archived_at desc limit 1"
-		res, err = s.Exec(s.db, tx, insert, uuid)
+		res, err = s.Exec(s.db, tx, insert, s.lfid, uuid)
 	}
 	if err != nil {
 		return
@@ -3510,11 +3513,9 @@ func (s *service) ArchiveProfile(uuid string, tm *time.Time, tx *sql.Tx) (err er
 		t := time.Now()
 		tm = &t
 	}
-	//insert := "insert into profiles_archive(uuid, name, email, gender, gender_acc, is_bot, country_code, archived_at) " +
-	//	"select uuid, name, email, gender, gender_acc, is_bot, country_code, ? from profiles where uuid = ? limit 1"
-	insert := "insert into profiles_archive(uuid, name, email, is_bot, country_code, archived_at) " +
-		"select uuid, name, email, is_bot, country_code, ? from profiles where uuid = ? limit 1"
-	res, err := s.Exec(s.db, tx, insert, tm, uuid)
+	insert := "insert into profiles_archive(uuid, name, email, is_bot, country_code, archived_at, last_modified_by) " +
+		"select uuid, name, email, is_bot, country_code, ?, ? from profiles where uuid = ? limit 1"
+	res, err := s.Exec(s.db, tx, insert, tm, s.lfid, uuid)
 	if err != nil {
 		return
 	}
@@ -3945,9 +3946,9 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 			}()
 			for i := 0; i < nIdents; i++ {
 				ident := identities[i]
-				queryU := "insert ignore into uidentities(uuid,last_modified) values"
-				queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified) values"
-				queryP := "insert ignore into profiles(uuid,name,email) values"
+				queryU := "insert ignore into uidentities(uuid,last_modified,last_modified_by) values"
+				queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified,last_modified_by) values"
+				queryP := "insert ignore into profiles(uuid,name,email,last_modified_by) values"
 				argsU := []interface{}{}
 				argsI := []interface{}{}
 				argsP := []interface{}{}
@@ -3982,12 +3983,12 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 						email = &em
 					}
 				}
-				queryU += fmt.Sprintf("(?,now())")
-				queryI += fmt.Sprintf("(?,?,?,?,?,?,now())")
-				queryP += fmt.Sprintf("(?,?,?)")
-				argsU = append(argsU, uuid)
-				argsI = append(argsI, id, source, name, email, username, uuid)
-				argsP = append(argsP, uuid, profname, email)
+				queryU += fmt.Sprintf("(?,now(),?)")
+				queryI += fmt.Sprintf("(?,?,?,?,?,?,now(),?)")
+				queryP += fmt.Sprintf("(?,?,?,?)")
+				argsU = append(argsU, uuid, s.lfid)
+				argsI = append(argsI, id, source, name, email, username, uuid, s.lfid)
+				argsP = append(argsP, uuid, profname, email, s.lfid)
 				itx, e := s.db.Begin()
 				if e != nil {
 					err = e
@@ -4044,9 +4045,9 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 			if to > nIdents {
 				to = nIdents
 			}
-			queryU := "insert ignore into uidentities(uuid,last_modified) values"
-			queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified) values"
-			queryP := "insert ignore into profiles(uuid,name,email) values"
+			queryU := "insert ignore into uidentities(uuid,last_modified,last_modified_by) values"
+			queryI := "insert ignore into identities(id,source,name,email,username,uuid,last_modified,last_modified_by) values"
+			queryP := "insert ignore into profiles(uuid,name,email,last_modified_by) values"
 			argsU := []interface{}{}
 			argsI := []interface{}{}
 			argsP := []interface{}{}
@@ -4085,12 +4086,12 @@ func (s *service) AddIdentities(identities []*models.IdentityDataOutput) (status
 						email = &em
 					}
 				}
-				queryU += fmt.Sprintf("(?,now()),")
-				queryI += fmt.Sprintf("(?,?,?,?,?,?,now()),")
-				queryP += fmt.Sprintf("(?,?,?),")
-				argsU = append(argsU, uuid)
-				argsI = append(argsI, id, source, name, email, username, uuid)
-				argsP = append(argsP, uuid, profname, email)
+				queryU += fmt.Sprintf("(?,now(),?),")
+				queryI += fmt.Sprintf("(?,?,?,?,?,?,now(),?),")
+				queryP += fmt.Sprintf("(?,?,?,?),")
+				argsU = append(argsU, uuid, s.lfid)
+				argsI = append(argsI, id, source, name, email, username, uuid, s.lfid)
+				argsP = append(argsP, uuid, profname, email, s.lfid)
 			}
 			queryU = queryU[:len(queryU)-1]
 			queryI = queryI[:len(queryI)-1]
@@ -4272,7 +4273,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 	if ignore {
 		root += " ignore"
 	}
-	insert := root + " into identities(id, uuid, source, name, email, username, last_modified) select ?, ?, ?, ?, ?, ?, str_to_date(?, ?)"
+	insert := root + " into identities(id, uuid, source, name, email, username, last_modified, last_modified_by) select ?, ?, ?, ?, ?, ?, str_to_date(?, ?), ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -4287,6 +4288,7 @@ func (s *service) AddIdentity(inIdentityData *models.IdentityDataOutput, ignore,
 		identityData.Username,
 		identityData.LastModified,
 		DateTimeFormat,
+		s.lfid,
 	)
 	if err != nil {
 		identityData = nil
@@ -4503,7 +4505,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		return
 	}
 	//insert := "insert into profiles(uuid, name, email, gender, gender_acc, is_bot, country_code) select ?, ?, ?, ?, ?, ?, ?"
-	insert := "insert into profiles(uuid, name, email, is_bot, country_code) select ?, ?, ?, ?, ?"
+	insert := "insert into profiles(uuid, name, email, is_bot, country_code, last_modified_by) select ?, ?, ?, ?, ?, ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -4517,6 +4519,7 @@ func (s *service) AddProfile(inProfileData *models.ProfileDataOutput, refresh bo
 		//profileData.GenderAcc,
 		profileData.IsBot,
 		profileData.CountryCode,
+		s.lfid,
 	)
 	if err != nil {
 		profileData = nil
@@ -4591,7 +4594,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 	if ignore {
 		root += " ignore"
 	}
-	insert := root + " into enrollments(uuid, organization_id, role, start, end, project_slug) select ?, ?, ?, str_to_date(?, ?), str_to_date(?, ?), ?"
+	insert := root + " into enrollments(uuid, organization_id, role, start, end, project_slug, last_modified_by) select ?, ?, ?, str_to_date(?, ?), str_to_date(?, ?), ?, ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -4606,6 +4609,7 @@ func (s *service) AddEnrollment(inEnrollmentData *models.EnrollmentDataOutput, i
 		enrollmentData.End,
 		DateTimeFormat,
 		enrollmentData.ProjectSlug,
+		s.lfid,
 	)
 	if err != nil {
 		enrollmentData = nil
@@ -4684,7 +4688,7 @@ func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOu
 		organizationData = nil
 		return
 	}
-	update := "update organizations set name = ? where id = ?"
+	update := "update organizations set name = ?, last_modified_by = ? where id = ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -4692,6 +4696,7 @@ func (s *service) EditOrganization(inOrganizationData *models.OrganizationDataOu
 		tx,
 		update,
 		organizationData.Name,
+		s.lfid,
 		organizationData.ID,
 	)
 	if err != nil {
@@ -4742,7 +4747,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		enrollmentData = nil
 		return
 	}
-	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ?, role = ? where id = ?"
+	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ?, role = ?, last_modified_by = ? where id = ?"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -4757,6 +4762,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		DateTimeFormat,
 		enrollmentData.ProjectSlug,
 		enrollmentData.Role,
+		s.lfid,
 		enrollmentData.ID,
 	)
 	if err != nil {
@@ -4844,9 +4850,10 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	for _, column := range columns {
 		update += fmt.Sprintf("%s = ?, ", column)
 	}
-	update += " last_modified = str_to_date(?, ?) where id = ?"
+	update += " last_modified = str_to_date(?, ?), last_modified_by = ? where id = ?"
 	values = append(values, identityData.LastModified)
 	values = append(values, DateTimeFormat)
+	values = append(values, s.lfid)
 	values = append(values, identityData.ID)
 	var res sql.Result
 	// s.SetOrigin()
@@ -4949,15 +4956,12 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 	*/
 	nColumns := len(columns)
 	if nColumns > 0 {
-		lastIndex := nColumns - 1
 		update := "update profiles set "
-		for index, column := range columns {
-			update += fmt.Sprintf("%s = ?", column)
-			if index != lastIndex {
-				update += ", "
-			}
+		for _, column := range columns {
+			update += fmt.Sprintf("%s = ?, ", column)
 		}
-		update += " where uuid = ?"
+		update += "last_modified_by = ? where uuid = ?"
+		values = append(values, s.lfid)
 		values = append(values, profileData.UUID)
 		var res sql.Result
 		// s.SetOrigin()
@@ -5195,7 +5199,8 @@ func (s *service) SetProfileEmptyDataFromIdentities(uuid string, identities []*m
 		q += "email = ?"
 		args = append(args, email)
 	}
-	q += " where uuid = ?"
+	q += ", last_modified_by = ? where uuid = ?"
+	args = append(args, s.lfid)
 	args = append(args, uuid)
 	// fmt.Printf("%s %+v\n", q, args)
 	_, err = s.Exec(s.db, tx, q, args...)
@@ -5426,7 +5431,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 		}
 		if !fetched {
 			var res sql.Result
-			res, err = s.Exec(s.db, tx, "insert into organizations(name) values(?)", to)
+			res, err = s.Exec(s.db, tx, "insert into organizations(name, last_modified_by) values(?,?)", to, s.lfid)
 			if err != nil {
 				return
 			}
@@ -5439,7 +5444,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			log.Info(inf)
 			added++
 		} else if actualName != to {
-			_, err = s.Exec(s.db, tx, "update organizations set name = ? where id = ?", to, id)
+			_, err = s.Exec(s.db, tx, "update organizations set name = ?, last_modified_by = ? where id = ?", to, s.lfid, id)
 			if err != nil {
 				return
 			}
@@ -5493,7 +5498,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			var res sql.Result
 			// Update current enrollments
 			affected := int64(0)
-			res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where organization_id = ?", id, nid)
+			res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ?, last_modified_by = ? where organization_id = ?", id, s.lfid, nid)
 			if err != nil {
 				if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 					log.Warn(fmt.Sprintf("Error: cannot update enrollments organization '%s' (id=%d) to '%s' (id=%d): %v", name, nid, to, id, err))
@@ -5523,7 +5528,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				for _, rid := range rids {
-					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ? where id = ? and organization_id = ?", id, rid, nid)
+					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ?, last_modified_by = ? where id = ? and organization_id = ?", id, s.lfid, rid, nid)
 					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
 						return
@@ -5545,7 +5550,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			}
 			// Update archived enrollments
 			affected = int64(0)
-			res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where organization_id = ?", id, nid)
+			res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ?, last_modified_by = ? where organization_id = ?", id, s.lfid, nid)
 			if err != nil {
 				if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 					log.Warn(fmt.Sprintf("Error: cannot update archived enrollments organization '%s' (id=%d) to '%s' (id=%d): %v", name, nid, to, id, err))
@@ -5579,7 +5584,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 				for i := range rids {
 					rid := rids[i]
 					archivedAt := archivedAts[i]
-					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ? where id = ? and archived_at = ? and organization_id = ?", id, rid, archivedAt, nid)
+					res, err = s.Exec(s.db, tx, "update enrollments_archive set organization_id = ?, last_modified_by = ? where id = ? and archived_at = ? and organization_id = ?", id, s.lfid, rid, archivedAt, nid)
 					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 						log.Warn(fmt.Sprintf("Error: cannot update archived enrollment (id=%d, archived_at=%+v) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, archivedAt, name, nid, to, id, err))
 						return
@@ -5683,25 +5688,25 @@ func (s *service) HideEmails() (status string, err error) {
 		column := update[1]
 		re := "^[^@]+@[^@]+$"
 		updateSQL := fmt.Sprintf(
-			"update %[1]s set %[2]s = substring_index(%[2]s, '@', 1) where %[2]s regexp '%[3]s'",
+			"update %[1]s set %[2]s = substring_index(%[2]s, '@', 1), last_modified_by = ? where %[2]s regexp '%[3]s'",
 			table,
 			column,
 			re,
 		)
 		var res sql.Result
 		conflict := false
-		res, err = s.Exec(s.db, nil, updateSQL)
+		res, err = s.Exec(s.db, nil, updateSQL, s.lfid)
 		if err != nil {
 			if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 				return err
 			}
 			updateSQL := fmt.Sprintf(
-				"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1) where %[2]s regexp '%[3]s'",
+				"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1), last_modified_by = ? where %[2]s regexp '%[3]s'",
 				table,
 				column,
 				re,
 			)
-			res, err = s.Exec(s.db, nil, updateSQL)
+			res, err = s.Exec(s.db, nil, updateSQL, s.lfid)
 			if err != nil {
 				return
 			}
@@ -5714,12 +5719,12 @@ func (s *service) HideEmails() (status string, err error) {
 		}
 		if conflict {
 			updateSQL := fmt.Sprintf(
-				"update %[1]s set %[2]s = concat(substring_index(%[2]s, '@', 1), '-redacted') where %[2]s regexp '%[3]s'",
+				"update %[1]s set %[2]s = concat(substring_index(%[2]s, '@', 1), '-redacted'), last_modified_by = ? where %[2]s regexp '%[3]s'",
 				table,
 				column,
 				re,
 			)
-			res, err = s.Exec(s.db, nil, updateSQL)
+			res, err = s.Exec(s.db, nil, updateSQL, s.lfid)
 			if err != nil {
 				return
 			}
@@ -7967,10 +7972,11 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 	_, err = s.Exec(
 		s.db,
 		tx,
-		"insert into domains_organizations(organization_id, domain, is_top_domain) select ?, ?, ?",
+		"insert into domains_organizations(organization_id, domain, is_top_domain, last_modified_by) select ?, ?, ?, ?",
 		orgID,
 		dom,
 		isTopDomain,
+		s.lfid,
 	)
 	if err != nil {
 		return
@@ -8002,10 +8008,11 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 			res, err = s.Exec(
 				s.db,
 				tx,
-				"insert into enrollments(start, end, uuid, organization_id) "+
-					"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+				"insert into enrollments(start, end, uuid, organization_id, last_modified_by) "+
+					"select distinct sub.start, sub.end, sub.uuid, sub.org_id, ? from ("+
 					"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
 					"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub",
+				s.lfid,
 				orgID,
 				"%"+dom,
 				orgID,
@@ -8030,11 +8037,12 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 			res, err = s.Exec(
 				s.db,
 				tx,
-				"insert into enrollments(start, end, uuid, organization_id) "+
-					"select distinct sub.start, sub.end, sub.uuid, sub.org_id from ("+
+				"insert into enrollments(start, end, uuid, organization_id, last_modified_by) "+
+					"select distinct sub.start, sub.end, sub.uuid, sub.org_id, ? from ("+
 					"select '1900-01-01 00:00:00' as start, '2100-01-01 00:00:00' as end, uuid, ? as org_id from profiles where email like ? "+
 					"union select '1900-01-01 00:00:00', '2100-01-01 00:00:00', uuid, ? from identities where email like ?) sub "+
 					"where sub.uuid not in (select distinct uuid from enrollments)",
+				s.lfid,
 				orgID,
 				"%"+dom,
 				orgID,
@@ -8237,13 +8245,13 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 		}
 		args := []interface{}{}
 		nRols := 0
-		query := "insert into enrollments(uuid, organization_id, role, start, end, project_slug) values"
+		query := "insert into enrollments(uuid, organization_id, role, start, end, project_slug, last_modified_by) values"
 		for _, rol := range rols {
 			start := time.Time(rol.start)
 			end := time.Time(rol.end)
 			for _, slug := range slugs {
-				query += "(?,?,?,?,?,?),"
-				args = append(args, uuid, rol.orgID, rol.role, start, end, slug)
+				query += "(?,?,?,?,?,?,?),"
+				args = append(args, uuid, rol.orgID, rol.role, start, end, slug, s.lfid)
 				nRols++
 			}
 		}
@@ -8390,8 +8398,8 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 		uuid := update.UUID
 		ts := time.Time(update.Start)
 		if ts.After(shared.MinPeriodDate) && ts.Before(shared.MaxPeriodDate) {
-			query := "update enrollments set start = ? where uuid = ? "
-			args := []interface{}{ts, uuid}
+			query := "update enrollments set start = ?, last_modified_by = ? where uuid = ? "
+			args := []interface{}{ts, s.lfid, uuid}
 			if update.ProjectSlug == nil {
 				query += "and project_slug is null "
 			} else {
@@ -8405,8 +8413,8 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 		}
 		te := time.Time(update.End)
 		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) && !te.Before(ts) {
-			query := "update enrollments set end = ? where uuid = ? "
-			args := []interface{}{te, uuid}
+			query := "update enrollments set end = ?, last_modified_by = ? where uuid = ? "
+			args := []interface{}{te, s.lfid, uuid}
 			if update.ProjectSlug == nil {
 				query += "and project_slug is null "
 			} else {
@@ -9557,10 +9565,11 @@ func (s *service) AddSlugMapping(inMapping *models.SlugMapping, tx *sql.Tx) (map
 	_, err = s.Exec(
 		s.db,
 		tx,
-		"insert into slug_mapping(da_name, sf_name, sf_id) select ?, ?, ?",
+		"insert into slug_mapping(da_name, sf_name, sf_id, last_modified_by) select ?, ?, ?, ?",
 		mapping.DaName,
 		mapping.SfName,
 		mapping.SfID,
+		s.lfid,
 	)
 	if err != nil {
 		mapping = nil
@@ -9631,7 +9640,7 @@ func (s *service) EditSlugMapping(key, inMapping *models.SlugMapping, tx *sql.Tx
 		mapping = nil
 		return
 	}
-	update := "update slug_mapping set da_name = ?, sf_name = ?, sf_id = ? where da_name = ? and sf_name = ? and sf_id = ?"
+	update := "update slug_mapping set da_name = ?, sf_name = ?, sf_id = ?, last_modified_by = ? where da_name = ? and sf_name = ? and sf_id = ?"
 	// s.SetOrigin()
 	var res sql.Result
 	res, err = s.Exec(
@@ -9641,6 +9650,7 @@ func (s *service) EditSlugMapping(key, inMapping *models.SlugMapping, tx *sql.Tx
 		mapping.DaName,
 		mapping.SfName,
 		mapping.SfID,
+		s.lfid,
 		key.DaName,
 		key.SfName,
 		key.SfID,
