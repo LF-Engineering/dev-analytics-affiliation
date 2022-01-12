@@ -38,7 +38,7 @@ do
     date=${dates[$i]}
     echo "uuid: $uuid, date: $date, doc_id=$id, i=$i"
     i=$((i+1))
-    res=$(JWT_TOKEN=`cat secret/lgryglicki.${API_URL}.token` ./sh/curl_get_affiliation_both.sh "$PSLUG" $uuid $date | jq '.')
+    res=$(JWT_TOKEN=`cat secret/lgryglicki.${API_URL}.token` ./sh/curl_get_affiliation_single.sh "$PSLUG" $uuid $date | jq '.')
     org=$(echo $res | jq -r '.org')
     if ( [ "$org" = "null" ] || [ "$org" = "" ] )
     then
