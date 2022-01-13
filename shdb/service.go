@@ -568,15 +568,15 @@ func (s *service) SyncSfProfiles(sfIdents map[[3]string]struct{}) (stat string, 
 				tx.Rollback()
 			}
 		}()
-		_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now(), last_modified_by = ? where uuid = ?", s.lfid, uuid)
+		_, err = s.Exec(s.db, tx, "update uidentities set last_modified = now(), last_modified_by = ? where uuid = ? and (locked_by is null or trim(locked_by) = '')", s.lfid, uuid)
 		if err != nil {
 			return
 		}
-		_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now(), last_modified_by = ? where id = ?", ident[1], ident[2], s.lfid, id)
+		_, err = s.Exec(s.db, tx, "update identities set name = ?, username = ?, last_modified = now(), last_modified_by = ? where id = ? and (locked_by is null or trim(locked_by) = '')", ident[1], ident[2], s.lfid, id)
 		if err != nil {
 			return
 		}
-		_, err = s.Exec(s.db, tx, "update profiles set name = ?, last_modified_by = ? where uuid = ?", ident[1], s.lfid, uuid)
+		_, err = s.Exec(s.db, tx, "update profiles set name = ?, last_modified_by = ? where uuid = ? and (locked_by is null or trim(locked_by) = '')", ident[1], s.lfid, uuid)
 		if err != nil {
 			return
 		}
@@ -2880,7 +2880,7 @@ func (s *service) TouchIdentity(id string, tx *sql.Tx) (affected int64, err erro
 		log.Info(fmt.Sprintf("TouchIdentity(exit): id:%s tx:%v affected:%d err:%v", id, tx != nil, affected, err))
 	}()
 	// s.SetOrigin()
-	res, err := s.Exec(s.db, tx, "update identities set last_modified = ?, last_modified_by = ? where id = ?", time.Now(), s.lfid, id)
+	res, err := s.Exec(s.db, tx, "update identities set last_modified = ?, last_modified_by = ? where id = ? and (locked_by is null or trim(locked_by) = '')", time.Now(), s.lfid, id)
 	if err != nil {
 		return
 	}
@@ -2894,7 +2894,7 @@ func (s *service) TouchUniqueIdentity(uuid string, tx *sql.Tx) (affected int64, 
 		log.Info(fmt.Sprintf("TouchUniqueIdentity(exit): uuid:%s tx:%v affected:%d err:%v", uuid, tx != nil, affected, err))
 	}()
 	// s.SetOrigin()
-	res, err := s.Exec(s.db, tx, "update uidentities set last_modified = ?, last_modified_by = ? where uuid = ?", time.Now(), s.lfid, uuid)
+	res, err := s.Exec(s.db, tx, "update uidentities set last_modified = ?, last_modified_by = ? where uuid = ? and (locked_by is null or trim(locked_by) = '')", time.Now(), s.lfid, uuid)
 	if err != nil {
 		return
 	}
@@ -3088,7 +3088,7 @@ func (s *service) DeleteUniqueIdentity(uuid string, archive, missingFatal bool, 
 			return
 		}
 	}
-	del := "delete from uidentities where uuid = ?"
+	del := "delete from uidentities where uuid = ? and (locked_by is null or trim(locked_by) = '')"
 	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, uuid)
 	if err != nil {
@@ -3219,7 +3219,7 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 	// s.SetOrigin()
 	var res sql.Result
 	if enrollment.ProjectSlug == nil {
-		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug is null and role = ?"
+		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug is null and role = ? and (locked_by is null or trim(locked_by) = '')"
 		res, err = s.Exec(
 			s.db,
 			tx,
@@ -3233,7 +3233,7 @@ func (s *service) WithdrawEnrollment(enrollment *models.EnrollmentDataOutput, mi
 			enrollment.Role,
 		)
 	} else {
-		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug = ? and role = ?"
+		del := "delete from enrollments where uuid = ? and organization_id = ? and start >= str_to_date(?, ?) and end <= str_to_date(?, ?) and project_slug = ? and role = ? and (locked_by is null or trim(locked_by) = '')"
 		res, err = s.Exec(
 			s.db,
 			tx,
@@ -3274,7 +3274,7 @@ func (s *service) DeleteEnrollment(id int64, archive, missingFatal bool, tm *tim
 			return
 		}
 	}
-	del := "delete from enrollments where id = ?"
+	del := "delete from enrollments where id = ? and (locked_by is null or trim(locked_by) = '')"
 	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
@@ -3407,7 +3407,7 @@ func (s *service) DeleteIdentity(id string, archive, missingFatal bool, tm *time
 			return
 		}
 	}
-	del := "delete from identities where id = ?"
+	del := "delete from identities where id = ? and (locked_by is null or trim(locked_by) = '')"
 	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, id)
 	if err != nil {
@@ -3542,7 +3542,7 @@ func (s *service) DeleteProfile(uuid string, archive, missingFatal bool, tm *tim
 			return
 		}
 	}
-	del := "delete from profiles where uuid = ?"
+	del := "delete from profiles where uuid = ? and (locked_by is null or trim(locked_by) = '')"
 	// s.SetOrigin()
 	res, err := s.Exec(s.db, tx, del, uuid)
 	if err != nil {
@@ -4747,7 +4747,7 @@ func (s *service) EditEnrollment(inEnrollmentData *models.EnrollmentDataOutput, 
 		enrollmentData = nil
 		return
 	}
-	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ?, role = ?, last_modified_by = ? where id = ?"
+	update := "update enrollments set uuid = ?, organization_id = ?, start = str_to_date(?, ?), end = str_to_date(?, ?), project_slug = ?, role = ?, last_modified_by = ? where id = ? and (locked_by is null or trim(locked_by) = '')"
 	var res sql.Result
 	// s.SetOrigin()
 	res, err = s.Exec(
@@ -4850,7 +4850,7 @@ func (s *service) EditIdentity(inIdentityData *models.IdentityDataOutput, refres
 	for _, column := range columns {
 		update += fmt.Sprintf("%s = ?, ", column)
 	}
-	update += " last_modified = str_to_date(?, ?), last_modified_by = ? where id = ?"
+	update += " last_modified = str_to_date(?, ?), last_modified_by = ? where id = ? and (locked_by is null or trim(locked_by) = '')"
 	values = append(values, identityData.LastModified)
 	values = append(values, DateTimeFormat)
 	values = append(values, s.lfid)
@@ -4960,7 +4960,7 @@ func (s *service) EditProfile(inProfileData *models.ProfileDataOutput, refresh b
 		for _, column := range columns {
 			update += fmt.Sprintf("%s = ?, ", column)
 		}
-		update += "last_modified_by = ? where uuid = ?"
+		update += "last_modified_by = ? where uuid = ? and (locked_by is null or trim(locked_by) = '')"
 		values = append(values, s.lfid)
 		values = append(values, profileData.UUID)
 		var res sql.Result
@@ -5199,7 +5199,7 @@ func (s *service) SetProfileEmptyDataFromIdentities(uuid string, identities []*m
 		q += "email = ?"
 		args = append(args, email)
 	}
-	q += ", last_modified_by = ? where uuid = ?"
+	q += ", last_modified_by = ? where uuid = ? and (locked_by is null or trim(locked_by) = '')"
 	args = append(args, s.lfid)
 	args = append(args, uuid)
 	// fmt.Printf("%s %+v\n", q, args)
@@ -5324,7 +5324,7 @@ func (s *service) DedupEnrollments() (err error) {
 			to = nRids
 		}
 		pack := ridsAry[from:to]
-		query := "delete from enrollments where id in ("
+		query := "delete from enrollments where (locked_by is null or trim(locked_by) = '') and id in ("
 		for range pack {
 			query += "?,"
 		}
@@ -5332,7 +5332,7 @@ func (s *service) DedupEnrollments() (err error) {
 		_, err = s.Exec(s.db, tx, query, pack...)
 		if err != nil {
 			for _, rid := range pack {
-				_, err = s.Exec(s.db, tx, "delete from enrollments where id = ?", rid)
+				_, err = s.Exec(s.db, tx, "delete from enrollments where id = ? and (locked_by is null or trim(locked_by) = '')", rid)
 				if err != nil {
 					log.Info(fmt.Sprintf("failed to delete enrollment id=%d: %+v", rid, err))
 					return
@@ -5498,6 +5498,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 			var res sql.Result
 			// Update current enrollments
 			affected := int64(0)
+			// Here map org names auto updates changed org ID, we allow this even on locked enrollments, so there is no " and (locked_by is null or trim(locked_by) = '')" condition added
 			res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ?, last_modified_by = ? where organization_id = ?", id, s.lfid, nid)
 			if err != nil {
 				if !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
@@ -5528,6 +5529,7 @@ func (s *service) MapOrgNames() (status string, err error) {
 					return
 				}
 				for _, rid := range rids {
+					// Here map org names auto updates changed org ID, we allow this even on locked enrollments, so there is no " and (locked_by is null or trim(locked_by) = '')" condition added
 					res, err = s.Exec(s.db, tx, "update enrollments set organization_id = ?, last_modified_by = ? where id = ? and organization_id = ?", id, s.lfid, rid, nid)
 					if err != nil && !strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 						log.Warn(fmt.Sprintf("Error: cannot update enrollment (id=%d) organization '%s' (id=%d) to '%s' (id=%d): %v", rid, name, nid, to, id, err))
@@ -5688,7 +5690,7 @@ func (s *service) HideEmails() (status string, err error) {
 		column := update[1]
 		re := "^[^@]+@[^@]+$"
 		updateSQL := fmt.Sprintf(
-			"update %[1]s set %[2]s = substring_index(%[2]s, '@', 1), last_modified_by = ? where %[2]s regexp '%[3]s'",
+			"update %[1]s set %[2]s = substring_index(%[2]s, '@', 1), last_modified_by = ? where %[2]s regexp '%[3]s' and (locked_by is null or trim(locked_by) = '')",
 			table,
 			column,
 			re,
@@ -5701,7 +5703,7 @@ func (s *service) HideEmails() (status string, err error) {
 				return err
 			}
 			updateSQL := fmt.Sprintf(
-				"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1), last_modified_by = ? where %[2]s regexp '%[3]s'",
+				"update ignore %[1]s set %[2]s = substring_index(%[2]s, '@', 1), last_modified_by = ? where %[2]s regexp '%[3]s' and (locked_by is null or trim(locked_by) = '')",
 				table,
 				column,
 				re,
@@ -5719,7 +5721,7 @@ func (s *service) HideEmails() (status string, err error) {
 		}
 		if conflict {
 			updateSQL := fmt.Sprintf(
-				"update %[1]s set %[2]s = concat(substring_index(%[2]s, '@', 1), '-redacted'), last_modified_by = ? where %[2]s regexp '%[3]s'",
+				"update %[1]s set %[2]s = concat(substring_index(%[2]s, '@', 1), '-redacted'), last_modified_by = ? where %[2]s regexp '%[3]s' and (locked_by is null or trim(locked_by) = '')",
 				table,
 				column,
 				re,
@@ -7988,7 +7990,8 @@ func (s *service) PutOrgDomain(org, dom string, overwrite, isTopDomain, skipEnro
 			res, err = s.Exec(
 				s.db,
 				tx,
-				"delete from enrollments where uuid in (select distinct sub.uuid from ("+
+				"delete from enrollments where (locked_by is null or trim(locked_by) = '') "+
+					"and uuid in (select distinct sub.uuid from ("+
 					"select distinct uuid from profiles where email like ? "+
 					"union select distinct uuid from identities where email like ?) sub)",
 				"%"+dom,
@@ -8270,7 +8273,7 @@ func (s *service) UpdateProjectSlugs(uuidsProjs map[string][]string) (status str
 			return
 		}
 		args = []interface{}{}
-		query = "delete from enrollments where id in ("
+		query = "delete from enrollments where (locked_by is null or trim(locked_by) = '') and id in ("
 		nDels := 0
 		for _, rol := range rols {
 			query += "?,"
@@ -8398,7 +8401,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 		uuid := update.UUID
 		ts := time.Time(update.Start)
 		if ts.After(shared.MinPeriodDate) && ts.Before(shared.MaxPeriodDate) {
-			query := "update enrollments set start = ?, last_modified_by = ? where uuid = ? "
+			query := "update enrollments set start = ?, last_modified_by = ? where (locked_by is null or trim(locked_by) = '') and uuid = ? "
 			args := []interface{}{ts, s.lfid, uuid}
 			if update.ProjectSlug == nil {
 				query += "and project_slug is null "
@@ -8413,7 +8416,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 		}
 		te := time.Time(update.End)
 		if te.After(shared.MinPeriodDate) && te.Before(shared.MaxPeriodDate) && !te.Before(ts) {
-			query := "update enrollments set end = ?, last_modified_by = ? where uuid = ? "
+			query := "update enrollments set end = ?, last_modified_by = ? where (locked_by is null or trim(locked_by) = '') and uuid = ? "
 			args := []interface{}{te, s.lfid, uuid}
 			if update.ProjectSlug == nil {
 				query += "and project_slug is null "
@@ -8426,7 +8429,7 @@ func (s *service) UpdateAffRange(updates []*models.EnrollmentProjectRange) (stat
 			queries = append(queries, query)
 			argss = append(argss, args)
 		}
-		query := "delete from enrollments where uuid = ? "
+		query := "delete from enrollments where uuid = ? and (locked_by is null or trim(locked_by) = '') "
 		args := []interface{}{uuid}
 		if update.ProjectSlug == nil {
 			query += "and project_slug is null "
