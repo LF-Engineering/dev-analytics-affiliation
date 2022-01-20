@@ -12,7 +12,7 @@ do
       continue
     fi
     new_value=${value::-4}
-    echo "$value -> $new_value"
+    echo "$field: $value -> $new_value"
     curl -s -XPOST -H 'Content-type: application/json' "${ES}/sds-finos-*,-*-raw/_update_by_query?conflicts=proceed" -d"{\"query\":{\"term\":{\"${field}\":\"${value}\"}},\"script\":\"ctx._source.${field}='${new_value}'\"}" | jq -rS '.'
   done
 done
