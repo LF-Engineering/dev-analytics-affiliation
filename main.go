@@ -254,9 +254,11 @@ func main() {
 	healthService := health.New()
 	apiDBService := apidb.New(initAPIDB())
 	daOrigin := "da-affiliation-api"
-	gitdmOrigin := "gitdm"
-	shDBRO := initSHDBRO()
-	shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
+	// gitdmOrigin := "gitdm"
+	// shDBRO := initSHDBRO()
+	// shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
+	shDB := initSHDB(daOrigin)
+	shDBServiceAPI := shdb.New(shDB, shDB, daOrigin)
 	// shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
 	esService := elastic.New(initES())
 	esLogService := elastic.New(initLogES())
