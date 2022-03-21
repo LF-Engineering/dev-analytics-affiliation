@@ -105,7 +105,7 @@ func initSHDBRO() *sqlx.DB {
 	}
 	d, err := sqlx.Connect("mysql", dbURL)
 	if err != nil {
-		log.Panicf("unable to connect (ro) to affiliation database: %v", err)
+		log.Panicf("unable to connect to affiliation database: %v", err)
 	}
 	//d.SetMaxOpenConns(20)
 	//d.SetMaxIdleConns(5)
@@ -254,18 +254,15 @@ func main() {
 	healthService := health.New()
 	apiDBService := apidb.New(initAPIDB())
 	daOrigin := "da-affiliation-api"
-	// gitdmOrigin := "gitdm"
-	// shDBRO := initSHDBRO()
-	// shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
-	shDB := initSHDB(daOrigin)
-	shDBServiceAPI := shdb.New(shDB, shDB, daOrigin)
-	// shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
+	gitdmOrigin := "gitdm"
+	shDBRO := initSHDBRO()
+	shDBServiceAPI := shdb.New(initSHDB(daOrigin), shDBRO, daOrigin)
+	shDBServiceGitdm := shdb.New(initSHDB(gitdmOrigin), shDBRO, gitdmOrigin)
 	esService := elastic.New(initES())
 	esLogService := elastic.New(initLogES())
 	organizationServiceAPI := platform.New(initOrg())
 	userServiceAPI := usersvc.New(initUser())
-	// affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI, userServiceAPI, esLogService)
-	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceAPI, esService, organizationServiceAPI, userServiceAPI, esLogService)
+	affiliationService := affiliation.New(apiDBService, shDBServiceAPI, shDBServiceGitdm, esService, organizationServiceAPI, userServiceAPI, esLogService)
 
 	health.Configure(api, healthService)
 	affiliation.Configure(api, affiliationService)
