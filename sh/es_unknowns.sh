@@ -7,8 +7,8 @@ then
 fi
 if [ -z "$PROJ" ]
 then
-  echo "$0: you need to specify PROJ=..."
-  exit 2
+  echo "$0: you should specify PROJ=..."
+  # exit 2
 fi
 if [ -z "$CONDITION" ]
 then
@@ -23,6 +23,10 @@ echo $querymin > unknowns-querymin.json.secret
 > unknowns.log.secret
 for idx in $(curl -s "${ESURL}/_cat/indices?format=json" | jq -rS '.[].index' | grep -E "^(bitergia.+|sds-.*)${PROJ}" | grep -Ev '(-repository|-raw|-googlegroups|-slack|-dockerhub|-jenkins|-last-action-date-cache|-social_media|-earned_media|finosmeetings)(-for-merge)?$' | grep -Ev '\-onion_')
 do
+  if [ ! -z "$DBG" ]
+  then
+    echo $idx
+  fi
   data=`cat unknowns-query.json.secret`
   data=${data/IDXNAME/$idx}
   echo $data > q.json.secret
