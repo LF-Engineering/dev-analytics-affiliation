@@ -79,7 +79,7 @@ workflows:
             - build_da_affiliation
           filters:
             branches:
-              only: master
+              only: test-db-connection-issue #master
             tags:
               ignore: /.*/
       - approve_prod:
