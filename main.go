@@ -79,7 +79,7 @@ func initSHDB(origin string) *sqlx.DB {
 	//d.SetMaxOpenConns(20)
 	//d.SetMaxIdleConns(5)
 	//d.SetConnMaxLifetime(15 * time.Minute)
-	d.SetConnMaxLifetime(120 * time.Second)
+	d.SetConnMaxLifetime(30 * time.Second)
 	s := &shared.ServiceStruct{}
 	_, err = s.ExecDB(d, "set @origin = ?", origin)
 	if err != nil {
