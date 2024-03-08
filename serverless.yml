@@ -12,7 +12,7 @@ provider:
   timeout: 60 # optional, in seconds, default is 6
 
   environment:
-    CORS_ALLOWED_ORIGINS: https://insights.test.platform.linuxfoundation.org,https://lfanalytics.io
+    CORS_ALLOWED_ORIGINS: https://insights.test.platform.linuxfoundation.org,https://lfanalytics.io,https://insights.v1.lfx.linuxfoundation.org
     LOG_LEVEL: info
     N_CPUS: ''
     USE_SEARCH_IN_MERGE: ''
